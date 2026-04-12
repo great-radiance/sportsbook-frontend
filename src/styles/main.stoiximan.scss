@@ -1,0 +1,51 @@
+@use "./basic" as *;
+@use "./utility" as *;
+@use "./sidebar" as *;
+@use "./font" as *;
+
+// Tailwind imports
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// CSS Variables for theming
+:host,
+:root {
+  // Custom colors
+  // --background-color: #151923; //will delete
+  --background-header: #323232;
+  --background-color: #eceff9;
+  --background-color-dark: #090915;
+  --background-element: #fcfcfd;
+  // --background-element: #151923; //will delete
+  --background-element-dark: #151923;
+  --highlight-background: #b8c5e066;
+  --highlight-background-dark: #b8c5e045;
+
+  --sub-element-color: #ffffff;
+  --sub-element-color-dark: #212536;
+
+  --sub-element-secondary: #f7f9fc;
+  --sub-element-secondary-dark: #2d374d;
+
+  --border-color: #e2e8f8;
+  --border-color-dark: #2d374d;
+  --primary-border-color: #d1d9eb;
+  --focused-primary-border-color: #a9b9d1;
+
+  --primary-color: #01a825;
+
+  --text-primary-color: #01a825;
+  --text-primary-color-dark: #7aa7ff;
+  --text-basic-color: #151923;
+  --text-basic-color-dark: #f5f7fa;
+  --text-sub-color: #526789;
+  --text-sub-color-dark: #c0cce7;
+  --text-green: #79d297;
+  --text-blue: #154fc1;
+  --text-red: #ff3449;
+  --text-yellow: #ffd700;
+
+  --green-color: #109121;
+  --greenblue-color: #1a7051;
+}

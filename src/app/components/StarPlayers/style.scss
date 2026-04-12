@@ -1,0 +1,104 @@
+// filepath: src/app/components/StarPlayers/style.scss
+.players-carousel {
+  position: relative;
+  width: 100%;
+}
+
+.players-viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  /* allow horizontal touch scrolling and vertical as needed */
+  touch-action: pan-x pan-y;
+  -ms-touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+  /* prevent the viewport from passing scroll to parent when scrolling horizontally */
+  overscroll-behavior-x: contain;
+  /* Ensure the viewport is tall enough to show cards */
+  min-height: 300px;
+}
+
+/* hide default scrollbar */
+.players-viewport::-webkit-scrollbar {
+  height: 6px;
+}
+.players-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+.players-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+
+.players-container {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start; /* avoid stretching cards vertically */
+}
+
+.players-slide {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0 4px;
+  box-sizing: border-box;
+  /* match card width so slides are visible without collapsing */
+  min-width: 238px;
+}
+
+/* Ensure child card elements keep their internal styles and are not overridden by other carousel rules */
+.players-slide > * {
+  /* reset common layout properties that other carousel libraries sometimes force */
+  flex: none !important;
+  min-width: auto !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+/* Force the exact card size so global/carousel styles cannot slightly alter it */
+.players-slide > * {
+  width: 238px !important;
+  height: 290px !important;
+  min-width: 238px !important;
+  min-height: 290px !important;
+  box-sizing: border-box !important;
+}
+
+.players-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  background-color: var(--sub-element-color);
+  border-radius: 9999px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    transform 120ms ease;
+}
+// .players-button:hover {
+//   background-color: rgba(255, 255, 255, 0.06);
+//   transform: translateY(-50%) scale(1.02);
+// }
+
+.players-button--prev {
+  left: 8px;
+}
+.players-button--next {
+  right: 8px;
+}
+
+.players-button img {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* small helper to ensure cards keep their own look */
+.players-slide > * {
+  height: 100%;
+}

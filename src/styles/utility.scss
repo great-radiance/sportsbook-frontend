@@ -1,0 +1,22 @@
+@keyframes odd-move-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.odd-move-mark {
+  animation: odd-move-blink 1s ease-in-out 3;
+}
+
+@keyframes flow {
+  0% {
+    background-position: -300% 0;
+  }
+  100% {
+    background-position: 300% 0;
+  }
+}

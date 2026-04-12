@@ -1,0 +1,101 @@
+/* basic.scss */
+
+/* Base */
+html,
+body {
+  // height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Roboto", sans-serif;
+  background-color: var(--background-color);
+}
+
+/* Chrome / Edge / Safari */
+.overflow-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-scroll::-webkit-scrollbar,
+.overflow-y-scroll::-webkit-scrollbar,
+.overflow-x-scroll::-webkit-scrollbar {
+  width: 4px !important; /* set to 2px if you still want super thin */
+  height: 4px !important;
+}
+
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-scroll::-webkit-scrollbar-track,
+.overflow-y-scroll::-webkit-scrollbar-track,
+.overflow-x-scroll::-webkit-scrollbar-track {
+  background: var(--scrollbar-track, #e2e6ef);
+}
+
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-scroll::-webkit-scrollbar-thumb,
+.overflow-y-scroll::-webkit-scrollbar-thumb,
+.overflow-x-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #b8c0d0);
+  border-radius: 999px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-y-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-x-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, #9aa6b8);
+}
+
+// /* Optional: arrows/buttons (Chromium/WebKit only) */
+// .overflow-auto::-webkit-scrollbar-button,
+// .overflow-y-auto::-webkit-scrollbar-button,
+// .overflow-x-auto::-webkit-scrollbar-button,
+// .overflow-scroll::-webkit-scrollbar-button,
+// .overflow-y-scroll::-webkit-scrollbar-button,
+// .overflow-x-scroll::-webkit-scrollbar-button {
+//   background: #3a3d43; /* button background */
+//   height: 14px;
+//   width: 14px;
+// }
+
+/* Corner (where x+y meet) */
+.overflow-auto::-webkit-scrollbar-corner,
+.overflow-y-auto::-webkit-scrollbar-corner,
+.overflow-x-auto::-webkit-scrollbar-corner,
+.overflow-scroll::-webkit-scrollbar-corner,
+.overflow-y-scroll::-webkit-scrollbar-corner,
+.overflow-x-scroll::-webkit-scrollbar-corner {
+  background: var(--scrollbar-corner, var(--scrollbar-track, #e2e6ef));
+}
+
+/* ===== Firefox ONLY ===== */
+/* This targets Firefox specifically (Chrome/Edge won't match) */
+@supports (-moz-appearance: none) {
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-scroll,
+  .overflow-x-scroll,
+  .overflow-y-scroll {
+    scrollbar-width: thin; /* Firefox can't do 2px */
+    scrollbar-color: var(--scrollbar-thumb, #b8c0d0)
+      var(--scrollbar-track, #e2e6ef);
+  }
+}
+
+/* ===== Opt-out: scrollbar-none ===== */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

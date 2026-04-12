@@ -1,0 +1,323 @@
+import { NormalizedEvent } from "./EventsUtils";
+
+export interface Sport {
+  id: number;
+  name: string;
+  icon: string;
+}
+export interface SportData {
+  id: number | null; // null for "All"
+  name: string;
+  icon: string;
+}
+export interface LeagueData {
+  id: string;
+  name: string;
+  country: string;
+  flagIcon?: string;
+  events: NormalizedEvent[];
+}
+
+export interface SportGroupData {
+  sport: SportData;
+  leagues: LeagueData[];
+}
+
+export interface SportGroup {
+  sport: SportData;
+  leagues: LeagueData[];
+}
+
+
+export const sidebarItems: SportData[] = [
+  { id: 0, name: 'All', icon: '/icons/all-sports.png' }, // "All" option - you may need to create this icon
+  { id: 1, name: 'Soccer', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/football.svg' },
+  { id: 8, name: 'Basketball', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/basketball.svg' },
+  { id: 4, name: 'Tennis', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/tennis.svg' },
+  { id: 11, name: 'Volleyball', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/volley.svg' },
+  { id: 2, name: 'Table Tennis', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/table_tennis.svg' },
+  { id: 6, name: 'Ice Hockey', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/ice_hockey.svg' },
+  { id: 14, name: 'American Football', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/american_football.svg' },
+  { id: 20, name: 'Cricket', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/cricket.svg' },
+  { id: 37, name: 'Counter Strike', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg' },
+  { id: 18, name: 'Darts', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/darts.svg' },
+  { id: 25, name: 'Boxing', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/boxing.svg' },
+  { id: 45, name: 'DOTA 2', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/dota.svg' },
+];
+
+export const SportInfo : SportData[] = [
+  { id: null, name: 'All', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg' }, // "All" option - you may need to create this icon
+  { id: 1, name: 'Soccer', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/football.svg' },
+  { id: 2, name: 'Table Tennis', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/table_tennis.svg' },
+  { id: 4, name: 'Tennis', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/tennis.svg' },
+  { id: 5, name: 'Handball', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/handball.svg' },
+  { id: 6, name: 'Ice Hockey', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/ice_hockey.svg' },
+  { id: 7, name: 'Baseball', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/baseball.svg' },
+  { id: 8, name: 'Basketball', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/basketball.svg' },
+  { id: 9, name: 'Formula 1', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg' },
+  { id: 11, name: 'Volleyball', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/volley.svg' },
+  { id: 14, name: 'American Football', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/american_football.svg' },
+  { id: 16, name: 'Golf', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/golf.svg' },
+  { id: 17, name: 'MMA', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/mma.svg' },
+  { id: 18, name: 'Darts', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/darts.svg' },
+  { id: 20, name: 'Cricket', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/cricket.svg' },
+  { id: 21, name: 'Futsal', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/futsal.svg' },
+  { id: 25, name: 'Boxing', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/boxing.svg' },
+  { id: 30, name: 'League of Legends', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/league_of_legends.svg' },
+  { id: 37, name: 'Counter Strike', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg' },
+  { id: 45, name: 'DOTA 2', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/dota.svg' },
+  { id: 31, name: 'Biathlon', icon: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/biathlon.svg' },
+];
+
+// Helper function to get sport icon
+const getSportIcon = (apiId: number, name: string): string => {
+  const iconMap: Record<number, string> = {
+    1: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/football.svg',
+    2: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/table_tennis.svg',
+    4: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/tennis.svg',
+    5: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/handball.svg',
+    6: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/ice_hockey.svg',
+    7: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/baseball.svg',
+    8: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/basketball.svg',
+    9: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    11: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/volley.svg',
+    12: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/volley.svg',
+    13: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/football.svg',
+    14: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/american_football.svg',
+    15: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/cycling.svg',
+    16: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/golf.svg',
+    17: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/mma.svg',
+    18: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/darts.svg',
+    19: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    20: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/cricket.svg',
+    21: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/futsal.svg',
+    22: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    25: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/boxing.svg',
+    26: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    27: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    28: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    29: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    30: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/league_of_legends.svg',
+    31: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/biathlon.svg',
+    32: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    33: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    34: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    35: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    36: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    37: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+    38: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    39: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    40: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    41: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    42: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    43: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+    44: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    45: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/dota.svg',
+    46: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    47: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+    48: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    49: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    50: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    51: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/football.svg',
+    52: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/basketball.svg',
+    53: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/ice_hockey.svg',
+    54: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    55: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    56: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    57: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    58: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    59: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/formula_1.svg',
+    60: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/basketball.svg',
+    61: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    62: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    63: 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+  };
+
+  if (iconMap[apiId]) {
+    return iconMap[apiId];
+  }
+
+  const nameLower = name.toLowerCase();
+  const nameIconMap: Record<string, string> = {
+    'soccer': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/football.svg',
+    'basketball': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/basketball.svg',
+    'tennis': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/tennis.svg',
+    'table tennis': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/table_tennis.svg',
+    'ice hockey': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/ice_hockey.svg',
+    'volleyball': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/volley.svg',
+    'beach volley': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/volley.svg',
+    'american football': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/american_football.svg',
+    'darts': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/darts.svg',
+    'cricket': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/cricket.svg',
+    'counter-strike': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+    'counter strike': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+    'counter-strike 2': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/counter_strike.svg',
+    'dota 2': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/dota.svg',
+    'league of legends': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/league_of_legends.svg',
+    'starcraft': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+    'starcraft 2': 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg',
+  };
+
+  if (nameIconMap[nameLower]) {
+    return nameIconMap[nameLower];
+  }
+
+  return 'https://tekio.s3.eu-north-1.amazonaws.com/sportsbook/icons/all_sports.svg';
+};
+
+export const SportInfoList: SportData[] = [
+  { id: 1, name: 'Soccer', icon: getSportIcon(1, 'Soccer') },
+  { id: 2, name: 'Table Tennis', icon: getSportIcon(2, 'Table Tennis') },
+  { id: 4, name: 'Tennis', icon: getSportIcon(4, 'Tennis') },
+  { id: 5, name: 'Handball', icon: getSportIcon(5, 'Handball') },
+  { id: 6, name: 'Ice Hockey', icon: getSportIcon(6, 'Ice Hockey') },
+  { id: 7, name: 'Baseball', icon: getSportIcon(7, 'Baseball') },
+  { id: 8, name: 'Basketball', icon: getSportIcon(8, 'Basketball') },
+  { id: 9, name: 'Formula 1', icon: getSportIcon(9, 'Formula 1') },
+  { id: 11, name: 'Volleyball', icon: getSportIcon(11, 'Volleyball') },
+  { id: 12, name: 'Beach Volley', icon: getSportIcon(12, 'Beach Volley') },
+  { id: 13, name: 'Beach Soccer', icon: getSportIcon(13, 'Beach Soccer') },
+  { id: 14, name: 'American Football', icon: getSportIcon(14, 'American Football') },
+  { id: 15, name: 'Cycling', icon: getSportIcon(15, 'Cycling') },
+  { id: 16, name: 'Golf', icon: getSportIcon(16, 'Golf') },
+  { id: 17, name: 'MMA', icon: getSportIcon(17, 'MMA') },
+  { id: 18, name: 'Darts', icon: getSportIcon(18, 'Darts') },
+  { id: 19, name: 'Stock Car Racing', icon: getSportIcon(19, 'Stock Car Racing') },
+  { id: 20, name: 'Cricket', icon: getSportIcon(20, 'Cricket') },
+  { id: 21, name: 'Futsal', icon: getSportIcon(21, 'Futsal') },
+  { id: 22, name: 'Speedway', icon: getSportIcon(22, 'Speedway') },
+  { id: 23, name: 'Badminton', icon: getSportIcon(23, 'Badminton') },
+  { id: 25, name: 'Boxing', icon: getSportIcon(25, 'Boxing') },
+  { id: 26, name: 'Specials', icon: getSportIcon(26, 'Specials') },
+  { id: 27, name: 'Snooker', icon: getSportIcon(27, 'Snooker') },
+  { id: 28, name: 'Gaelic Football', icon: getSportIcon(28, 'Gaelic Football') },
+  { id: 29, name: 'Motorsport', icon: getSportIcon(29, 'Motorsport') },
+  { id: 30, name: 'League of Legends', icon: getSportIcon(30, 'League of Legends') },
+  { id: 31, name: 'Biathlon', icon: getSportIcon(31, 'Biathlon') },
+  { id: 32, name: 'Cross-Country', icon: getSportIcon(32, 'Cross-Country') },
+  { id: 33, name: 'Bowls', icon: getSportIcon(33, 'Bowls') },
+  { id: 34, name: 'Touring Car Racing', icon: getSportIcon(34, 'Touring Car Racing') },
+  { id: 35, name: 'Motorcycle Racing', icon: getSportIcon(35, 'Motorcycle Racing') },
+  { id: 36, name: 'Ski Jumping', icon: getSportIcon(36, 'Ski Jumping') },
+  { id: 37, name: 'Counter-Strike', icon: getSportIcon(37, 'Counter-Strike') },
+  { id: 38, name: 'Gaelic Hurling', icon: getSportIcon(38, 'Gaelic Hurling') },
+  { id: 39, name: 'Floorball', icon: getSportIcon(39, 'Floorball') },
+  { id: 40, name: 'Indy Racing', icon: getSportIcon(40, 'Indy Racing') },
+  { id: 41, name: 'Squash', icon: getSportIcon(41, 'Squash') },
+  { id: 42, name: 'Field hockey', icon: getSportIcon(42, 'Field hockey') },
+  { id: 43, name: 'Overwatch', icon: getSportIcon(43, 'Overwatch') },
+  { id: 44, name: 'Athletics', icon: getSportIcon(44, 'Athletics') },
+  { id: 45, name: 'Dota 2', icon: getSportIcon(45, 'Dota 2') },
+  { id: 46, name: 'Alpine Skiing', icon: getSportIcon(46, 'Alpine Skiing') },
+  { id: 47, name: 'Call of Duty', icon: getSportIcon(47, 'Call of Duty') },
+  { id: 48, name: 'Bandy', icon: getSportIcon(48, 'Bandy') },
+  { id: 49, name: 'Waterpolo', icon: getSportIcon(49, 'Waterpolo') },
+  { id: 50, name: 'Sailing', icon: getSportIcon(50, 'Sailing') },
+  { id: 51, name: 'eSoccer', icon: getSportIcon(51, 'eSoccer') },
+  { id: 52, name: 'eBasketball', icon: getSportIcon(52, 'eBasketball') },
+  { id: 53, name: 'eIce Hockey', icon: getSportIcon(53, 'eIce Hockey') },
+  { id: 54, name: 'Rally', icon: getSportIcon(54, 'Rally') },
+  { id: 55, name: 'Nordic Combined', icon: getSportIcon(55, 'Nordic Combined') },
+  { id: 56, name: 'Rugby League', icon: getSportIcon(56, 'Rugby League') },
+  { id: 57, name: 'Rugby Union', icon: getSportIcon(57, 'Rugby Union') },
+  { id: 58, name: 'Australian Rules', icon: getSportIcon(58, 'Australian Rules') },
+  { id: 59, name: 'Formula E', icon: getSportIcon(59, 'Formula E') },
+  { id: 60, name: 'Basketball 3x3', icon: getSportIcon(60, 'Basketball 3x3') },
+  { id: 61, name: 'Rocket League', icon: getSportIcon(61, 'Rocket League') },
+  { id: 62, name: 'StarCraft', icon: getSportIcon(62, 'StarCraft') },
+  { id: 63, name: 'Rainbow Six', icon: getSportIcon(63, 'Rainbow Six') },
+  { id: 94, name: 'Curling', icon: getSportIcon(94, 'Curling') },
+  { id: 127, name: 'ESport King of Glory', icon: getSportIcon(127, 'ESport King of Glory') },
+  { id: 160, name: 'Softball', icon: getSportIcon(160, 'Softball') },
+  { id: 193, name: 'Pesapallo', icon: getSportIcon(193, 'Pesapallo') },
+  { id: 226, name: 'Olympics', icon: getSportIcon(226, 'Olympics') },
+  { id: 259, name: 'Fencing', icon: getSportIcon(259, 'Fencing') },
+  { id: 292, name: 'Swimming', icon: getSportIcon(292, 'Swimming') },
+  { id: 293, name: 'Archery', icon: getSportIcon(293, 'Archery') },
+  { id: 294, name: 'Equestrian', icon: getSportIcon(294, 'Equestrian') },
+  { id: 295, name: 'Skateboarding', icon: getSportIcon(295, 'Skateboarding') },
+  { id: 296, name: 'Surfing', icon: getSportIcon(296, 'Surfing') },
+  { id: 297, name: 'Rowing', icon: getSportIcon(297, 'Rowing') },
+  { id: 298, name: 'Marathon Swimming', icon: getSportIcon(298, 'Marathon Swimming') },
+  { id: 299, name: 'Triathlon', icon: getSportIcon(299, 'Triathlon') },
+  { id: 300, name: 'Weightlifting', icon: getSportIcon(300, 'Weightlifting') },
+  { id: 325, name: 'Diving', icon: getSportIcon(325, 'Diving') },
+  { id: 326, name: 'Wrestling', icon: getSportIcon(326, 'Wrestling') },
+  { id: 358, name: 'Judo', icon: getSportIcon(358, 'Judo') },
+  { id: 391, name: 'Modern Pentathlon', icon: getSportIcon(391, 'Modern Pentathlon') },
+  { id: 392, name: 'Taekwondo', icon: getSportIcon(392, 'Taekwondo') },
+  { id: 393, name: 'Canoeing', icon: getSportIcon(393, 'Canoeing') },
+  { id: 424, name: 'Gymnastics', icon: getSportIcon(424, 'Gymnastics') },
+  { id: 457, name: 'Thoroughbred', icon: getSportIcon(457, 'Thoroughbred') },
+  { id: 458, name: 'Greyhound', icon: getSportIcon(458, 'Greyhound') },
+  { id: 459, name: 'Harness', icon: getSportIcon(459, 'Harness') },
+  { id: 490, name: 'Chess', icon: getSportIcon(490, 'Chess') },
+  { id: 523, name: 'Kabaddi', icon: getSportIcon(523, 'Kabaddi') },
+  { id: 556, name: 'Freestyle Skiing', icon: getSportIcon(556, 'Freestyle Skiing') },
+  { id: 589, name: 'Lacrosse', icon: getSportIcon(589, 'Lacrosse') },
+  { id: 622, name: 'Sumo', icon: getSportIcon(622, 'Sumo') },
+  { id: 655, name: 'Schwingen', icon: getSportIcon(655, 'Schwingen') },
+  { id: 721, name: 'Netball', icon: getSportIcon(721, 'Netball') },
+  { id: 754, name: 'Cornhole', icon: getSportIcon(754, 'Cornhole') },
+  { id: 787, name: 'ZedRun Horses', icon: getSportIcon(787, 'ZedRun Horses') },
+  { id: 820, name: 'Kyotei', icon: getSportIcon(820, 'Kyotei') },
+  { id: 853, name: 'Mahjong', icon: getSportIcon(853, 'Mahjong') },
+  { id: 886, name: 'ESport Valorant', icon: getSportIcon(886, 'ESport Valorant') },
+  { id: 919, name: 'Camel Racing', icon: getSportIcon(919, 'Camel Racing') },
+  { id: 952, name: 'Hakone Ekiden', icon: getSportIcon(952, 'Hakone Ekiden') },
+  { id: 985, name: 'Big Brother Brazil', icon: getSportIcon(985, 'Big Brother Brazil') },
+  { id: 1018, name: 'US Elections', icon: getSportIcon(1018, 'US Elections') },
+  { id: 1051, name: 'Super Bowl Specials', icon: getSportIcon(1051, 'Super Bowl Specials') },
+  { id: 1084, name: 'Horse Racing Specials', icon: getSportIcon(1084, 'Horse Racing Specials') },
+  { id: 1117, name: 'ESport World of Warcraft', icon: getSportIcon(1117, 'ESport World of Warcraft') },
+  { id: 1150, name: 'Eurovision', icon: getSportIcon(1150, 'Eurovision') },
+  { id: 1183, name: 'WWE', icon: getSportIcon(1183, 'WWE') },
+  { id: 1216, name: 'Politics', icon: getSportIcon(1216, 'Politics') },
+  { id: 1249, name: 'Breaking', icon: getSportIcon(1249, 'Breaking') },
+  { id: 1282, name: 'Sport Climbing', icon: getSportIcon(1282, 'Sport Climbing') },
+  { id: 1315, name: 'Shooting', icon: getSportIcon(1315, 'Shooting') },
+  { id: 1348, name: 'Artistic Swimming', icon: getSportIcon(1348, 'Artistic Swimming') },
+  { id: 1381, name: 'Entertainment', icon: getSportIcon(1381, 'Entertainment') },
+  { id: 1414, name: 'ESport PlayerUnknowns Battlegrounds', icon: getSportIcon(1414, 'ESport PlayerUnknowns Battlegrounds') },
+  { id: 1447, name: 'Muay Thai', icon: getSportIcon(1447, 'Muay Thai') },
+  { id: 1448, name: 'Padel', icon: getSportIcon(1448, 'Padel') },
+  { id: 1480, name: 'ESport Apex Legends', icon: getSportIcon(1480, 'ESport Apex Legends') },
+  { id: 1513, name: 'Pool', icon: getSportIcon(1513, 'Pool') },
+  { id: 1546, name: 'B2', icon: getSportIcon(1546, 'B2') },
+  { id: 1612, name: 'Figure Skating', icon: getSportIcon(1612, 'Figure Skating') },
+  { id: 1645, name: 'Kickboxing', icon: getSportIcon(1645, 'Kickboxing') },
+  { id: 1678, name: 'Power Slap', icon: getSportIcon(1678, 'Power Slap') },
+  { id: 1711, name: 'Player Transfers', icon: getSportIcon(1711, 'Player Transfers') },
+  { id: 1744, name: 'Poker', icon: getSportIcon(1744, 'Poker') },
+  { id: 1777, name: 'Goal Challenge', icon: getSportIcon(1777, 'Goal Challenge') },
+  { id: 1810, name: 'Counter-Strike 2', icon: getSportIcon(1810, 'Counter-Strike 2') },
+  { id: 1910, name: 'rugby_union', icon: getSportIcon(1910, 'rugby_union') },
+  { id: 1942, name: 'water_polo', icon: getSportIcon(1942, 'water_polo') },
+  { id: 1975, name: 'table_tennis', icon: getSportIcon(1975, 'table_tennis') },
+  { id: 2008, name: 'esports', icon: getSportIcon(2008, 'esports') },
+  { id: 2041, name: 'Playerunknown\'s Battlegrounds Mobile', icon: getSportIcon(2041, 'Playerunknown\'s Battlegrounds Mobile') },
+  { id: 2173, name: 'Arena of Valor', icon: getSportIcon(2173, 'Arena of Valor') },
+  { id: 2174, name: 'Counter-Strike 2 Duels', icon: getSportIcon(2174, 'Counter-Strike 2 Duels') },
+  { id: 2175, name: 'Crossfire', icon: getSportIcon(2175, 'Crossfire') },
+  { id: 2176, name: 'Playerunknown\'s Battlegrounds', icon: getSportIcon(2176, 'Playerunknown\'s Battlegrounds') },
+  { id: 2206, name: 'Mobile Legends', icon: getSportIcon(2206, 'Mobile Legends') },
+  { id: 2239, name: 'Street Fighter', icon: getSportIcon(2239, 'Street Fighter') },
+  { id: 2272, name: 'Marvel Rivals', icon: getSportIcon(2272, 'Marvel Rivals') },
+  { id: 2273, name: 'World of Tanks', icon: getSportIcon(2273, 'World of Tanks') },
+  { id: 2305, name: 'eFootball', icon: getSportIcon(2305, 'eFootball') },
+  { id: 2306, name: 'eCricket', icon: getSportIcon(2306, 'eCricket') },
+  { id: 2338, name: 'HR', icon: getSportIcon(2338, 'HR') },
+  { id: 2371, name: 'FMS', icon: getSportIcon(2371, 'FMS') },
+  { id: 2404, name: 'Starcraft 2', icon: getSportIcon(2404, 'Starcraft 2') },
+  { id: 2437, name: 'VT', icon: getSportIcon(2437, 'VT') },
+  { id: 2438, name: 'CC', icon: getSportIcon(2438, 'CC') },
+  { id: 2439, name: 'SJ', icon: getSportIcon(2439, 'SJ') },
+  { id: 2440, name: 'MGP', icon: getSportIcon(2440, 'MGP') },
+  { id: 2441, name: 'VF', icon: getSportIcon(2441, 'VF') },
+  { id: 2470, name: 'Test automation sport', icon: getSportIcon(2470, 'Test automation sport') },
+  { id: 2503, name: 'Warcraft 3', icon: getSportIcon(2503, 'Warcraft 3') },
+  { id: 2504, name: 'Age of Empires', icon: getSportIcon(2504, 'Age of Empires') },
+  { id: 2505, name: 'HALO', icon: getSportIcon(2505, 'HALO') },
+].sort((a, b) => (a.id || 0) - (b.id || 0));
+
+

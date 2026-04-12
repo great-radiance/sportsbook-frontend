@@ -1,0 +1,48 @@
+/* Size the visible dialog panel (this is what you actually see) */
+sl-dialog.myBetDialog {
+  z-index: 10001;
+  &:not([open]) {
+    display: none;
+  }
+
+  /* Style the backdrop/overlay */
+  &::part(overlay) {
+    background-color: var(--background-color) !important;
+    opacity: 0.5 !important;
+  }
+
+  &[open]::part(overlay) {
+    background-color: var(--background-color) !important;
+    opacity: 0.5 !important;
+  }
+
+  &::part(panel) {
+    width: fit-content;
+    max-height: 100%;
+    height: 600px;
+    border-radius: 10px;
+    background-color: var(--background-color);
+    overflow: hidden;
+
+    @media (max-width: 768px) {
+      width: 100%;
+    }
+  }
+
+  /* Ensure the dialog content area can scroll */
+  &::part(body) {
+    overflow: hidden;
+    padding: 0;
+  }
+
+  &::part(header) {
+    display: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .bonusInfoBar {
+    height: 50px;
+    padding: 0;
+  }
+}

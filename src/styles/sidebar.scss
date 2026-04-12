@@ -1,0 +1,9 @@
+// Sidebar styles
+.sidebar-drawer {
+  transition: transform 0.3s ease-in-out;
+}
+
+// Sidebar item animation for smooth position changes
+.sidebar-item {
+  will-change: transform;
+}

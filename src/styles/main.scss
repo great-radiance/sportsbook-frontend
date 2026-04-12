@@ -1,0 +1,66 @@
+@use "./basic" as *;
+@use "./utility" as *;
+@use "./sidebar" as *;
+@use "./font" as *;
+
+// Tailwind imports
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// CSS Variables for theming
+:root,
+:host,
+#sportsbook-main-layout,
+#sportsbook-main-layout[data-theme="light"] {
+  --background-header: #ffffff;
+  --background-color: #eceff9;
+  --background-element: #fcfcfd;
+  --sub-element-color: #ffffff;
+  --highlight-background: #b8c5e066;
+
+  --sub-element-secondary: #f7f9fc;
+
+  --border-color: #cdd1dd;
+  --primary-border-color: #1e222b;
+  --focused-primary-border-color: #a9b9d1;
+
+  --primary-color: #00a727;
+
+  --text-primary-color: #01a825;
+  --text-basic-color: #212536;
+  --text-sub-color: #526789;
+  --text-green: #79d297;
+  --text-blue: #154fc1;
+  --text-red: #ff3449;
+  --text-yellow: #ffd700;
+  --text-notheme-color: #c9c9c9;
+
+  --green-color: #109121;
+  --greenblue-color: #1a7051;
+
+  /* Scrollbars (WebKit + Firefox scrollbar-color) */
+  --scrollbar-track: #e2e6ef;
+  --scrollbar-thumb: #b8c0d0;
+  --scrollbar-thumb-hover: #9aa6b8;
+  --scrollbar-corner: #e2e6ef;
+}
+:root,
+:host,
+#sportsbook-main-layout[data-theme="dark"] {
+  --background-color: #010502;
+  --background-element: #010502;
+  --sub-element-color: #121713;
+  --highlight-background: #b8c5e01f;
+  --sub-element-secondary: #1d251f;
+  --border-color: #2d374d;
+  --primary-border-color: #526789;
+  --text-primary-color: #7aa7ff;
+  --text-basic-color: #c9c9c9;
+  --text-sub-color: #c0cce7;
+
+  --scrollbar-track: #2b2d31;
+  --scrollbar-thumb: #6b6f76;
+  --scrollbar-thumb-hover: #858a92;
+  --scrollbar-corner: #2b2d31;
+}

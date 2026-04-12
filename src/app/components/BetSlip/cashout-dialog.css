@@ -1,0 +1,32 @@
+sl-dialog.cashoutDialog:not([open]) {
+  display: none;
+}
+sl-dialog.cashoutDialog::part(overlay) {
+  background-color: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+}
+sl-dialog.cashoutDialog::part(panel) {
+  max-width: min(520px, 96vw);
+  width: 100%;
+  border-radius: 20px;
+  background: linear-gradient(
+    165deg,
+    var(--sub-element-color) 0%,
+    var(--sub-element-secondary, var(--sub-element-color)) 100%
+  );
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+sl-dialog.cashoutDialog::part(body) {
+  overflow: auto;
+  padding: 0 20px 20px;
+  scrollbar-width: thin;
+}
+sl-dialog.cashoutDialog::part(header) {
+  padding: 20px 20px 8px;
+  margin: 0;
+}
+
+.cashoutDialog-legs {
+  scrollbar-width: thin;
+}

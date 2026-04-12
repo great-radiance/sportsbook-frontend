@@ -1,0 +1,30 @@
+.hs-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hs {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex: 1;
+}
+.hs::-webkit-scrollbar {
+  display: none;
+}
+
+.hs-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+.hs-btn:disabled {
+  opacity: 0.35;
+}

@@ -1,0 +1,42 @@
+/* Size the visible dialog panel (this is what you actually see) */
+sl-dialog.bonusInfoDialog {
+  &:not([open]) {
+    display: none;
+  }
+
+  /* Style the backdrop/overlay */
+  &::part(overlay) {
+    background-color: var(--background-color) !important;
+    opacity: 0.5 !important;
+  }
+
+  &[open]::part(overlay) {
+    background-color: var(--background-color) !important;
+    opacity: 0.5 !important;
+  }
+
+  &::part(panel) {
+    max-width: 400px;
+    width: 100%;
+    max-height: 100%;
+    height: 380px;
+    border-radius: 10px;
+    background-color: var(--background-color);
+  }
+
+  /* Ensure the dialog content area can scroll */
+  &::part(body) {
+    overflow: hidden;
+    padding: 0;
+  }
+
+  &::part(header) {
+    margin: 0;
+    padding: 0;
+  }
+
+  .bonusInfoBar {
+    height: 50px;
+    padding: 0;
+  }
+}

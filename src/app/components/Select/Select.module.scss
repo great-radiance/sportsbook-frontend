@@ -1,0 +1,236 @@
+/* Select.module.scss */
+
+/* Wrapper around trigger (was: relative) */
+.wrapper {
+  position: relative;
+}
+
+/* Trigger button (was: w-full flex items-center px-3 py-2 rounded-[4px]) */
+.trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 4px;
+
+  /* Keep button sane */
+  background: transparent;
+  border: none;
+  // color: inherit;
+  cursor: pointer;
+  text-align: left;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+/* Label mode block (was: flex items-start flex-1) */
+.labelBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Label (was: text-[10px] mb-1) */
+.labelText {
+  font-size: 10px;
+  margin-bottom: 4px;
+  line-height: 1.1;
+}
+
+/* Value row under label (was: flex items-center gap-2) */
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* No-label layout (was: flex items-center gap-1 flex-1 text-left) */
+.valueRowSingle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Text inside trigger (was: font-medium text-inherit) */
+.valueText {
+  font-weight: 500;
+  color: inherit;
+  min-width: 0;
+  /* do not force wrapping; you can add ellipsis if desired */
+}
+
+/* Trigger icon sizes (was: w-[14px] h-[14px] shrink-0 and w-[13px]) */
+.valueIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.valueIconSmall {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+/* Chevron (was: w-6 h-6 transition-transform duration-200) */
+.chevron {
+  width: 24px;
+  height: 24px;
+  transition: transform 200ms ease;
+  flex: 0 0 auto;
+}
+
+/* Tailwind invert */
+.chevronInvert {
+  filter: invert(1);
+}
+
+/* Rotation states (was: -rotate-90 / rotate-90) */
+.chevronOpen {
+  transform: rotate(-90deg);
+}
+
+.chevronClosed {
+  transform: rotate(90deg);
+}
+
+/* Panel (was: rounded-[4px] overflow-hidden flex flex-col overflow-y-auto) */
+.panel {
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelInner {
+  display: flex;
+  flex-direction: column;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 2px;
+
+  max-height: min(320px, calc(100vh - 120px));
+  width: 100%;
+
+  /* ✅ Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+}
+
+/* ✅ Chrome / Edge / Safari */
+.panelInner::-webkit-scrollbar {
+  width: 4px;
+}
+
+.panelInner::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panelInner::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 10px;
+}
+
+.panelInner::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+/* Fallback message (was: px-3 py-2 text-[12px]) */
+.noOptions {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+/* Item button (was: flex items-center gap-3 w-full px-3 py-2 bg-white/10 transition-colors) */
+.item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--text-basic-color);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+  text-align: left;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+/* Desktop hover (was: hover:bg-white/20) */
+.itemHover:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Disabled item (was: opacity-50 cursor-not-allowed) */
+.itemDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Icon on item (was: w-[13px] h-[13px] shrink-0) */
+.itemIcon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+/* Item content area (was: flex-1 text-left) */
+.itemContent {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+/* Simple string children (was: whitespace-nowrap) */
+.itemText {
+  white-space: nowrap;
+  color: inherit;
+}
+
+/* Non-string children wrapper (was: flex items-center gap-2) */
+.itemCustom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+}
+
+/* Checkbox styles */
+.checkboxChecked {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid var(--primary-color);
+  background: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.checkboxEmpty {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex: 0 0 auto;
+}
+
+/* SVG size (was: w-2.5 h-2.5) */
+.checkboxIcon {
+  width: 10px;
+  height: 10px;
+}

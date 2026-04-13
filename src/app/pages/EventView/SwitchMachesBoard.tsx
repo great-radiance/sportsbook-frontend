@@ -9,6 +9,7 @@ import { useCallback } from "preact/hooks";
 import { HomePage } from "./HomePage";
 import { MarketsBoard } from "@/app/components/MarketsBoard";
 import { RegionMatchesBoard } from "@/app/components/MatchesBoard/RegionMatchesBoard";
+import { SportPage } from "./SportPage";
 
 export const SwitchMachesBoard: FunctionComponent = () => {
   const { pageName, sportName, eventId, regionName, leagueName } =
@@ -27,11 +28,14 @@ export const SwitchMachesBoard: FunctionComponent = () => {
       } else if (sportName === "competitions") {
         return <MatchesBoard />;
       }
+    } else if (pageName === "sport") {
+      return <SportPage />;
     } else if (eventId) return <MarketsBoard />;
     else if (leagueName) return <MatchesBoard />;
     else if (regionName) {
       return <RegionMatchesBoard />;
-    } else if (!pageName) return <HomePage />;
+    }
+    return <HomePage />;
   }, [pageName, sportName, eventId, regionName, leagueName]);
 
   return switchMachesBoard();

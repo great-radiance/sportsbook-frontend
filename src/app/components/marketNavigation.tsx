@@ -39,7 +39,7 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = ({
               tabIndex={isSelected ? 0 : -1}
               title={option}
               key={option}
-              className={`snap-start shrink-0 flex px-1 items-center justify-center whitespace-nowrap transition-colors text-sm ${
+              className={`snap-start shrink-0 flex px-1 items-center justify-center whitespace-nowrap transition-colors text-[12px] ${
                 isSelected
                   ? "border-b-[2px] border-[var(--primary-border-color)] font-bold"
                   : "hover:pb-[2px]"

@@ -103,6 +103,10 @@ function getItemHref(
   item: tStoiximanSidebarItem,
   sportCtx: string | null,
 ): string | null {
+  if (item.type === "sport" && item.name) {
+    return `/event-view/sport/${encodeURIComponent(item.name.trim())}`;
+  }
+
   if (item.origin) {
     const triple = parseOriginTriple(item.origin);
     if (triple) {
@@ -224,7 +228,9 @@ const TreeRows: FunctionComponent<TreeRowsProps> = ({
         }
 
         const onRowClick = (e: MouseEvent) => {
-          if (hasChildren) {
+          if (item.type === "sport" && href) {
+            linkButtonOnClick(e, href, setLocation);
+          } else if (hasChildren) {
             toggleNode(idKey);
           } else if (href) {
             linkButtonOnClick(e, href, setLocation);

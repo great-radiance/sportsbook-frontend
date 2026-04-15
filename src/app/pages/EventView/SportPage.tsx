@@ -17,6 +17,9 @@ import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { orderConfigState } from "@/state/orderConfigState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import HighlightRender from "@/app/components/SportPage/HighlightRender";
+import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
+import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
+import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
 
@@ -119,7 +122,11 @@ export const SportPage: FunctionComponent = () => {
     try {
       const [matchRes, outrightRes] = await Promise.all([
         selectedLeagueEntry.eventIds.length > 0
-          ? apiGetMatches(selectedLeagueEntry.eventIds, "PreMatch", sportName)
+          ? apiGetMatches(
+              leagueEntries.flatMap((l) => l.eventIds),
+              "PreMatch",
+              sportName,
+            )
           : Promise.resolve({ data: [], marketsMeta: [] } as Awaited<
               ReturnType<typeof apiGetMatches>
             >),
@@ -157,7 +164,7 @@ export const SportPage: FunctionComponent = () => {
     `flex-1 py-2 text-center text-[10px] font-medium transition ${
       activeTab === tab
         ? "bg-blue-600 text-white rounded-full"
-        : "text-gray-500"
+        : "text-[var(--text-sub-color)]"
     }`;
 
   useEffect(() => {
@@ -198,10 +205,38 @@ export const SportPage: FunctionComponent = () => {
         );
 
       case "competitions":
-        return <p className="text-gray-500">Competitions content here...</p>;
+        return (
+          <CompetitionsRender
+            data={
+              stoiximanSidebarState.value.find(
+                (s) => s.name === sportName,
+              ) as any
+            }
+            sportName={sportName}
+            leagueEntries={leagueEntries}
+          />
+        );
 
       case "upcoming":
-        return <p className="text-gray-500">Upcoming matches here...</p>;
+        return (
+          <UpcomingRender
+            leagueEntries={leagueEntries}
+            selectedLeagueKey={selectedLeagueKey}
+            setSelectedLeagueKey={setSelectedLeagueKey}
+            orderConfigState={orderConfigState}
+            sportName={sportName}
+            selectedCategory={selectedCategory}
+            selectedMarkets={selectedMarkets}
+            selectedOutrightMarkets={selectedOutrightMarkets}
+            selectedMarketSlug={selectedMarketSlug}
+            setSelectedMarketSlug={setSelectedMarketSlug}
+            selectedLeagueEntry={selectedLeagueEntry}
+            loading={loading}
+            BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
+            getFlagIconFromregionName={getFlagIconFromregionName}
+            getTranslatedText={getTranslatedText}
+          />
+        );
     }
   };
 
@@ -261,7 +296,7 @@ export const SportPage: FunctionComponent = () => {
           Upcoming
         </button>
       </div>
-      {renderContent()};
+      {renderContent()}
     </div>
   );
 };

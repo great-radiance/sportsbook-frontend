@@ -1,7 +1,7 @@
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "preact/hooks";
 
 type Node = {
   id: number;
@@ -56,7 +56,7 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
             {popularLeagues.map((league) => (
               <div
                 key={league.id}
-                className="p-2 rounded w-full bg-[var(--sub-element-secondary)] text-sm"
+                className="p-2 rounded w-full bg-[var(--sub-element-secondary)] text-[13px]"
               >
                 {league.name}
               </div>
@@ -88,9 +88,7 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
                         <img
                           src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(
                             sportName || "",
-                          )}/${encodeURIComponent(
-                            region.name || "",
-                          ).toLowerCase()}.webp`}
+                          )}/${encodeURIComponent(region.name || "")}.webp`}
                           className={`w-5 h-5 object-contain`}
                           onError={(e) => {
                             e.currentTarget.src = `${getFlagIconFromregionName(

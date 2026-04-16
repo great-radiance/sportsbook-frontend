@@ -14,8 +14,24 @@ import { MarketNavigation } from "../marketNavigation";
 import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
+import { storeState } from "@/state/storeState";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
+
+const sortEventIdsByStartDate = (ids: number[]) =>
+  [...ids].sort((a, b) => {
+    const aEvent = storeState.value[a]?.value;
+    const bEvent = storeState.value[b]?.value;
+    const aStart =
+      typeof aEvent?.startDate === "number"
+        ? aEvent.startDate
+        : Number.MAX_SAFE_INTEGER;
+    const bStart =
+      typeof bEvent?.startDate === "number"
+        ? bEvent.startDate
+        : Number.MAX_SAFE_INTEGER;
+    return aStart - bStart || a - b;
+  });
 
 export const RegionMatchesBoard: FunctionComponent = () => {
   const { sportName, regionName } = useRouteParams();
@@ -52,7 +68,9 @@ export const RegionMatchesBoard: FunctionComponent = () => {
     const leagueMatches =
       summarySports.value?.data?.[sportName]?.[regionName]?.[selectedLeague] ||
       {};
-    return Object.values(leagueMatches).map((m) => m[0]);
+    return sortEventIdsByStartDate(
+      Object.values(leagueMatches).map((m) => m[0]),
+    );
   }, [sportName, regionName, selectedLeague]);
 
   const outrightEventIdsForSelectedLeague = useMemo((): number[] => {
@@ -61,7 +79,9 @@ export const RegionMatchesBoard: FunctionComponent = () => {
       outRightSummarySports.value?.[sportName]?.[regionName]?.[
         selectedLeague
       ] || {};
-    return Object.values(leagueOutrights).map((m) => m[0]);
+    return sortEventIdsByStartDate(
+      Object.values(leagueOutrights).map((m) => m[0]),
+    );
   }, [sportName, regionName, selectedLeague, outRightSummarySports.value]);
 
   const regionLeaguesKey = regionLeagues.join(",");

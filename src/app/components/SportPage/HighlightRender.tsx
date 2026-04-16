@@ -3,6 +3,7 @@ import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
+import { storeState } from "@/state/storeState";
 
 type League = {
   key: string;
@@ -55,6 +56,28 @@ const HighlightRender = ({
   getFlagIconFromregionName,
   getTranslatedText,
 }: Props) => {
+  const sortEventIdsByStartDate = (ids: number[]) =>
+    [...ids].sort((a, b) => {
+      const aEvent = storeState.value[a]?.value;
+      const bEvent = storeState.value[b]?.value;
+      const aHasDate = aEvent && typeof aEvent.startDate === "number";
+      const bHasDate = bEvent && typeof bEvent.startDate === "number";
+
+      if (aHasDate && bHasDate) {
+        return aEvent.startDate - bEvent.startDate;
+      }
+      if (aHasDate) return -1;
+      if (bHasDate) return 1;
+      return 0;
+    });
+
+  const sortedEventIds = sortEventIdsByStartDate(
+    selectedLeagueEntry?.eventIds || [],
+  );
+  const sortedOutrightIds = sortEventIdsByStartDate(
+    selectedLeagueEntry?.outrightIds || [],
+  );
+
   return (
     <>
       <div className="flex sticky top-0 mb-4 z-[200] bg-[var(--background-element)] flex-col w-full p-2 gap-2 rounded-b-[16px]">
@@ -63,6 +86,7 @@ const HighlightRender = ({
           <HorizontalTabs scrollerClassName="py-1">
             {leagueEntries.map((league) => {
               const isSelected = selectedLeagueKey === league.key;
+
               return (
                 <button
                   key={league.key}
@@ -91,9 +115,7 @@ const HighlightRender = ({
                         sportName || "",
                       )}/${encodeURIComponent(
                         league.region || "",
-                      )}/${encodeURIComponent(
-                        league.league || "",
-                      ).toLowerCase()}.webp`}
+                      )}/${encodeURIComponent(league.league || "")}.webp`}
                       className={`w-5 h-5 object-contain`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(
@@ -131,19 +153,21 @@ const HighlightRender = ({
             ))}
           </div>
         ) : selectedCategory === "Matches" ? (
-          (selectedLeagueEntry?.eventIds || []).map((eventId) => (
+          sortedEventIds.map((eventId) => (
             <Match
               key={eventId}
               eventId={eventId}
               marketSlug={selectedMarketSlug}
+              allowRounded
             />
           ))
         ) : (
-          (selectedLeagueEntry?.outrightIds || []).map((eventId) => (
+          sortedOutrightIds.map((eventId) => (
             <Match
               key={eventId}
               eventId={eventId}
               marketSlug={selectedMarketSlug}
+              allowRounded
             />
           ))
         )}

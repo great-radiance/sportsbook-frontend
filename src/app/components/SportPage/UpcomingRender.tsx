@@ -232,6 +232,7 @@ const UpcomingRender = ({
                       key={eventId}
                       eventId={eventId}
                       marketSlug={selectedMarketSlug}
+                      allowRounded
                     />
                   ))}
               </div>
@@ -263,6 +264,7 @@ const UpcomingRender = ({
                 key={eventId}
                 eventId={eventId}
                 marketSlug={selectedMarketSlug}
+                allowRounded
               />
             ))
         )}

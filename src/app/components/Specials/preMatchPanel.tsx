@@ -74,6 +74,20 @@ export const PreMatchPanel: FunctionComponent = () => {
     return out;
   };
 
+  const getEventStartDate = (eventId: number) => {
+    const event = storeState.value[eventId]?.value;
+    return typeof event?.startDate === "number"
+      ? event.startDate
+      : Number.MAX_SAFE_INTEGER;
+  };
+
+  const sortFlatByStartDate = (items: FlatItem[]) =>
+    [...items].sort((a, b) => {
+      const aDate = getEventStartDate(a.id);
+      const bDate = getEventStartDate(b.id);
+      return aDate - bDate || a.id - b.id;
+    });
+
   const flatList = useMemo((): FlatItem[] => {
     /** Popular = featured matches only; ignores Live / Upcoming toggle */
     if (selectedSport === "Popular") {
@@ -124,7 +138,7 @@ export const PreMatchPanel: FunctionComponent = () => {
       //   console.log(`====filteredList`, filteredList);
       //   return filteredList;
       // }
-      return list;
+      return sortFlatByStartDate(list);
     }
 
     if (matchView === "live") {
@@ -147,7 +161,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         }
       }
-      return list;
+      return sortFlatByStartDate(list);
     }
 
     const data = summarySports.value.data?.[selectedSport];
@@ -170,7 +184,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         }
       }
     }
-    return list;
+    return sortFlatByStartDate(list);
   }, [
     matchView,
     selectedSport,
@@ -551,21 +565,7 @@ export const PreMatchPanel: FunctionComponent = () => {
                                     : "flex mb-2"
                                 }`}
                                 style={{
-                                  order:
-                                    selectedSport === "Popular"
-                                      ? (popularMatchesState.value?.[
-                                          storeState.value[event.id]?.value
-                                            ?.sport ?? ""
-                                        ]?.[region]?.[league]?.indexOf(
-                                          event.id,
-                                        ) ?? 999)
-                                      : matchView === "upcoming"
-                                        ? (popularMatchesState.value?.[
-                                            selectedSport
-                                          ]?.[region]?.[league]?.indexOf(
-                                            event.id,
-                                          ) ?? 999)
-                                        : 999,
+                                  order: getEventStartDate(event.id),
                                 }}
                               >
                                 {isMoneyline ? (

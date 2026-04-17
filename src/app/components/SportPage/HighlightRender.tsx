@@ -1,9 +1,9 @@
-import React from "react";
 import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
+import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 type League = {
   key: string;
@@ -56,21 +56,6 @@ const HighlightRender = ({
   getFlagIconFromregionName,
   getTranslatedText,
 }: Props) => {
-  const sortEventIdsByStartDate = (ids: number[]) =>
-    [...ids].sort((a, b) => {
-      const aEvent = storeState.value[a]?.value;
-      const bEvent = storeState.value[b]?.value;
-      const aHasDate = aEvent && typeof aEvent.startDate === "number";
-      const bHasDate = bEvent && typeof bEvent.startDate === "number";
-
-      if (aHasDate && bHasDate) {
-        return aEvent.startDate - bEvent.startDate;
-      }
-      if (aHasDate) return -1;
-      if (bHasDate) return 1;
-      return 0;
-    });
-
   const sortedEventIds = sortEventIdsByStartDate(
     selectedLeagueEntry?.eventIds || [],
   );

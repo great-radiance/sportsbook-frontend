@@ -24,6 +24,7 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { apiGetFeaturedMatches } from "@/api/special-matches/apiGetFeaturedMatches";
 import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { loadedPrematchState } from "@/state/loadedPrematch";
+import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useRouteParams } from "@/hooks/useRotueParams";
@@ -81,12 +82,16 @@ export const PreMatchPanel: FunctionComponent = () => {
       : Number.MAX_SAFE_INTEGER;
   };
 
-  const sortFlatByStartDate = (items: FlatItem[]) =>
-    [...items].sort((a, b) => {
-      const aDate = getEventStartDate(a.id);
-      const bDate = getEventStartDate(b.id);
-      return aDate - bDate || a.id - b.id;
-    });
+  const sortFlatByStartDate = (items: FlatItem[]) => {
+    const sortedIds = sortEventIdsByStartDate(items.map((item) => item.id));
+    const orderIndex = new Map(sortedIds.map((id, index) => [id, index]));
+
+    return [...items]
+      .filter((item) => orderIndex.has(item.id))
+      .sort(
+        (a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0),
+      );
+  };
 
   const flatList = useMemo((): FlatItem[] => {
     /** Popular = featured matches only; ignores Live / Upcoming toggle */

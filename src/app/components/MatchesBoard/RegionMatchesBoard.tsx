@@ -15,23 +15,9 @@ import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { storeState } from "@/state/storeState";
+import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
-
-const sortEventIdsByStartDate = (ids: number[]) =>
-  [...ids].sort((a, b) => {
-    const aEvent = storeState.value[a]?.value;
-    const bEvent = storeState.value[b]?.value;
-    const aStart =
-      typeof aEvent?.startDate === "number"
-        ? aEvent.startDate
-        : Number.MAX_SAFE_INTEGER;
-    const bStart =
-      typeof bEvent?.startDate === "number"
-        ? bEvent.startDate
-        : Number.MAX_SAFE_INTEGER;
-    return aStart - bStart || a - b;
-  });
 
 export const RegionMatchesBoard: FunctionComponent = () => {
   const { sportName, regionName } = useRouteParams();
@@ -202,7 +188,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(league || "").toLowerCase()}.webp`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(league || "")}.webp`}
                       className={`w-5 h-5 object-contain`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(regionName || "")}`;

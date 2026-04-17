@@ -1,6 +1,6 @@
 import { useTranslate } from "@/shared/i18n/i18n";
 import { HorizontalTabs } from "../../HorizontalTabs";
-import { useState } from "react";
+import { useState } from "preact/hooks";
 
 const { t } = useTranslate("matches");
 

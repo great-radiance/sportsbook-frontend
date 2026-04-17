@@ -1,4 +1,3 @@
-import React from "react";
 import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
@@ -6,6 +5,7 @@ import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
+import { useEffect, useMemo, useState } from "preact/hooks";
 
 interface League {
   key: string;
@@ -61,16 +61,16 @@ const UpcomingRender = ({
   getFlagIconFromregionName,
   getTranslatedText,
 }: Props) => {
-  const [filterStartTime, setFilterStartTime] = React.useState<number>(24); // default to 3 hours
-  const [sortBy, setSortBy] = React.useState<"competition" | "start-time">(
+  const [filterStartTime, setFilterStartTime] = useState<number>(24); // default to 3 hours
+  const [sortBy, setSortBy] = useState<"competition" | "start-time">(
     "competition",
   );
-  const [openedLeagueKeys, setOpenedLeagueKeys] = React.useState<Set<string>>(
+  const [openedLeagueKeys, setOpenedLeagueKeys] = useState<Set<string>>(
     new Set(),
   );
   const baseTheme = baseColorTheme.value;
 
-  const visibleLeagueGroups = React.useMemo(() => {
+  const visibleLeagueGroups = useMemo(() => {
     return leagueEntries
       .map((league) => {
         const ids =
@@ -107,7 +107,7 @@ const UpcomingRender = ({
     sportName,
   ]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     console.log(leagueEntries);
     console.log(
       stoiximanSidebarState.value.find((item) => item.name === sportName),
@@ -200,9 +200,7 @@ const UpcomingRender = ({
                         sportName || "",
                       )}/${encodeURIComponent(
                         league.region || "",
-                      )}/${encodeURIComponent(
-                        league.league || "",
-                      ).toLowerCase()}.webp`}
+                      )}/${encodeURIComponent(league.league || "")}.webp`}
                       className={`w-5 h-5 object-contain`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(

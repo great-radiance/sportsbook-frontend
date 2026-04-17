@@ -190,7 +190,7 @@ export const MatchesBoard: FunctionComponent = () => {
         <div className="flex items-center gap-0">
           <div className="flex items-center justify-center bg-white/90 rounded-[6px] h-8 w-8 py-2">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(leagueName || "").toLowerCase()}.png`}
+              src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(leagueName || "")}.png`}
               alt="arrow-left"
               className="w-6 h-6 object-contain"
             />

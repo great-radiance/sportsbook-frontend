@@ -291,14 +291,14 @@ const TreeRows: FunctionComponent<TreeRowsProps> = ({
                   <div className="w-[24px] shrink-0" aria-hidden />
                 ) : null}
                 <span
-                  className={`lg:block flex-1 text-left break-words whitespace-normal ${labelTextClass}`}
+                  className={`hidden lg:block flex-1 text-left break-words whitespace-normal ${labelTextClass}`}
                 >
                   {label}
                 </span>
               </div>
               {showArrow ? (
                 <img
-                  className={`w-[24px] lg:block rounded-[4px] h-[24px] transition-all shrink-0 ${depth === 0 ? "" : "mt-0.5"} ${
+                  className={`w-[24px] hidden lg:block rounded-[4px] h-[24px] transition-all shrink-0 ${depth === 0 ? "" : "mt-0.5"} ${
                     isExpanded ? "-rotate-90" : "rotate-90"
                   } ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                   src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
@@ -313,7 +313,7 @@ const TreeRows: FunctionComponent<TreeRowsProps> = ({
             </button>
 
             {hasChildren && isExpanded ? (
-              <div className=" lg:block flex flex-col rounded-md bg-white/5 gap-0 md:gap-0 overflow-hidden">
+              <div className="hidden lg:block flex flex-col rounded-md bg-white/5 gap-0 md:gap-0 overflow-hidden">
                 <TreeRows
                   items={item.children!}
                   depth={depth + 1}

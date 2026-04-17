@@ -115,11 +115,21 @@ export const Sidebar: FunctionComponent = () => {
 
   return (
     <div
-      className={`flex flex-col min-h-0 px-1 md:px-0 m-1 md:m-2 md:mr-1 z-[25] absolute right-0 left-0 h-full md:relative  text-[var(--text-basic-color)] ${pageName === "live" && !isMobile.value ? "bg-[var(--background-color)]" : "bg-[var(--sub-element-color)]"}  self-start  ${
-        isMobile.value
-          ? "text-[14px]"
-          : `text-[12px] shrink-0 ${pageName === "live" ? "w-[320px]" : "w-[210px]"}`
-      }`}
+      className={`flex flex-col px-1 md:px-1 z-[25] 
+        ${isMobile.value ? "absolute right-0 left-0 min-h-screen" : "md:relative md:min-h-screen"} 
+        text-[var(--text-basic-color)] 
+        ${
+          pageName === "live" && !isMobile.value
+            ? "bg-[var(--background-color)]"
+            : "bg-[var(--sub-element-color)]"
+        }
+        ${
+          isMobile.value
+            ? "text-[14px]"
+            : `text-[12px] shrink-0 ${
+                pageName === "live" ? "w-[320px]" : "lg:w-[210px]"
+              }`
+        }`}
     >
       {pageName === "live" && !isMobile.value ? (
         loading ? (

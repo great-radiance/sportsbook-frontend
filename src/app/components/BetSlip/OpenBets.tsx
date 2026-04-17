@@ -151,27 +151,33 @@ export const OpenBets: FunctionComponent = () => {
         {tBetslip("mybets")}
       </div>
       {/* tablist */}
-      <div className="w-full flex items-center gap-1">
+      <div className="bg-[var(--sub-element-secondary)] rounded-[90px] left-3 right-3 absolute flex items-center gap-1 p-1">
+        {/* OPEN TAB */}
         <div
-          className={`flex w-full items-center justify-center rounded-lg cursor-pointer transition-colors ${!isMobile.value ? "hover:bg-white/20" : ""}`}
+          className={`flex-1 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
+            selectedTab === "open"
+              ? "bg-white text-black border-b-[2px] border-[var(--primary-color)]"
+              : !isMobile.value
+                ? "hover:bg-white/20"
+                : ""
+          }`}
           onClick={() => setSelectedTab("open")}
         >
-          <span
-            className={`text-[12px] p-2 ${selectedTab === "open" ? "border-b-[2px] border-[var(--primary-color)]" : "bg-transparent"}`}
-          >
-            {tBetslip("Open")}
-          </span>
+          <span className="text-[12px] py-2 px-3">{tBetslip("Open")}</span>
         </div>
 
+        {/* SETTLED TAB */}
         <div
-          className={`flex w-full items-center justify-center rounded-lg cursor-pointer transition-colors ${!isMobile.value ? "hover:bg-white/20" : ""}`}
+          className={`flex-1 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
+            selectedTab === "settled"
+              ? "bg-white text-black border-b-[2px] border-[var(--primary-color)]"
+              : !isMobile.value
+                ? "hover:bg-white/20"
+                : ""
+          }`}
           onClick={() => setSelectedTab("settled")}
         >
-          <span
-            className={`text-[12px] py-2 px-2 ${selectedTab === "settled" ? "border-b-[2px] border-[var(--primary-color)]" : "bg-transparent"}`}
-          >
-            {tBetslip("Settled")}
-          </span>
+          <span className="text-[12px] py-2 px-3">{tBetslip("Settled")}</span>
         </div>
       </div>
       {loading && (

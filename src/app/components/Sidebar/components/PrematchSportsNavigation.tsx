@@ -291,14 +291,14 @@ const TreeRows: FunctionComponent<TreeRowsProps> = ({
                   <div className="w-[24px] shrink-0" aria-hidden />
                 ) : null}
                 <span
-                  className={`flex-1 text-left break-words whitespace-normal ${labelTextClass}`}
+                  className={`hidden lg:block flex-1 text-left break-words whitespace-normal ${labelTextClass}`}
                 >
                   {label}
                 </span>
               </div>
               {showArrow ? (
                 <img
-                  className={`w-[24px] rounded-[4px] h-[24px] transition-all shrink-0 ${depth === 0 ? "" : "mt-0.5"} ${
+                  className={`w-[24px] hidden lg:block rounded-[4px] h-[24px] transition-all shrink-0 ${depth === 0 ? "" : "mt-0.5"} ${
                     isExpanded ? "-rotate-90" : "rotate-90"
                   } ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                   src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
@@ -313,7 +313,7 @@ const TreeRows: FunctionComponent<TreeRowsProps> = ({
             </button>
 
             {hasChildren && isExpanded ? (
-              <div className="flex flex-col rounded-md bg-white/5 gap-0 md:gap-0 overflow-hidden">
+              <div className="hidden lg:block flex flex-col rounded-md bg-white/5 gap-0 md:gap-0 overflow-hidden">
                 <TreeRows
                   items={item.children!}
                   depth={depth + 1}
@@ -378,7 +378,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
       <div className="w-full h-px bg-[var(--border-color)]" />
       <button
         type="button"
-        className="text-[14px] uppercase font-bold py-2 pl-2 pr-1 rounded-[4px] md:hover:bg-white/10 items-center flex justify-between"
+        className="hidden lg:block text-[14px] uppercase font-bold py-2 pl-2 pr-1 rounded-[4px] md:hover:bg-white/10 items-center flex justify-between"
         onClick={() => setIsNavExpanded((prev) => !prev)}
         aria-expanded={isNavExpanded}
       >

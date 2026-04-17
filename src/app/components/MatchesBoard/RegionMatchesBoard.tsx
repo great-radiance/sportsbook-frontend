@@ -14,6 +14,8 @@ import { MarketNavigation } from "../marketNavigation";
 import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
+import { storeState } from "@/state/storeState";
+import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
 
@@ -52,7 +54,9 @@ export const RegionMatchesBoard: FunctionComponent = () => {
     const leagueMatches =
       summarySports.value?.data?.[sportName]?.[regionName]?.[selectedLeague] ||
       {};
-    return Object.values(leagueMatches).map((m) => m[0]);
+    return sortEventIdsByStartDate(
+      Object.values(leagueMatches).map((m) => m[0]),
+    );
   }, [sportName, regionName, selectedLeague]);
 
   const outrightEventIdsForSelectedLeague = useMemo((): number[] => {
@@ -61,7 +65,9 @@ export const RegionMatchesBoard: FunctionComponent = () => {
       outRightSummarySports.value?.[sportName]?.[regionName]?.[
         selectedLeague
       ] || {};
-    return Object.values(leagueOutrights).map((m) => m[0]);
+    return sortEventIdsByStartDate(
+      Object.values(leagueOutrights).map((m) => m[0]),
+    );
   }, [sportName, regionName, selectedLeague, outRightSummarySports.value]);
 
   const regionLeaguesKey = regionLeagues.join(",");
@@ -182,7 +188,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(league || "").toLowerCase()}.webp`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(league || "")}.webp`}
                       className={`w-5 h-5 object-contain`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(regionName || "")}`;

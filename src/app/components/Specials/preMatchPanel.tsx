@@ -24,6 +24,7 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { apiGetFeaturedMatches } from "@/api/special-matches/apiGetFeaturedMatches";
 import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { loadedPrematchState } from "@/state/loadedPrematch";
+import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useRouteParams } from "@/hooks/useRotueParams";
@@ -72,6 +73,24 @@ export const PreMatchPanel: FunctionComponent = () => {
       out[region][league].push({ id });
     }
     return out;
+  };
+
+  const getEventStartDate = (eventId: number) => {
+    const event = storeState.value[eventId]?.value;
+    return typeof event?.startDate === "number"
+      ? event.startDate
+      : Number.MAX_SAFE_INTEGER;
+  };
+
+  const sortFlatByStartDate = (items: FlatItem[]) => {
+    const sortedIds = sortEventIdsByStartDate(items.map((item) => item.id));
+    const orderIndex = new Map(sortedIds.map((id, index) => [id, index]));
+
+    return [...items]
+      .filter((item) => orderIndex.has(item.id))
+      .sort(
+        (a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0),
+      );
   };
 
   const flatList = useMemo((): FlatItem[] => {
@@ -124,7 +143,7 @@ export const PreMatchPanel: FunctionComponent = () => {
       //   console.log(`====filteredList`, filteredList);
       //   return filteredList;
       // }
-      return list;
+      return sortFlatByStartDate(list);
     }
 
     if (matchView === "live") {
@@ -147,7 +166,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         }
       }
-      return list;
+      return sortFlatByStartDate(list);
     }
 
     const data = summarySports.value.data?.[selectedSport];
@@ -170,7 +189,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         }
       }
     }
-    return list;
+    return sortFlatByStartDate(list);
   }, [
     matchView,
     selectedSport,
@@ -551,21 +570,7 @@ export const PreMatchPanel: FunctionComponent = () => {
                                     : "flex mb-2"
                                 }`}
                                 style={{
-                                  order:
-                                    selectedSport === "Popular"
-                                      ? (popularMatchesState.value?.[
-                                          storeState.value[event.id]?.value
-                                            ?.sport ?? ""
-                                        ]?.[region]?.[league]?.indexOf(
-                                          event.id,
-                                        ) ?? 999)
-                                      : matchView === "upcoming"
-                                        ? (popularMatchesState.value?.[
-                                            selectedSport
-                                          ]?.[region]?.[league]?.indexOf(
-                                            event.id,
-                                          ) ?? 999)
-                                        : 999,
+                                  order: getEventStartDate(event.id),
                                 }}
                               >
                                 {isMoneyline ? (

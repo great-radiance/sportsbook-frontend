@@ -16,6 +16,10 @@ import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { orderConfigState } from "@/state/orderConfigState";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import HighlightRender from "@/app/components/SportPage/HighlightRender";
+import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
+import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
+import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
 
@@ -34,29 +38,32 @@ export const SportPage: FunctionComponent = () => {
   const [selectedMarketSlug, setSelectedMarketSlug] =
     useState<string>("Winner");
   const [loading, setLoading] = useState(true);
-  const [selectedMarkets, setSelectedMarkets] = useState<Record<string, string[]>>(
-    {},
-  );
-  const [selectedOutrightMarkets, setSelectedOutrightMarkets] =
-    useState<Record<string, string[]>>({});
+  const [selectedMarkets, setSelectedMarkets] = useState<
+    Record<string, string[]>
+  >({});
+  const [selectedOutrightMarkets, setSelectedOutrightMarkets] = useState<
+    Record<string, string[]>
+  >({});
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");
-  const baseTheme = baseColorTheme.value
+  const baseTheme = baseColorTheme.value;
   const sportRegions = useMemo(
     () => summarySports.value?.data?.[sportName || ""] || {},
     [sportName],
   );
-const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upcoming">("highlights");
+  const [activeTab, setActiveTab] = useState<
+    "highlights" | "competitions" | "upcoming"
+  >("highlights");
 
   const leagueEntries = useMemo(() => {
     return Object.entries(sportRegions)
       .flatMap(([region, leagues]) =>
         Object.entries(leagues || {}).map(([league, events]) => {
           const eventIds = Object.values(events || {}).map((m) => m[0]);
-          const outrightIds =
-            Object.values(
-              outRightSummarySports.value?.[sportName || ""]?.[region]?.[league] ||
-                {},
-            ).map((m) => m[0]);
+          const outrightIds = Object.values(
+            outRightSummarySports.value?.[sportName || ""]?.[region]?.[
+              league
+            ] || {},
+          ).map((m) => m[0]);
           return {
             key: `${region}|||${league}`,
             region,
@@ -68,7 +75,10 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
         }),
       )
       .filter((entry) => entry.matchCount > 0)
-      .sort((a, b) => b.matchCount - a.matchCount || a.league.localeCompare(b.league));
+      .sort(
+        (a, b) =>
+          b.matchCount - a.matchCount || a.league.localeCompare(b.league),
+      );
   }, [sportRegions, sportName]);
 
   const selectedLeagueEntry = useMemo(() => {
@@ -94,7 +104,10 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
       }
     }
 
-    if (!selectedLeagueKey || !leagueEntries.some((entry) => entry.key === selectedLeagueKey)) {
+    if (
+      !selectedLeagueKey ||
+      !leagueEntries.some((entry) => entry.key === selectedLeagueKey)
+    ) {
       setSelectedLeagueKey(leagueEntries[0].key);
     }
   }, [leagueEntries, regionName, leagueName, selectedLeagueKey]);
@@ -109,7 +122,11 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
     try {
       const [matchRes, outrightRes] = await Promise.all([
         selectedLeagueEntry.eventIds.length > 0
-          ? apiGetMatches(selectedLeagueEntry.eventIds, "PreMatch", sportName)
+          ? apiGetMatches(
+              leagueEntries.flatMap((l) => l.eventIds),
+              "PreMatch",
+              sportName,
+            )
           : Promise.resolve({ data: [], marketsMeta: [] } as Awaited<
               ReturnType<typeof apiGetMatches>
             >),
@@ -120,7 +137,9 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
             >),
       ]);
 
-      const sortedMatches = matchRes.data.sort((a, b) => (a[9] ?? 0) - (b[9] ?? 0));
+      const sortedMatches = matchRes.data.sort(
+        (a, b) => (a[9] ?? 0) - (b[9] ?? 0),
+      );
       const sortedOutrights = outrightRes.data.sort(
         (a, b) => (a[9] ?? 0) - (b[9] ?? 0),
       );
@@ -145,7 +164,7 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
     `flex-1 py-2 text-center text-[10px] font-medium transition ${
       activeTab === tab
         ? "bg-blue-600 text-white rounded-full"
-        : "text-gray-500"
+        : "text-[var(--text-sub-color)]"
     }`;
 
   useEffect(() => {
@@ -162,8 +181,69 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
     return null;
   }
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case "highlights":
+        return (
+          <HighlightRender
+            leagueEntries={leagueEntries}
+            selectedLeagueKey={selectedLeagueKey}
+            setSelectedLeagueKey={setSelectedLeagueKey}
+            orderConfigState={orderConfigState}
+            sportName={sportName}
+            selectedCategory={selectedCategory}
+            selectedMarkets={selectedMarkets}
+            selectedOutrightMarkets={selectedOutrightMarkets}
+            selectedMarketSlug={selectedMarketSlug}
+            setSelectedMarketSlug={setSelectedMarketSlug}
+            selectedLeagueEntry={selectedLeagueEntry}
+            loading={loading}
+            BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
+            getFlagIconFromregionName={getFlagIconFromregionName}
+            getTranslatedText={getTranslatedText}
+          />
+        );
+
+      case "competitions":
+        return (
+          <CompetitionsRender
+            data={
+              stoiximanSidebarState.value.find(
+                (s) => s.name === sportName,
+              ) as any
+            }
+            sportName={sportName}
+            leagueEntries={leagueEntries}
+          />
+        );
+
+      case "upcoming":
+        return (
+          <UpcomingRender
+            leagueEntries={leagueEntries}
+            selectedLeagueKey={selectedLeagueKey}
+            setSelectedLeagueKey={setSelectedLeagueKey}
+            orderConfigState={orderConfigState}
+            sportName={sportName}
+            selectedCategory={selectedCategory}
+            selectedMarkets={selectedMarkets}
+            selectedOutrightMarkets={selectedOutrightMarkets}
+            selectedMarketSlug={selectedMarketSlug}
+            setSelectedMarketSlug={setSelectedMarketSlug}
+            selectedLeagueEntry={selectedLeagueEntry}
+            loading={loading}
+            BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
+            getFlagIconFromregionName={getFlagIconFromregionName}
+            getTranslatedText={getTranslatedText}
+          />
+        );
+    }
+  };
+
   return (
-    <div className={`relative flex flex-col w-full h-full text-[var(--text-basic-color)] my-2 rounded-lg`}>
+    <div
+      className={`relative flex flex-col w-full h-full text-[var(--text-basic-color)] my-2 rounded-lg`}
+    >
       <section className="rounded-[24px]">
         <Breadcrumbs
           items={[
@@ -176,9 +256,7 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
             <span className="text-[12px] uppercase tracking-[0.28em] text-[var(--text-sub-color)] font-semibold">
               {getTranslatedText(sportName)} sport page
             </span>
-            <div
-              className={`flex gap-[4px] flex-1 min-w-0 items-center`}
-            >
+            <div className={`flex gap-[4px] flex-1 min-w-0 items-center`}>
               <div className="w-[24px] h-full shrink-0">
                 <img
                   src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sportName}.png`}
@@ -218,91 +296,7 @@ const [activeTab, setActiveTab] = useState<"highlights" | "competitions" | "upco
           Upcoming
         </button>
       </div>
-
-      <div className="flex sticky top-0 mb-4 z-[200] bg-[var(--background-element)] flex-col w-full p-2 gap-2 rounded-b-[16px]">
-              {/* League tab list */}
-              {/* League tab list */}
-              <nav role="tablist" aria-label="Leagues" className="w-full">
-                <HorizontalTabs scrollerClassName="py-1">
-                  {leagueEntries.map((league) => {
-                    const isSelected = selectedLeagueKey === league.key;
-                    return (
-                      <button
-                        key={league}
-                        role="tab"
-                        aria-selected={isSelected}
-                        tabIndex={isSelected ? 0 : -1}
-                        title={league.league}
-                        className={[
-                          "flex shrink-0 px-4 py-2 gap-2 items-center rounded-lg text-[12px] transition-colors",
-                          "whitespace-nowrap",
-                          isSelected
-                            ? "bg-[var(--highlight-background)] font-bold border-[2px] border-[var(--border-color)]"
-                            : "bg-[var(--sub-element-secondary)] hover:bg-[var(--highlight-background)]",
-                        ].join(" ")}
-                        onClick={() => setSelectedLeagueKey(league.key)}
-                        style={{
-                          order:
-                            orderConfigState.value[sportName || ""]?.regions?.[
-                              league.region || ""
-                            ]?.leagues?.[league.league || ""]?.order || 999,
-                        }}
-                      >
-                        <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
-                          <img
-                            src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(league.region || "")}/${encodeURIComponent(league.league || "").toLowerCase()}.webp`}
-                            className={`w-5 h-5 object-contain`}
-                            onError={(e) => {
-                              e.currentTarget.src = `${getFlagIconFromregionName(league.region || "")}`;
-                              e.currentTarget.className = "rounded-full w-4 h-4";
-                            }}
-                            alt={league.league}
-                          />
-                        </div>
-      
-                        {getTranslatedText(league.league)}
-                      </button>
-                    );
-                  })}
-                </HorizontalTabs>
-              </nav>
-      
-              <MarketNavigation
-                options={
-                  selectedCategory === "Matches"
-                    ? (selectedMarkets[selectedLeagueKey] ?? [])
-                    : (selectedOutrightMarkets[selectedLeagueKey] ?? [])
-                }
-                selectedValue={selectedMarketSlug}
-                onSelect={setSelectedMarketSlug}
-              />
-            </div>
-
-      <section className="flex flex-col gap-3">
-        {loading ? (
-          <div className="flex flex-col w-full gap-[2px] mt-1">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <UpcomingMatchSkeleton key={`match-${index}`} />
-            ))}
-          </div>
-        ) : selectedCategory === "Matches" ? (
-          (selectedLeagueEntry?.eventIds || []).map((eventId) => (
-            <Match
-              key={eventId}
-              eventId={eventId}
-              marketSlug={selectedMarketSlug}
-            />
-          ))
-        ) : (
-          (selectedLeagueEntry?.outrightIds || []).map((eventId) => (
-            <Match
-              key={eventId}
-              eventId={eventId}
-              marketSlug={selectedMarketSlug}
-            />
-          ))
-        )}
-      </section>
+      {renderContent()}
     </div>
   );
 };

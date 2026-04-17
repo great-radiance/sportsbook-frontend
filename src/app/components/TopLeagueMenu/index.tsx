@@ -136,7 +136,7 @@ export const TopLeagueMenu = () => {
           >
             <div className="flex items-center justify-center rounded-md border border-[#FFFFFF20] p-1">
               <img
-                src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sport)}/${encodeURIComponent(region)}/${encodeURIComponent(league).toLowerCase()}.png`}
+                src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sport)}/${encodeURIComponent(region)}/${encodeURIComponent(league)}.webp`}
                 onError={(e) => {
                   e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-league-logo.jpg`;
                 }}

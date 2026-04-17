@@ -323,7 +323,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
           </div>
           <div className="flex relative left-[-6px] z-[1] items-center overflow-hidden w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event?.sport || "")}/${encodeURIComponent(event?.region || "")}/${encodeURIComponent(event?.league || "").toLowerCase()}.png`}
+              src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event?.sport || "")}/${encodeURIComponent(event?.region || "")}/${encodeURIComponent(event?.league || "")}.webp`}
               className="w-[12px] h-[12px] object-contain shrink-0"
               onError={(e) => {
                 e.currentTarget.src = `${getFlagIconFromregionName(event?.region || "")}`;

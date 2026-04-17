@@ -676,7 +676,7 @@ export const BetSlip: FunctionComponent = () => {
         className={`flex flex-col ${
           isMobileFabCollapsed
             ? "max-h-none w-auto max-w-none ml-auto items-end bg-transparent border-0 shadow-none p-0 mr-3"
-            : `max-h-[calc(100vh-200px)] w-full bg-[var(--sub-element-color)] shadow-[-8px_-8px_4px_rgba(0,0,0,0.15)] ${
+            : `max-h-[calc(100vh-200px)] mb-2 w-full bg-[var(--sub-element-color)] shadow-[-8px_-8px_4px_rgba(0,0,0,0.15)] ${
                 isExpanded
                   ? "rounded-t-[32px]"
                   : "rounded-[32px] border border-[var(--border-color)]"
@@ -686,50 +686,54 @@ export const BetSlip: FunctionComponent = () => {
         }`}
       >
         {/* Header — full bar (desktop / mobile expanded) or floating FAB (mobile collapsed) */}
-        {isMobileFabCollapsed ? (
-          <button
-            type="button"
-            className="relative flex h-[72px] w-[72px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-full bg-[var(--primary-color)] text-[var(--text-basic-color)] shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-transform active:scale-95"
-            onClick={() => {
-              if (selectedOdds.value.length > 0) {
-                betSlipExpanded.value = !betSlipExpanded.value;
-              }
-            }}
-            aria-label={t("betSlip")}
-          >
-            <span className="text-[15px] font-bold leading-none tabular-nums">
-              {fabTotalOdds.toFixed(2)}
-            </span>
-            <span className="absolute -right-0.5 -top-0.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[var(--background-element)] px-[5px] text-[11px] font-bold leading-none text-[var(--text-basic-color)]">
-              {selectedOdds.value.length}
-            </span>
-          </button>
-        ) : (
-          <div
-            className="flex w-full bg-[var(--primary-color)] items-center justify-between px-6 py-3 cursor-pointer"
-            onClick={() => {
-              if (selectedOdds.value.length > 0) {
-                betSlipExpanded.value = !betSlipExpanded.value;
-              }
-            }}
-          >
-            <div className="relative flex items-center h-full">
-              <img
-                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/bet.png`}
-                alt="Bet Slip"
-                className="w-8 h-8"
-              />
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--sub-element-color)] text-[10px] flex items-center justify-center text-[var(--text-basic-color)] font-bold">
+        {selectedOdds.value.length > 0 &&
+          (isMobileFabCollapsed ? (
+            <button
+              type="button"
+              className="relative flex h-[72px] w-[72px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-full bg-[var(--primary-color)] text-[var(--text-basic-color)] shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-transform active:scale-95"
+              onClick={() => {
+                if (selectedOdds.value.length > 0) {
+                  betSlipExpanded.value = !betSlipExpanded.value;
+                }
+              }}
+              aria-label={t("betSlip")}
+            >
+              <span className="text-[15px] font-bold leading-none tabular-nums">
+                {fabTotalOdds.toFixed(2)}
+              </span>
+              <span className="absolute -right-0.5 -top-0.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[var(--background-element)] px-[5px] text-[11px] font-bold leading-none text-[var(--text-basic-color)]">
                 {selectedOdds.value.length}
               </span>
+            </button>
+          ) : (
+            <div
+              className="flex w-full bg-[var(--primary-color)] items-center justify-between px-6 py-3 cursor-pointer"
+              onClick={() => {
+                if (selectedOdds.value.length > 0) {
+                  betSlipExpanded.value = !betSlipExpanded.value;
+                }
+              }}
+            >
+              <div className="relative flex items-center h-full">
+                <img
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/bet.png`}
+                  alt="Bet Slip"
+                  className="w-8 h-8"
+                />
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--sub-element-color)] text-[10px] flex items-center justify-center text-[var(--text-basic-color)] font-bold">
+                  {selectedOdds.value.length}
+                </span>
+                {/* <span className="w-5 h-5 text-[10px] flex items-center justify-center text-[var(--text-basic-color)] font-bold">
+                {fabTotalOdds.toFixed(2)}
+              </span> */}
+              </div>
+              <img
+                src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+                alt="Toggle"
+                className={`w-6 h-6 ${isExpanded ? "rotate-90" : "-rotate-90"}`}
+              />
             </div>
-            <img
-              src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-              alt="Toggle"
-              className={`w-6 h-6 ${isExpanded ? "rotate-90" : "-rotate-90"}`}
-            />
-          </div>
-        )}
+          ))}
 
         {/* Expandable content */}
         <div

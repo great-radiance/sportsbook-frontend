@@ -2,7 +2,6 @@ import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { storeState } from "@/state/storeState";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 type League = {

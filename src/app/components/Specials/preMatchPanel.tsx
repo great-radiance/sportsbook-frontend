@@ -24,10 +24,7 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { apiGetFeaturedMatches } from "@/api/special-matches/apiGetFeaturedMatches";
 import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { loadedPrematchState } from "@/state/loadedPrematch";
-import {
-  sortEventIdsByStartDate,
-  isEventValidForDisplay,
-} from "@/helpers/sortEventIdsByStartDate";
+import { isEventValidForDisplay } from "@/helpers/sortEventIdsByStartDate";
 
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useRouteParams } from "@/hooks/useRotueParams";
@@ -35,6 +32,46 @@ import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { MarketNavigation } from "../marketNavigation";
 import { getMarketId } from "@/hooks/useGetMarketId";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+
+// Top leagues configuration by sport
+type TopLeague = {
+  league: string;
+  region: string;
+};
+
+type TopLeaguesMap = {
+  [sport: string]: TopLeague[];
+};
+
+const topLeaguesMap: TopLeaguesMap = {
+  soccer: [
+    { league: "Champions League", region: "Europe" },
+    { league: "Premier League", region: "England" },
+    { league: "La Liga", region: "Spain" },
+    { league: "Serie A", region: "Italy" },
+    { league: "Bundesliga", region: "Germany" },
+    { league: "Ligue 1", region: "France" },
+    { league: "Europa League", region: "Europe" },
+    { league: "World Cup", region: "International" },
+  ],
+  basketball: [
+    { league: "NBA", region: "USA" },
+    { league: "EuroLeague", region: "Europe" },
+  ],
+  tennis: [
+    { league: "ATP", region: "International" },
+    { league: "WTA", region: "International" },
+  ],
+  americanfootball: [
+    { league: "NFL", region: "USA" },
+    { league: "Super Bowl", region: "USA" },
+  ],
+  baseball: [
+    { league: "MLB", region: "USA" },
+    { league: "World Series", region: "USA" },
+  ],
+  hockey: [{ league: "NHL", region: "USA" }],
+};
 
 export const PreMatchPanel: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
@@ -66,18 +103,6 @@ export const PreMatchPanel: FunctionComponent = () => {
     sport: string;
   };
 
-  type Grouped = Record<string, Record<string, { id: number }[]>>;
-
-  const fromFlat = (flat: FlatItem[]): Grouped => {
-    const out: Grouped = {};
-    for (const { id, region, league } of flat) {
-      if (!out[region]) out[region] = {};
-      if (!out[region][league]) out[region][league] = [];
-      out[region][league].push({ id });
-    }
-    return out;
-  };
-
   const getEventStartDate = (eventId: number) => {
     const event = storeState.value[eventId]?.value;
     return typeof event?.startDate === "number"
@@ -85,29 +110,78 @@ export const PreMatchPanel: FunctionComponent = () => {
       : Number.MAX_SAFE_INTEGER;
   };
 
-  const sortFlatByStartDate = (items: FlatItem[]) => {
-    const loadedValidIds = items
-      .map((item) => item.id)
-      .filter((id) => !!storeState.value[id]);
-    const sortedIds = sortEventIdsByStartDate(loadedValidIds);
-    const orderIndex = new Map(sortedIds.map((id, index) => [id, index]));
+  const getLeaguePriority = (
+    league: string,
+    region: string,
+    sport: string,
+  ): number => {
+    const sportKey = sport?.toLowerCase() ?? "";
+    const topLeagues = topLeaguesMap[sportKey] ?? [];
 
-    return [...items]
-      .filter((item) => {
-        const event = storeState.value[item.id]?.value;
-        if (!event) return true;
-        return orderIndex.has(item.id);
-      })
-      .sort((a, b) => {
-        const aIndex = orderIndex.has(a.id)
-          ? (orderIndex.get(a.id) ?? 0)
-          : Infinity;
-        const bIndex = orderIndex.has(b.id)
-          ? (orderIndex.get(b.id) ?? 0)
-          : Infinity;
-        if (aIndex !== bIndex) return aIndex - bIndex;
-        return a.id - b.id;
-      });
+    const index = topLeagues.findIndex(
+      (top) =>
+        top.league.toLowerCase() === league.toLowerCase() &&
+        top.region.toLowerCase() === region.toLowerCase(),
+    );
+
+    return index === -1 ? Infinity : index;
+  };
+
+  const sortFlatByStartDate = (items: FlatItem[], sport: string = "") => {
+    const getLookupSport = (item: FlatItem) =>
+      item.sport || (sport?.toLowerCase() ?? "");
+
+    const getTopGroup = (item: FlatItem) =>
+      getLeaguePriority(item.league, item.region, getLookupSport(item)) === Infinity
+        ? 1
+        : 0;
+
+    const getStartDate = (item: FlatItem) => {
+      const event = storeState.value[item.id]?.value;
+      return typeof event?.startDate === "number" ? event.startDate : null;
+    };
+
+    const isLoaded = (item: FlatItem) => getStartDate(item) !== null;
+
+    return [...items].sort((a, b) => {
+      // 1. Top leagues first
+      const groupA = getTopGroup(a);
+      const groupB = getTopGroup(b);
+      if (groupA !== groupB) return groupA - groupB;
+
+      // 2. Loaded events first
+      const loadedA = isLoaded(a);
+      const loadedB = isLoaded(b);
+      if (loadedA !== loadedB) return loadedA ? -1 : 1;
+
+      // 3. Sort by START TIME (primary sort within each group)
+      const startA = getStartDate(a);
+      const startB = getStartDate(b);
+      if (startA !== null && startB !== null && startA !== startB)
+        return startA - startB;
+
+      // 4. League priority only as tiebreaker for same start time
+      if (startA === startB) {
+        const priorityA = getLeaguePriority(
+          a.league,
+          a.region,
+          getLookupSport(a),
+        );
+        const priorityB = getLeaguePriority(
+          b.league,
+          b.region,
+          getLookupSport(b),
+        );
+        if (priorityA !== priorityB) return priorityA - priorityB;
+      }
+
+      // 5. Final tiebreakers for unloaded events
+      const regionCompare = a.region.localeCompare(b.region);
+      if (regionCompare !== 0) return regionCompare;
+      const leagueCompare = a.league.localeCompare(b.league);
+      if (leagueCompare !== 0) return leagueCompare;
+      return a.id - b.id;
+    });
   };
 
   const flatList: FlatItem[] = (() => {
@@ -130,7 +204,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         }
       }
-      return sortFlatByStartDate(list);
+      return sortFlatByStartDate(list, "");
     }
 
     if (matchView === "live") {
@@ -153,7 +227,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         }
       }
-      return sortFlatByStartDate(list);
+      return sortFlatByStartDate(list, selectedSport);
     }
 
     const data = summarySports.value.data?.[selectedSport];
@@ -176,13 +250,19 @@ export const PreMatchPanel: FunctionComponent = () => {
         }
       }
     }
-    return sortFlatByStartDate(list);
+    return sortFlatByStartDate(list, selectedSport);
   })();
 
-  const groupedLimited = useMemo(
-    () => fromFlat(flatList.slice(0, loadedCount[selectedSport] ?? 0)),
-    [flatList, loadedCount, selectedSport],
-  );
+  const displayedEvents = useMemo(() => {
+    const loaded = loadedCount[selectedSport] ?? 0;
+    return flatList
+      .slice(0, loaded)
+      .filter((item) => {
+        const storedEvent = storeState.value[item.id]?.value;
+        return !!storedEvent && isEventValidForDisplay(storedEvent);
+      })
+      .slice(0, 10);
+  }, [flatList, loadedCount, selectedSport]);
 
   useEffect(() => {
     if (Object.keys(popularMatchesState.value).length > 0) return;
@@ -212,7 +292,6 @@ export const PreMatchPanel: FunctionComponent = () => {
     if (!loadedSidebarState.value) return;
 
     if (selectedSport === "Popular") {
-      if (!summarySports.value.data) return;
       if (!popularMatchesState.value) return;
     } else if (matchView === "live") {
       if (!summarySportsLive.value.data) return;
@@ -223,7 +302,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     }
 
     const list = flatList;
-    const firstBatch = list.slice(0, 10);
+    const firstBatch = list.slice(0, 100); // Fetch 100 to ensure mix of top leagues
     if (firstBatch.length === 0) {
       setLoadingMatches(false);
       setLoading(false);
@@ -265,7 +344,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         if (
           !loadedSidebarState.value ||
           !popularMatchesState.value ||
-          pageName
+          (selectedSport !== "Popular" && pageName)
         ) {
           return;
         }
@@ -284,7 +363,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         if (selectedSport.toLowerCase() !== "popular") {
           setSelectedMarkets(res.marketsMeta);
         }
-        setLoadedCount({ [selectedSport]: firstBatch.length });
+        setLoadedCount({ [selectedSport]: selectedSport === "Popular" ? 100 : 100 }); // Display 20 for Popular, 10 for others
         loadedPrematchState.value = true;
         loadedAllMatches.value = true;
       } catch (err) {
@@ -512,80 +591,49 @@ export const PreMatchPanel: FunctionComponent = () => {
           /> */}
           <div className="flex flex-col mt-1 rounded-[4px]">
             <>
-              {flatList.length === 0 ? (
+              {displayedEvents.length === 0 ? (
                 <div className="px-2 py-2">{tCommon("noDataAvailable")}</div>
               ) : (
-                Object.keys(groupedLimited)
-                  .map((region) =>
-                    Object.keys(groupedLimited[region]).map((league) => {
-                      const eventIds = Object.values(
-                        groupedLimited[region][league],
-                      ).map((event) => event.id);
-                      const existEvents = Object.keys(storeState.value).filter(
-                        (id) => eventIds.includes(parseInt(id)),
-                      );
-                      if (existEvents.length === 0) return null;
-
-                      return (
-                        <>
-                          {groupedLimited[region][league].map((event) => {
-                            const storedEvent =
-                              storeState.value[event.id]?.value;
-                            if (
-                              !storedEvent ||
-                              !isEventValidForDisplay(storedEvent)
-                            )
-                              return null;
-                            const isMoneyline =
-                              storedEvent.sport === "Basketball" ||
-                              storedEvent.sport === "Ice Hockey";
-                            const marketId =
-                              getMarketId({
-                                eventId: event.id,
-                                marketSlug: selectedMarketName,
-                                autoSelect: true,
-                              }) ?? "";
-                            return (
-                              <div
-                                // key={event.id}
-                                className={`flex rounded-[8px] overflow-hidden ${
-                                  !marketId && !isMoneyline
-                                    ? "hidden"
-                                    : "flex mb-2"
-                                }`}
-                                style={{
-                                  order: getEventStartDate(event.id),
-                                }}
-                              >
-                                {isMoneyline ? (
-                                  <MoneylineMatch eventId={event.id} />
-                                ) : (
-                                  <Match
-                                    key={`${event.id}-${region}-${league}`}
-                                    eventId={event.id}
-                                    marketSlug={selectedMarketName}
-                                    marketId={marketId}
-                                    // isLive={true}
-                                    showLeagueLogo={true}
-                                    allowAutoSelect={
-                                      selectedSport === "Popular"
-                                    }
-                                    allowRounded={true}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </>
-                      );
-                    }),
-                  )
-                  .flat()
+                displayedEvents.map((event) => {
+                  const storedEvent = storeState.value[event.id]?.value;
+                  if (!storedEvent || !isEventValidForDisplay(storedEvent))
+                    return null;
+                  const isMoneyline =
+                    storedEvent.sport === "Basketball" ||
+                    storedEvent.sport === "Ice Hockey";
+                  const marketId =
+                    getMarketId({
+                      eventId: event.id,
+                      marketSlug: selectedMarketName,
+                      autoSelect: true,
+                    }) ?? "";
+                  return (
+                    <div
+                      key={event.id}
+                      className={`flex rounded-[8px] overflow-hidden ${
+                        !marketId && !isMoneyline ? "hidden" : "flex mb-2"
+                      }`}
+                    >
+                      {isMoneyline ? (
+                        <MoneylineMatch eventId={event.id} />
+                      ) : (
+                        <Match
+                          eventId={event.id}
+                          marketSlug={selectedMarketName}
+                          marketId={marketId}
+                          showLeagueLogo={true}
+                          allowAutoSelect={selectedSport === "Popular"}
+                          allowRounded={true}
+                        />
+                      )}
+                    </div>
+                  );
+                })
               )}
               {loadingMore && (
                 <div
                   className="flex flex-col gap-[2px] py-[2px] mt-1"
-                  style={{ order: 999 }}
+                  style={{ order: Number.MAX_SAFE_INTEGER }}
                 >
                   <UpcomingMatchSkeleton />
                   <UpcomingMatchSkeleton />

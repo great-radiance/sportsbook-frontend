@@ -16,6 +16,7 @@ import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { storeState } from "@/state/storeState";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
+import { sortLeagueNames } from "@/helpers/sortLeagues";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
 
@@ -33,10 +34,10 @@ export const RegionMatchesBoard: FunctionComponent = () => {
   >({});
   const regionData =
     summarySports.value?.data?.[sportName || ""]?.[regionName || ""];
-  const regionLeagues = useMemo(
-    () => Object.keys(regionData || {}),
-    [regionData],
-  );
+  const regionLeagues = useMemo(() => {
+    const test = Object.keys(regionData || {});
+    return sortLeagueNames(test, sportName);
+  }, [regionData]);
 
   const [selectedLeague, setSelectedLeague] = useState<string>("");
 

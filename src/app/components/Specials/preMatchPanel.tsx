@@ -24,7 +24,10 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { apiGetFeaturedMatches } from "@/api/special-matches/apiGetFeaturedMatches";
 import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { loadedPrematchState } from "@/state/loadedPrematch";
-import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
+import {
+  sortEventIdsByStartDate,
+  isEventValidForDisplay,
+} from "@/helpers/sortEventIdsByStartDate";
 
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useRouteParams } from "@/hooks/useRotueParams";
@@ -83,17 +86,31 @@ export const PreMatchPanel: FunctionComponent = () => {
   };
 
   const sortFlatByStartDate = (items: FlatItem[]) => {
-    const sortedIds = sortEventIdsByStartDate(items.map((item) => item.id));
+    const loadedValidIds = items
+      .map((item) => item.id)
+      .filter((id) => !!storeState.value[id]);
+    const sortedIds = sortEventIdsByStartDate(loadedValidIds);
     const orderIndex = new Map(sortedIds.map((id, index) => [id, index]));
 
     return [...items]
-      .filter((item) => orderIndex.has(item.id))
-      .sort(
-        (a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0),
-      );
+      .filter((item) => {
+        const event = storeState.value[item.id]?.value;
+        if (!event) return true;
+        return orderIndex.has(item.id);
+      })
+      .sort((a, b) => {
+        const aIndex = orderIndex.has(a.id)
+          ? (orderIndex.get(a.id) ?? 0)
+          : Infinity;
+        const bIndex = orderIndex.has(b.id)
+          ? (orderIndex.get(b.id) ?? 0)
+          : Infinity;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.id - b.id;
+      });
   };
 
-  const flatList = useMemo((): FlatItem[] => {
+  const flatList: FlatItem[] = (() => {
     /** Popular = featured matches only; ignores Live / Upcoming toggle */
     if (selectedSport === "Popular") {
       const list: FlatItem[] = [];
@@ -113,36 +130,6 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         }
       }
-      // if (matchView === "live") {
-      //   console.log(`====live`, list);
-      //   for (const item of list) {
-      //     console.log(
-      //       `====summarySportsLive.value.data?.[${item.sport}]?.[${item.region}]?.[${item.league}]?.[${item.id}]`,
-      //       summarySportsLive.value.data?.[item.sport]?.[item.region]?.[
-      //         item.league
-      //       ],
-      //     );
-      //   }
-      //   const filteredList = list.filter(
-      //     (item) =>
-      //       !!summarySportsLive.value.data?.[item.sport]?.[item.region]?.[
-      //         item.league
-      //       ]?.[item.id],
-      //   );
-      //   console.log(`====filteredList`, filteredList);
-      //   return filteredList;
-      // }
-      // if (matchView === "upcoming") {
-      //   console.log(`====upcoming`, list);
-      //   const filteredList = list.filter(
-      //     (item) =>
-      //       !!summarySports.value.data?.[item.sport]?.[item.region]?.[
-      //         item.league
-      //       ]?.[item.id],
-      //   );
-      //   console.log(`====filteredList`, filteredList);
-      //   return filteredList;
-      // }
       return sortFlatByStartDate(list);
     }
 
@@ -190,13 +177,7 @@ export const PreMatchPanel: FunctionComponent = () => {
       }
     }
     return sortFlatByStartDate(list);
-  }, [
-    matchView,
-    selectedSport,
-    summarySports.value.data,
-    summarySportsLive.value.data,
-    popularMatchesState.value,
-  ]);
+  })();
 
   const groupedLimited = useMemo(
     () => fromFlat(flatList.slice(0, loadedCount[selectedSport] ?? 0)),
@@ -548,19 +529,22 @@ export const PreMatchPanel: FunctionComponent = () => {
                       return (
                         <>
                           {groupedLimited[region][league].map((event) => {
-                            if (!storeState.value[event.id]) return null;
+                            const storedEvent =
+                              storeState.value[event.id]?.value;
+                            if (
+                              !storedEvent ||
+                              !isEventValidForDisplay(storedEvent)
+                            )
+                              return null;
                             const isMoneyline =
-                              storeState.value[event.id]?.value?.sport ===
-                                "Basketball" ||
-                              storeState.value[event.id]?.value?.sport ===
-                                "Ice Hockey";
+                              storedEvent.sport === "Basketball" ||
+                              storedEvent.sport === "Ice Hockey";
                             const marketId =
                               getMarketId({
                                 eventId: event.id,
                                 marketSlug: selectedMarketName,
                                 autoSelect: true,
                               }) ?? "";
-                            console.log("marketId", marketId);
                             return (
                               <div
                                 // key={event.id}

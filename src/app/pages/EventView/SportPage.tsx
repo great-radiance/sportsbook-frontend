@@ -21,6 +21,8 @@ import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
 import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
 import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 
+import { sortLeagues } from "@/helpers/sortLeagues";
+
 const CATEGORIES = ["Matches", "Outright"] as const;
 
 interface LeagueEntry {
@@ -54,7 +56,7 @@ export const SportPage: FunctionComponent = () => {
     "highlights" | "competitions" | "upcoming"
   >("highlights");
 
-  const leagueEntries = useMemo(() => {
+  const leagueEntriesNotSorted = useMemo(() => {
     return Object.entries(sportRegions)
       .flatMap(([region, leagues]) =>
         Object.entries(leagues || {}).map(([league, events]) => {
@@ -80,6 +82,10 @@ export const SportPage: FunctionComponent = () => {
           b.matchCount - a.matchCount || a.league.localeCompare(b.league),
       );
   }, [sportRegions, sportName]);
+
+  const leagueEntries: LeagueEntry[] = useMemo(() => {
+    return sortLeagues(leagueEntriesNotSorted, sportName);
+  }, [leagueEntriesNotSorted]);
 
   const selectedLeagueEntry = useMemo(() => {
     if (regionName && leagueName) {

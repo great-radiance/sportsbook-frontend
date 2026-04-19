@@ -46,20 +46,20 @@ const topLeaguesMap: TopLeaguesMap = {
 
     // 🇬🇧 England
     { league: "Premier League", region: "England" },
-    { league: "FA Cup", region: "England" },
-    { league: "EFL Cup", region: "England" },
+    // { league: "FA Cup", region: "England" },
+    // { league: "EFL Cup", region: "England" },
 
     // 🇪🇸 Spain
     { league: "La Liga", region: "Spain" },
-    { league: "Copa del Rey", region: "Spain" },
+    // { league: "Copa del Rey", region: "Spain" },
 
     // 🇮🇹 Italy
     { league: "Serie A", region: "Italy" },
-    { league: "Coppa Italia", region: "Italy" },
+    // { league: "Coppa Italia", region: "Italy" },
 
     // 🇩🇪 Germany
     { league: "Bundesliga", region: "Germany" },
-    { league: "DFB Pokal", region: "Germany" },
+    // { league: "DFB Pokal", region: "Germany" },
 
     // 🇫🇷 France
     { league: "Ligue 1", region: "France" },

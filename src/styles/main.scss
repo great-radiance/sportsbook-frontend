@@ -8,59 +8,83 @@
 @tailwind components;
 @tailwind utilities;
 
-// CSS Variables for theming
+/* ================= LIGHT THEME ================= */
 :root,
 :host,
 #sportsbook-main-layout,
 #sportsbook-main-layout[data-theme="light"] {
+  /* Backgrounds */
   --background-header: #ffffff;
-  --background-color: #eceff9;
-  --background-element: #fcfcfd;
+  --background-color: #eef3ef;
+  --background-element: #fcfefd;
   --sub-element-color: #ffffff;
-  --highlight-background: #b8c5e066;
+  --sub-element-secondary: #f4faf6;
 
-  --sub-element-secondary: #f7f9fc;
-
-  --border-color: #cdd1dd;
+  /* Borders */
+  --border-color: #d6e4da;
   --primary-border-color: #1e222b;
-  --focused-primary-border-color: #a9b9d1;
+  --focused-primary-border-color: #9ed1b0;
 
+  /* Primary (GREEN CORE) */
   --primary-color: #00a727;
+  --primary-soft-bg: rgba(0, 167, 39, 0.1);
+  --primary-strong-bg: rgba(0, 167, 39, 0.18);
 
-  --text-primary-color: #01a825;
-  --text-basic-color: #212536;
-  --text-sub-color: #526789;
-  --text-green: #79d297;
-  --text-blue: #154fc1;
-  --text-red: #ff3449;
-  --text-yellow: #ffd700;
+  /* Text */
+  --text-primary-color: #00a727;
+  --text-basic-color: #1f2a24;
+  --text-sub-color: #5f7a6a;
+
+  --text-green: #00a727;
+  --text-red: #ff4d4f;
+  --text-yellow: #e6b800;
   --text-notheme-color: #c9c9c9;
 
-  --green-color: #109121;
-  --greenblue-color: #1a7051;
+  /* Extras */
+  --highlight-background: rgba(0, 167, 39, 0.08);
 
-  /* Scrollbars (WebKit + Firefox scrollbar-color) */
-  --scrollbar-track: #e2e6ef;
-  --scrollbar-thumb: #b8c0d0;
-  --scrollbar-thumb-hover: #9aa6b8;
-  --scrollbar-corner: #e2e6ef;
+  /* Scrollbars */
+  --scrollbar-track: #e6efe9;
+  --scrollbar-thumb: #b7cfc0;
+  --scrollbar-thumb-hover: #9fbba9;
+  --scrollbar-corner: #e6efe9;
 }
+
+/* ================= DARK THEME ================= */
 :root,
 :host,
 #sportsbook-main-layout[data-theme="dark"] {
-  --background-color: #010502;
-  --background-element: #010502;
-  --sub-element-color: #121713;
-  --highlight-background: #b8c5e01f;
-  --sub-element-secondary: #1d251f;
-  --border-color: #2d374d;
-  --primary-border-color: #526789;
-  --text-primary-color: #7aa7ff;
-  --text-basic-color: #c9c9c9;
-  --text-sub-color: #c0cce7;
+  /* Backgrounds (deep green, not black) */
+  --background-header: #0f1512;
+  --background-color: #0b110d;
+  --background-element: #0f1712;
+  --sub-element-color: #121c16;
+  --sub-element-secondary: #16221b;
 
-  --scrollbar-track: #2b2d31;
-  --scrollbar-thumb: #6b6f76;
-  --scrollbar-thumb-hover: #858a92;
-  --scrollbar-corner: #2b2d31;
+  /* Borders */
+  --border-color: #24352b;
+  --primary-border-color: #3e5c4a;
+
+  /* Primary (same green, adjusted brightness) */
+  --primary-color: #00c853;
+  --primary-soft-bg: rgba(0, 200, 83, 0.14);
+  --primary-strong-bg: rgba(0, 200, 83, 0.25);
+
+  /* Text */
+  --text-primary-color: #00e676;
+  --text-basic-color: #d7f5e4;
+  --text-sub-color: #9ccbb0;
+
+  --text-green: #00e676;
+  --text-red: #ff6b6b;
+  --text-yellow: #ffd54f;
+
+  /* Extras */
+  --highlight-background: rgba(0, 200, 83, 0.1);
+
+  /* Scrollbars */
+  --scrollbar-track: #1a2a22;
+  --scrollbar-thumb: #355f49;
+  --scrollbar-thumb-hover: #4c7f63;
+  --scrollbar-corner: #1a2a22;
 }

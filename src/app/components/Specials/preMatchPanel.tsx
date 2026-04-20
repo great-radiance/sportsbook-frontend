@@ -32,6 +32,8 @@ import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { MarketNavigation } from "../marketNavigation";
 import { getMarketId } from "@/hooks/useGetMarketId";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+import TrendingAccas from "../HomePage.tsx/TrendingAccas";
+import { HorizontalTabs } from "../HorizontalTabs";
 
 // Top leagues configuration by sport
 type TopLeague = {
@@ -267,7 +269,9 @@ export const PreMatchPanel: FunctionComponent = () => {
     const candidates = flatList.slice(0, loaded);
     const validEvents = candidates.filter((item) => {
       const storedEvent = storeState.value[item.id]?.value;
-      return !!storedEvent && (isLiveMode || isEventValidForDisplay(storedEvent));
+      return (
+        !!storedEvent && (isLiveMode || isEventValidForDisplay(storedEvent))
+      );
     });
     if (validEvents.length > 0) {
       return validEvents;
@@ -355,7 +359,10 @@ export const PreMatchPanel: FunctionComponent = () => {
           return;
         }
 
-        if (!loadedSidebarState.value || (selectedSport !== "Popular" && pageName)) {
+        if (
+          !loadedSidebarState.value ||
+          (selectedSport !== "Popular" && pageName)
+        ) {
           return;
         }
 
@@ -456,7 +463,14 @@ export const PreMatchPanel: FunctionComponent = () => {
         setLoadingMore(false);
       }
     })();
-  }, [loadingMore, loadedCount, flatList, selectedSport, matchView, isLiveMode]);
+  }, [
+    loadingMore,
+    loadedCount,
+    flatList,
+    selectedSport,
+    matchView,
+    isLiveMode,
+  ]);
 
   const handleSelectLiveView = useCallback(() => {
     setMatchView("live");
@@ -523,11 +537,14 @@ export const PreMatchPanel: FunctionComponent = () => {
 
   return (
     <div
-      className={`overflow-hidden flex w-full flex-col gap-2 md:p-2 rounded-[16px] bg-[var(--background-element)] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
+      className={`overflow-hidden flex w-full flex-col gap-2 rounded-[16px] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
+      // className={`overflow-hidden flex w-full flex-col gap-2 md:p-2 rounded-[16px] bg-[var(--background-element)] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
     >
       <div className="flex flex-col w-full sticky top-0">
-        <div className="flex w-full pt-4 pb-2 px-2 items-center justify-between">
-          <span className="text-[20px] font-bold">{t("Join-the-action")}</span>
+        <div className="flex w-full pt-4 pb-2 items-center justify-between">
+          <span className="text-[20px] uppercase font-bold">
+            {t("Join-the-action")}
+          </span>
           <div
             className="flex shrink-0 items-center gap-1 rounded-[10px]  p-1"
             role="group"
@@ -660,14 +677,13 @@ export const PreMatchPanel: FunctionComponent = () => {
                   const marketSlug = isLiveMode
                     ? selectedMarketName || selectedMarkets[0] || ""
                     : selectedMarketName;
-                  const marketId =
-                    !isLiveMode
-                      ? (getMarketId({
-                          eventId: event.id,
-                          marketSlug,
-                          autoSelect: true,
-                        }) ?? "")
-                      : "";
+                  const marketId = !isLiveMode
+                    ? (getMarketId({
+                        eventId: event.id,
+                        marketSlug,
+                        autoSelect: true,
+                      }) ?? "")
+                    : "";
                   const canRenderLiveMatch =
                     !isLiveMode ||
                     isMoneyline ||
@@ -690,7 +706,9 @@ export const PreMatchPanel: FunctionComponent = () => {
                           marketSlug={marketSlug}
                           marketId={isLiveMode ? undefined : marketId}
                           showLeagueLogo={true}
-                          allowAutoSelect={selectedSport === "Popular" || isLiveMode}
+                          allowAutoSelect={
+                            selectedSport === "Popular" || isLiveMode
+                          }
                           allowRounded={true}
                         />
                       )}

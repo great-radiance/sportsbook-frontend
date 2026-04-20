@@ -364,15 +364,6 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
     setExpandedIds((prev) => new Set([...prev, ...fromRoute]));
   }, [sportName, regionName, leagueName]);
 
-  useEffect(() => {
-    const roots = sortChildren(stoiximanSidebarState.value);
-    if (roots.length === 0) return;
-    setExpandedIds((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set([`n-${roots[0].id}`]);
-    });
-  }, [stoiximanSidebarState.value.length]);
-
   return (
     <div className="flex flex-col w-full gap-2 md:gap-[2px] text-[var(--text-basic-color)] rounded-[4px]">
       <div className="w-full h-px bg-[var(--border-color)]" />

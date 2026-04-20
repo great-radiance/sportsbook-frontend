@@ -50,7 +50,7 @@ export const SportPage: FunctionComponent = () => {
   const baseTheme = baseColorTheme.value;
   const sportRegions = useMemo(
     () => summarySports.value?.data?.[sportName || ""] || {},
-    [sportName],
+    [sportName, summarySports.value],
   );
   const [activeTab, setActiveTab] = useState<
     "highlights" | "competitions" | "upcoming"
@@ -81,7 +81,7 @@ export const SportPage: FunctionComponent = () => {
         (a, b) =>
           b.matchCount - a.matchCount || a.league.localeCompare(b.league),
       );
-  }, [sportRegions, sportName]);
+  }, [sportRegions, sportName, outRightSummarySports.value]);
 
   const leagueEntries: LeagueEntry[] = useMemo(() => {
     return sortLeagues(leagueEntriesNotSorted, sportName);
@@ -128,11 +128,7 @@ export const SportPage: FunctionComponent = () => {
     try {
       const [matchRes, outrightRes] = await Promise.all([
         selectedLeagueEntry.eventIds.length > 0
-          ? apiGetMatches(
-              leagueEntries.flatMap((l) => l.eventIds),
-              "PreMatch",
-              sportName,
-            )
+          ? apiGetMatches(selectedLeagueEntry.eventIds, "PreMatch", sportName)
           : Promise.resolve({ data: [], marketsMeta: [] } as Awaited<
               ReturnType<typeof apiGetMatches>
             >),

@@ -36,6 +36,8 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
     }));
   };
 
+  const toUnderscore = (value: string) => value.trim().replace(/\s+/g, "_");
+
   useEffect(() => {
     console.log(leagueEntries);
   }, [leagueEntries]);
@@ -53,14 +55,23 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
           <p className="font-semibold uppercase text-sm mb-3">Popular</p>
 
           <div className="grid w-full grid-cols-2  gap-2">
-            {popularLeagues.map((league) => (
-              <div
-                key={league.id}
-                className="p-2 rounded w-full bg-[var(--sub-element-secondary)] text-[13px]"
-              >
-                {league.name}
-              </div>
-            ))}
+            {popularLeagues.map((league) => {
+              // Find the region for this league from leagueEntries
+              const leagueEntry = leagueEntries?.find(
+                (entry) => entry.league === league.name,
+              );
+              const regionName = leagueEntry?.region || "International";
+              console.log(regionName);
+              return (
+                <a
+                  href={`/#sportsbook=/event-view/pre-match/${sportName}/${regionName}/${toUnderscore(league.name)}`}
+                  key={league.id}
+                  className="p-2 rounded w-full bg-[var(--sub-element-secondary)] text-[13px]"
+                >
+                  {league.name}
+                </a>
+              );
+            })}
           </div>
         </div>
         {continents.map((continent) => (
@@ -99,7 +110,7 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
                           alt={region.name}
                         />
                         <a
-                          href={`http://localhost:3000/#sportsbook=/event-view/pre-match/${sportName}/${region.name}`}
+                          href={`/#sportsbook=/event-view/pre-match/${sportName}/${region.name}`}
                         >
                           {region.name}
                         </a>
@@ -118,7 +129,7 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
                       <div className="ml-4 mt-1 flex flex-col gap-1">
                         {filteredLeagues.map((league) => (
                           <a
-                            href={`http://localhost:3000/#sportsbook=/event-view/pre-match/${sportName}/${region.name}`}
+                            href={`/#sportsbook=/event-view/pre-match/${sportName}/${region.name}/${toUnderscore(league.league)}`}
                             className="p-2 cursor-pointer hover:font-bold rounded text-[12px]"
                             key={league.key}
                           >

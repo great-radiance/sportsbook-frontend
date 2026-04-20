@@ -24,13 +24,15 @@ export const StarPlayers: FunctionComponent = () => {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex w-full pt-4 pb-2 px-4 gap-2 text-[20px] items-center">
+      <div className="flex align-items w-full pt-4 pb-2 gap-2 text-[20px] items-center">
         <img
           src={`${BASE_ASSET_PUBLIC_URL}/icons/star.png`}
           alt="Star Players"
-          className="w-6 h-6 brightness-0"
+          className="w-5 h-5"
         />
-        <div className="font-semibold">Star Players</div>
+        <div className="text-[20px] uppercase text-[var(--text-basic-color)] font-semibold">
+          Star Players
+        </div>
       </div>
 
       <div className="players-carousel relative w-full">

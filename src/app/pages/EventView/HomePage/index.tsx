@@ -6,6 +6,9 @@ import { TopLeagueMenu } from "@/app/components/TopLeagueMenu";
 import { isMobile } from "@/state/isMobile";
 import { loadedPrematchState } from "@/state/loadedPrematch";
 import { UpcomingMatches } from "@/app/components/Specials/UpcomingMatches";
+import { HorizontalTabs } from "@/app/components/HorizontalTabs";
+import TrendingAccas from "@/app/components/HomePage.tsx/TrendingAccas";
+import { StarPlayers } from "@/app/components/StarPlayers";
 
 export const HomePage: FunctionComponent = () => {
   const [shouldRenderLive, setShouldRenderLive] = useState(false);
@@ -51,17 +54,16 @@ export const HomePage: FunctionComponent = () => {
   }, []);
 
   return (
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex md:p-2 w-full flex-col gap-2">
       {isMobile.value && <TopLeagueMenu />}
       <PreMatchPanel />
-      <div
-        ref={sentinelRef}
-        className="h-1 w-full shrink-0"
-        aria-hidden="true"
-      />
+
+      <HorizontalTabs>
+        <TrendingAccas />
+      </HorizontalTabs>
       {/* {loadedPrematchState.value && <LiveMatchesPanel />} */}
       {/* <PopularMatches /> */}
-      {/* <StarPlayers /> */}
+      <StarPlayers />
       {/* <UpcomingMatches /> */}
     </div>
   );

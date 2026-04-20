@@ -18,6 +18,7 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MatchesGroup } from "./components/MatchesGroup";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { apiGetMatchesAuto } from "@/api/matches/apiGetMatchesAuto";
+import { Breadcrumbs } from "../Breadcrumbs";
 
 const switchCategory = (
   category: string,
@@ -179,8 +180,16 @@ export const MatchesBoard: FunctionComponent = () => {
 
   return (
     <div
-      className={`relative flex flex-col w-full h-full shadow-[-4px_4px_4px_rgba(0,0,0,0.1)] text-[var(--text-notheme-color)] my-2 rounded-lg`}
+      className={`relative flex flex-col w-full h-full shadow-[-4px_4px_4px_rgba(0,0,0,0.1)] text-[var(--text-notheme-color)] mb-2 rounded-lg`}
     >
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/event-view" },
+          { label: getTranslatedText(sportName || "") },
+          { label: getTranslatedText(regionName || "") },
+          { label: getTranslatedText(leagueName || "") },
+        ]}
+      />
       <div
         className="flex flex-col w-full p-2 rounded-b-[16px] sticky top-0 z-[200] gap-2"
         style={{

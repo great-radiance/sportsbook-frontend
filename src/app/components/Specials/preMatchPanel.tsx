@@ -58,14 +58,6 @@ const topLeaguesMap: TopLeaguesMap = {
     { league: "NBA", region: "USA" },
     { league: "EuroLeague", region: "Europe" },
   ],
-  tennis: [
-    { league: "ATP", region: "International" },
-    { league: "WTA", region: "International" },
-  ],
-  americanfootball: [
-    { league: "NFL", region: "USA" },
-    { league: "Super Bowl", region: "USA" },
-  ],
   baseball: [
     { league: "MLB", region: "USA" },
     { league: "World Series", region: "USA" },
@@ -132,7 +124,8 @@ export const PreMatchPanel: FunctionComponent = () => {
       item.sport || (sport?.toLowerCase() ?? "");
 
     const getTopGroup = (item: FlatItem) =>
-      getLeaguePriority(item.league, item.region, getLookupSport(item)) === Infinity
+      getLeaguePriority(item.league, item.region, getLookupSport(item)) ===
+      Infinity
         ? 1
         : 0;
 
@@ -255,14 +248,19 @@ export const PreMatchPanel: FunctionComponent = () => {
 
   const displayedEvents = useMemo(() => {
     const loaded = loadedCount[selectedSport] ?? 0;
-    return flatList
-      .slice(0, loaded)
-      .filter((item) => {
-        const storedEvent = storeState.value[item.id]?.value;
-        return !!storedEvent && isEventValidForDisplay(storedEvent);
-      })
-      .slice(0, 10);
-  }, [flatList, loadedCount, selectedSport]);
+    const candidates = flatList.slice(0, loaded);
+    const validEvents = candidates.filter((item) => {
+      const storedEvent = storeState.value[item.id]?.value;
+      return !!storedEvent && isEventValidForDisplay(storedEvent);
+    });
+    if (validEvents.length > 0) {
+      return validEvents.slice(0, 10);
+    }
+    const storedEvents = candidates.filter(
+      (item) => !!storeState.value[item.id]?.value,
+    );
+    return storedEvents.slice(0, 10);
+  }, [flatList, loadedCount, selectedSport, storeState.value]);
 
   useEffect(() => {
     if (Object.keys(popularMatchesState.value).length > 0) return;
@@ -363,7 +361,9 @@ export const PreMatchPanel: FunctionComponent = () => {
         if (selectedSport.toLowerCase() !== "popular") {
           setSelectedMarkets(res.marketsMeta);
         }
-        setLoadedCount({ [selectedSport]: selectedSport === "Popular" ? 100 : 100 }); // Display 20 for Popular, 10 for others
+        setLoadedCount({
+          [selectedSport]: selectedSport === "Popular" ? 100 : 100,
+        }); // Display 20 for Popular, 10 for others
         loadedPrematchState.value = true;
         loadedAllMatches.value = true;
       } catch (err) {

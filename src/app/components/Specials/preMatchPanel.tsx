@@ -81,6 +81,8 @@ export const PreMatchPanel: FunctionComponent = () => {
   const [sportsData, setSportsData] = useState<
     { count: number; name: string; slug: string }[]
   >([]);
+  const [isSportsListInitialized, setIsSportsListInitialized] =
+    useState<boolean>(false);
   const [loadedCount, setLoadedCount] = useState<Record<string, number>>({});
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [loadedSports, setLoadedSports] = useState<Record<string, Set<string>>>(
@@ -93,6 +95,18 @@ export const PreMatchPanel: FunctionComponent = () => {
     region: string;
     league: string;
     sport: string;
+  };
+
+  const liveMatchWouldRender = (
+    event: any,
+    marketSlug: string,
+    allowAutoSelect: boolean,
+  ) => {
+    if (!event?.markets) return false;
+    const markets = Object.values(event.markets).map((sig: any) => sig.value);
+    if (!markets.length) return false;
+    if (markets.find((m: any) => m.name === marketSlug)?.id) return true;
+    return allowAutoSelect && !!markets[0]?.id;
   };
 
   const getEventStartDate = (eventId: number) => {
@@ -220,7 +234,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         }
       }
-      return sortFlatByStartDate(list, selectedSport);
+      return list;
     }
 
     const data = summarySports.value.data?.[selectedSport];
@@ -246,21 +260,23 @@ export const PreMatchPanel: FunctionComponent = () => {
     return sortFlatByStartDate(list, selectedSport);
   })();
 
+  const isLiveMode = matchView === "live";
+
   const displayedEvents = useMemo(() => {
     const loaded = loadedCount[selectedSport] ?? 0;
     const candidates = flatList.slice(0, loaded);
     const validEvents = candidates.filter((item) => {
       const storedEvent = storeState.value[item.id]?.value;
-      return !!storedEvent && isEventValidForDisplay(storedEvent);
+      return !!storedEvent && (isLiveMode || isEventValidForDisplay(storedEvent));
     });
     if (validEvents.length > 0) {
-      return validEvents.slice(0, 10);
+      return validEvents;
     }
     const storedEvents = candidates.filter(
       (item) => !!storeState.value[item.id]?.value,
     );
-    return storedEvents.slice(0, 10);
-  }, [flatList, loadedCount, selectedSport, storeState.value]);
+    return storedEvents;
+  }, [flatList, loadedCount, selectedSport, storeState.value, isLiveMode]);
 
   useEffect(() => {
     if (Object.keys(popularMatchesState.value).length > 0) return;
@@ -300,7 +316,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     }
 
     const list = flatList;
-    const firstBatch = list.slice(0, 100); // Fetch 100 to ensure mix of top leagues
+    const firstBatch = list.slice(0, isLiveMode ? 10 : 100);
     if (firstBatch.length === 0) {
       setLoadingMatches(false);
       setLoading(false);
@@ -339,11 +355,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           return;
         }
 
-        if (
-          !loadedSidebarState.value ||
-          !popularMatchesState.value ||
-          (selectedSport !== "Popular" && pageName)
-        ) {
+        if (!loadedSidebarState.value || (selectedSport !== "Popular" && pageName)) {
           return;
         }
 
@@ -357,13 +369,17 @@ export const PreMatchPanel: FunctionComponent = () => {
                 selectedSport,
               );
         if (cancelled) return;
-        convertAndStoreEvent(res.data);
+        convertAndStoreEvent(
+          isLiveMode
+            ? res.data.sort((a, b) => (b[9] ?? 0) - (a[9] ?? 0))
+            : res.data,
+        );
         if (selectedSport.toLowerCase() !== "popular") {
           setSelectedMarkets(res.marketsMeta);
         }
         setLoadedCount({
-          [selectedSport]: selectedSport === "Popular" ? 100 : 100,
-        }); // Display 20 for Popular, 10 for others
+          [selectedSport]: firstBatch.length,
+        });
         loadedPrematchState.value = true;
         loadedAllMatches.value = true;
       } catch (err) {
@@ -391,6 +407,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     loadedSidebarState.value,
     popularMatchesState.value,
     matchView,
+    isLiveMode,
   ]);
 
   const handleShowMore = useCallback(() => {
@@ -424,7 +441,11 @@ export const PreMatchPanel: FunctionComponent = () => {
 
       try {
         if (!res) return;
-        convertAndStoreEvent(res.data);
+        convertAndStoreEvent(
+          isLiveMode
+            ? res.data.sort((a, b) => (b[9] ?? 0) - (a[9] ?? 0))
+            : res.data,
+        );
         setLoadedCount((prev) => ({
           ...prev,
           [selectedSport]: prev[selectedSport] + nextBatch.length,
@@ -435,11 +456,31 @@ export const PreMatchPanel: FunctionComponent = () => {
         setLoadingMore(false);
       }
     })();
-  }, [loadingMore, loadedCount, flatList, selectedSport, matchView]);
+  }, [loadingMore, loadedCount, flatList, selectedSport, matchView, isLiveMode]);
+
+  const handleSelectLiveView = useCallback(() => {
+    setMatchView("live");
+    if (selectedSport !== "Popular") return;
+    const liveSports = Object.keys(summarySportsLive.value.data ?? {});
+    setSelectedSport(liveSports[0] ?? "Soccer");
+  }, [selectedSport]);
+
+  const handleSelectUpcomingView = useCallback(() => {
+    setLoading(true);
+    setLoadingMatches(true);
+    setMatchView("upcoming");
+  }, []);
+
+  const handleDeselectUpcomingView = useCallback(() => {
+    setLoading(true);
+    setLoadingMatches(true);
+    setMatchView("");
+  }, []);
 
   useEffect(() => {
     if (matchView === "live" && selectedSport !== "Popular") {
       const liveData = summarySportsLive.value.data ?? {};
+
       setSportsData(
         Object.keys(liveData).map((sport) => ({
           count: Object.values(liveData[sport] ?? {}).reduce(
@@ -474,6 +515,12 @@ export const PreMatchPanel: FunctionComponent = () => {
     );
   }, [summarySports.value, summarySportsLive.value, matchView, selectedSport]);
 
+  useEffect(() => {
+    if (sportsData.length > 0 && !isSportsListInitialized) {
+      setIsSportsListInitialized(true);
+    }
+  }, [sportsData, isSportsListInitialized]);
+
   return (
     <div
       className={`overflow-hidden flex w-full flex-col gap-2 md:p-2 rounded-[16px] bg-[var(--background-element)] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
@@ -495,7 +542,7 @@ export const PreMatchPanel: FunctionComponent = () => {
             >
               <button
                 type="button"
-                onClick={() => setMatchView("live")}
+                onClick={handleSelectLiveView}
                 className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5"
               >
                 <img
@@ -527,7 +574,7 @@ export const PreMatchPanel: FunctionComponent = () => {
             >
               <button
                 type="button"
-                onClick={() => setMatchView("upcoming")}
+                onClick={handleSelectUpcomingView}
                 className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5"
               >
                 <img
@@ -543,7 +590,7 @@ export const PreMatchPanel: FunctionComponent = () => {
                 <button
                   type="button"
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[16px] leading-none text-[var(--text-sub-color)] hover:bg-black/5 hover:text-[var(--text-basic-color)]"
-                  onClick={() => setMatchView("")}
+                  onClick={handleDeselectUpcomingView}
                   aria-label={t("live")}
                 >
                   ×
@@ -568,7 +615,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           sportsData={sportsData}
           selectedSport={selectedSport}
           onSelectSport={(sport) => setSelectedSport(sport)}
-          loading={loading}
+          loading={loading && !isSportsListInitialized}
           isLive={selectedSport === "Popular" ? false : matchView === "live"}
           showPopular={true}
         />
@@ -580,8 +627,14 @@ export const PreMatchPanel: FunctionComponent = () => {
           />
         )}
       </div>
-      {loadingMatches && (loadedCount[selectedSport] ?? 0) === 0 ? (
-        <LiveMatchesPanelLoader showMarketTabs={false} />
+      {loadingMatches ? (
+        <div className="flex flex-col mt-1 rounded-[4px]">
+          <div className="flex flex-col gap-[2px] py-[2px]">
+            <UpcomingMatchSkeleton />
+            <UpcomingMatchSkeleton />
+            <UpcomingMatchSkeleton />
+          </div>
+        </div>
       ) : (
         <>
           {/* <MarketNavigation
@@ -596,22 +649,37 @@ export const PreMatchPanel: FunctionComponent = () => {
               ) : (
                 displayedEvents.map((event) => {
                   const storedEvent = storeState.value[event.id]?.value;
-                  if (!storedEvent || !isEventValidForDisplay(storedEvent))
+                  if (
+                    !storedEvent ||
+                    (!isLiveMode && !isEventValidForDisplay(storedEvent))
+                  )
                     return null;
                   const isMoneyline =
                     storedEvent.sport === "Basketball" ||
                     storedEvent.sport === "Ice Hockey";
+                  const marketSlug = isLiveMode
+                    ? selectedMarketName || selectedMarkets[0] || ""
+                    : selectedMarketName;
                   const marketId =
-                    getMarketId({
-                      eventId: event.id,
-                      marketSlug: selectedMarketName,
-                      autoSelect: true,
-                    }) ?? "";
+                    !isLiveMode
+                      ? (getMarketId({
+                          eventId: event.id,
+                          marketSlug,
+                          autoSelect: true,
+                        }) ?? "")
+                      : "";
+                  const canRenderLiveMatch =
+                    !isLiveMode ||
+                    isMoneyline ||
+                    liveMatchWouldRender(storedEvent, marketSlug, true);
+                  if (!canRenderLiveMatch) return null;
                   return (
                     <div
                       key={event.id}
                       className={`flex rounded-[8px] overflow-hidden ${
-                        !marketId && !isMoneyline ? "hidden" : "flex mb-2"
+                        !isLiveMode && !marketId && !isMoneyline
+                          ? "hidden"
+                          : "flex mb-2"
                       }`}
                     >
                       {isMoneyline ? (
@@ -619,10 +687,10 @@ export const PreMatchPanel: FunctionComponent = () => {
                       ) : (
                         <Match
                           eventId={event.id}
-                          marketSlug={selectedMarketName}
-                          marketId={marketId}
+                          marketSlug={marketSlug}
+                          marketId={isLiveMode ? undefined : marketId}
                           showLeagueLogo={true}
-                          allowAutoSelect={selectedSport === "Popular"}
+                          allowAutoSelect={selectedSport === "Popular" || isLiveMode}
                           allowRounded={true}
                         />
                       )}

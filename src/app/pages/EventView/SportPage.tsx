@@ -20,6 +20,7 @@ import HighlightRender from "@/app/components/SportPage/HighlightRender";
 import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
 import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
 import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
+
 import { sortLeagues } from "@/helpers/sortLeagues";
 
 const CATEGORIES = ["Matches", "Outright"] as const;

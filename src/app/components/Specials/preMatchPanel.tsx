@@ -91,6 +91,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     {},
   );
   const { pageName } = useRouteParams();
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   type FlatItem = {
     id: number;
@@ -320,10 +321,19 @@ export const PreMatchPanel: FunctionComponent = () => {
     }
 
     const list = flatList;
-    const firstBatch = list.slice(0, isLiveMode ? 10 : 100);
+    const firstBatch = list.slice(0, isLiveMode ? 10 : 50);
+    console.log(firstBatch);
     if (firstBatch.length === 0) {
-      setLoadingMatches(false);
-      setLoading(false);
+      if (
+        selectedSport === "Popular"
+          ? Object.keys(popularMatchesState.value).length > 0
+          : matchView === "live"
+            ? !!summarySportsLive.value.data?.[selectedSport]
+            : !!summarySports.value.data?.[selectedSport]
+      ) {
+        setLoadingMatches(false);
+        setLoading(false);
+      }
       setLoadedCount({ [selectedSport]: 0 });
       return;
     }

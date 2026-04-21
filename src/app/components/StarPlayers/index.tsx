@@ -3,6 +3,7 @@ import { TopPlayerCard } from "./TopPlayerCard";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useCallback, useRef } from "preact/hooks";
 import "./style.scss";
+import { HorizontalTabs } from "../HorizontalTabs";
 
 export const StarPlayers: FunctionComponent = () => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -39,37 +40,12 @@ export const StarPlayers: FunctionComponent = () => {
         <div className="players-viewport" ref={viewportRef}>
           <div className="players-container">
             {Array.from({ length: 11 }).map((_, i) => (
-              <div className="players-slide" key={i}>
+              <HorizontalTabs>
                 <TopPlayerCard />
-              </div>
+              </HorizontalTabs>
             ))}
           </div>
         </div>
-
-        <button
-          type="button"
-          className="players-button players-button--prev"
-          onClick={scrollPrev}
-          aria-label="Previous slide"
-        >
-          <img
-            src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-            alt="Previous"
-            className="rotate-180"
-          />
-        </button>
-
-        <button
-          type="button"
-          className="players-button players-button--next"
-          onClick={scrollNext}
-          aria-label="Next slide"
-        >
-          <img
-            src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-            alt="Next"
-          />
-        </button>
       </div>
     </div>
   );

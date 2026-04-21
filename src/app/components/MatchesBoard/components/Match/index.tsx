@@ -264,7 +264,7 @@ export const Match: FunctionComponent<MatchProps> = ({
       }}
     >
       <span
-        className={`text-[var(--text-sub-color)] w-[60px] text-[12px] flex shrink-0 flex-col md:h-full p-[4px] items-center justify-start md:justify-center md:text-right`}
+        className={`text-[var(--text-sub-color)] w-[60px] text-[12px] flex shrink-0 gap-1 md:gap-0 md:flex-col md:h-full p-[4px] items-center justify-start md:justify-center md:text-right`}
       >
         {isLive ? (
           <>

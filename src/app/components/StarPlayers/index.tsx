@@ -1,7 +1,13 @@
 import { FunctionComponent } from "preact";
 import { TopPlayerCard, StarPlayerCardData } from "./TopPlayerCard";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "preact/hooks";
 import "./style.scss";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
@@ -105,33 +111,41 @@ const buildStarPlayers = (
       const marketName = String(market.name || "");
       const lowerMarket = marketName.toLowerCase();
 
-      Object.entries(market.odds.odds).forEach(([oddId, oddSig]: [string, any]) => {
-        const odd = oddSig?.value;
-        const oddStatus = String(odd?.status || "").toLowerCase();
-        const oddValue = Number(odd?.value);
-        if (!(oddStatus === "nu" || oddStatus === "new" || oddStatus === "active"))
-          return;
-        if (!Number.isFinite(oddValue) || oddValue <= 1.01) return;
+      Object.entries(market.odds.odds).forEach(
+        ([oddId, oddSig]: [string, any]) => {
+          const odd = oddSig?.value;
+          const oddStatus = String(odd?.status || "").toLowerCase();
+          const oddValue = Number(odd?.value);
+          if (
+            !(
+              oddStatus === "nu" ||
+              oddStatus === "new" ||
+              oddStatus === "active"
+            )
+          )
+            return;
+          if (!Number.isFinite(oddValue) || oddValue <= 1.01) return;
 
-        const outcomeName = formatOddName(odd?.name, event.participants);
-        const lowerOutcome = outcomeName.toLowerCase();
-        const isPlayerMarket = PLAYER_MARKET_KEYWORDS.some(
-          (k) => lowerMarket.includes(k) || lowerOutcome.includes(k),
-        );
-        if (!isPlayerMarket) return;
-        const playerName = extractPlayerName(marketName, outcomeName);
-        if (!isLikelyPlayerName(playerName)) return;
+          const outcomeName = formatOddName(odd?.name, event.participants);
+          const lowerOutcome = outcomeName.toLowerCase();
+          const isPlayerMarket = PLAYER_MARKET_KEYWORDS.some(
+            (k) => lowerMarket.includes(k) || lowerOutcome.includes(k),
+          );
+          if (!isPlayerMarket) return;
+          const playerName = extractPlayerName(marketName, outcomeName);
+          if (!isLikelyPlayerName(playerName)) return;
 
-        rows.push({
-          oddsId: oddId,
-          eventId: event.id,
-          playerName,
-          matchName,
-          marketName,
-          outcomeName,
-          odds: oddValue,
-        });
-      });
+          rows.push({
+            oddsId: oddId,
+            eventId: event.id,
+            playerName,
+            matchName,
+            marketName,
+            outcomeName,
+            odds: oddValue,
+          });
+        },
+      );
     }
   }
 
@@ -142,8 +156,12 @@ const buildStarPlayers = (
 
   return Array.from(unique.values())
     .sort((a, b) => {
-      const aScore = (a.marketName.toLowerCase().includes("anytime goalscorer") ? -1 : 0) + a.odds;
-      const bScore = (b.marketName.toLowerCase().includes("anytime goalscorer") ? -1 : 0) + b.odds;
+      const aScore =
+        (a.marketName.toLowerCase().includes("anytime goalscorer") ? -1 : 0) +
+        a.odds;
+      const bScore =
+        (b.marketName.toLowerCase().includes("anytime goalscorer") ? -1 : 0) +
+        b.odds;
       return aScore - bScore;
     })
     .slice(0, 20);
@@ -176,7 +194,10 @@ export const StarPlayers: FunctionComponent = () => {
 
   useEffect(() => {
     const rebuild = () => {
-      const next = buildStarPlayers(popularMatchesState.value, storeState.value);
+      const next = buildStarPlayers(
+        popularMatchesState.value,
+        storeState.value,
+      );
       setPlayers(next);
     };
     rebuild();
@@ -202,7 +223,7 @@ export const StarPlayers: FunctionComponent = () => {
       const odd = market?.odds?.odds?.[selected.oddsId]?.value;
       handleClickOdd({
         oddId: selected.oddsId,
-        oddName: formatOddName(odd?.name, event.participants),
+        oddName: formatOddName(odd?.name, event.participants as any[]),
         eventId: selected.eventId,
         marketId,
         marketName: market?.name || "Player Market",

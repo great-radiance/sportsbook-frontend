@@ -3,58 +3,67 @@ import React from "react";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
 import { popularMatchesState } from "@/state/popularMatchesState";
+import { selectedOdds, selectedBetType } from "@/state/betState";
+import { notify } from "@/shared/toast";
 
 // Helper function to extract all available odds from a match
 const extractAllOdds = (match: any) => {
   const oddsList: Array<{
+    marketId: string;
     marketName: string;
     outcomeName: string;
     value: number;
+    oddsId: string;
     participants: any;
   }> = [];
 
   if (!match.markets) return oddsList;
 
-  Object.values(match.markets).forEach((market: any) => {
+  Object.entries(match.markets).forEach(([marketId, market]: [string, any]) => {
     if (!market.value.odds?.odds) return;
 
     const marketName = market.value.name;
     const participants = match.participants;
 
-    Object.values(market.value.odds.odds).forEach((odd: any) => {
-      if (odd.value.status === "nu" && odd.value.value) {
-        let outcomeName = "";
+    Object.entries(market.value.odds.odds).forEach(
+      ([oddId, odd]: [string, any]) => {
+        if (odd.value.status === "nu" && odd.value.value) {
+          let outcomeName = "";
 
-        // Extract outcome name based on market type
-        if (odd.value.name?.e) {
-          // Handle Match Result (1, 0, 2)
-          if (odd.value.name.e === "1")
-            outcomeName = `${participants[0]?.name || "Home"} Win`;
-          else if (odd.value.name.e === "0") outcomeName = "Draw";
-          else if (odd.value.name.e === "2")
-            outcomeName = `${participants[1]?.name || "Away"} Win`;
-          else if (odd.value.name.e === "yes") outcomeName = "Both Teams Score";
-          else if (odd.value.name.e === "no")
-            outcomeName = "Both Teams NOT Score";
-          else if (odd.value.name.e === "over")
-            outcomeName = `Over ${odd.value.name.h || ""}`;
-          else if (odd.value.name.e === "under")
-            outcomeName = `Under ${odd.value.name.h || ""}`;
-          else outcomeName = odd.value.name.e;
-        } else if (odd.value.name?.h) {
-          outcomeName = odd.value.name.h;
-        } else {
-          outcomeName = "Unknown";
+          // Extract outcome name based on market type
+          if (odd.value.name?.e) {
+            // Handle Match Result (1, 0, 2)
+            if (odd.value.name.e === "1")
+              outcomeName = `${participants[0]?.name || "Home"} Win`;
+            else if (odd.value.name.e === "0") outcomeName = "Draw";
+            else if (odd.value.name.e === "2")
+              outcomeName = `${participants[1]?.name || "Away"} Win`;
+            else if (odd.value.name.e === "yes")
+              outcomeName = "Both Teams Score";
+            else if (odd.value.name.e === "no")
+              outcomeName = "Both Teams NOT Score";
+            else if (odd.value.name.e === "over")
+              outcomeName = `Over ${odd.value.name.h || ""}`;
+            else if (odd.value.name.e === "under")
+              outcomeName = `Under ${odd.value.name.h || ""}`;
+            else outcomeName = odd.value.name.e;
+          } else if (odd.value.name?.h) {
+            outcomeName = odd.value.name.h;
+          } else {
+            outcomeName = "Unknown";
+          }
+
+          oddsList.push({
+            marketId,
+            marketName,
+            outcomeName,
+            value: odd.value.value,
+            oddsId: oddId,
+            participants,
+          });
         }
-
-        oddsList.push({
-          marketName,
-          outcomeName,
-          value: odd.value.value,
-          participants,
-        });
-      }
-    });
+      },
+    );
   });
 
   return oddsList;
@@ -71,7 +80,7 @@ const formatDate = (timestamp: number) => {
     .padStart(2, "0")}`;
 };
 
-// Generate a random coupon from popularMatchesState
+// Generate a random coupon from popularMatchesState (always 5 odds)
 const generateRandomCoupon = (popularMatches: any, storeState: any) => {
   // Extract all match IDs from popularMatchesState
   const matchIds: number[] = [];
@@ -93,36 +102,34 @@ const generateRandomCoupon = (popularMatches: any, storeState: any) => {
 
   if (availableMatches.length === 0) return [];
 
-  const numberOfSelections = 5; // 5 selections per coupon
+  const numberOfSelections = 5; // Always 5 selections per coupon
   // Shuffle matches for random selection
   const shuffledMatches = [...availableMatches].sort(() => 0.5 - Math.random());
   const selectedBets: any[] = [];
 
-  for (let i = 0; i < numberOfSelections && i < shuffledMatches.length; i++) {
-    const match: any = shuffledMatches[i];
+  // Keep trying until we have exactly 5 selections
+  for (const match of shuffledMatches) {
+    if (selectedBets.length >= numberOfSelections) break;
+
     const allOdds = extractAllOdds(match.value);
     if (allOdds.length === 0) continue;
 
     // Randomly select an odd from available odds
     const randomOdd: any = allOdds[Math.floor(Math.random() * allOdds.length)];
-    console.log({
-      matchId: match.value.id,
-      matchName: `${match.value.participants[0]?.name || "Home"} vs ${match.value.participants[1]?.name || "Away"}`,
-      league: match.value.league,
-      region: match.value.region,
-      marketName: randomOdd.marketName,
-      outcomeName: randomOdd.outcomeName,
-      odds: randomOdd.value,
-      date: formatDate(match.value.startDate),
-    });
+
     selectedBets.push({
       matchId: match.value.id,
       matchName: `${match.value.participants[0]?.name || "Home"} vs ${match.value.participants[1]?.name || "Away"}`,
       league: match.value.league,
       region: match.value.region,
+      sport: match.value.sport,
+      startDate: match.value.startDate,
+      marketId: randomOdd.marketId,
       marketName: randomOdd.marketName,
       outcomeName: randomOdd.outcomeName,
       odds: randomOdd.value,
+      oddsId: randomOdd.oddId,
+      participants: randomOdd.participants,
       date: formatDate(match.value.startDate),
     });
   }
@@ -148,30 +155,89 @@ const getRandomBetCount = () => {
   return Math.floor(Math.random() * 200) + 50;
 };
 
+// Add a single odd to the bet slip
+const addSingleOddToBetSlip = (bet: any) => {
+  const oddData = {
+    sport: bet.sport,
+    region: bet.region,
+    league: bet.league,
+    oddsId: bet.oddsId,
+    name: bet.outcomeName,
+    marketId: bet.marketId,
+    eventId: bet.matchId,
+    sportSlug: bet.sport,
+    marketName: bet.marketName,
+    participants: bet.participants,
+    startDate: bet.startDate,
+    isBuilding: false,
+    selectedBank: false,
+    amount: 0,
+  };
+
+  // Use the same logic as handleClickOdd from Market.tsx
+  const current = Array.isArray(selectedOdds.value) ? selectedOdds.value : [];
+  const existingIndex = current.findIndex((o) => o.oddsId === oddData.oddsId);
+
+  if (existingIndex >= 0) {
+    // Already selected, remove it
+    selectedOdds.value = current.filter((o) => o.oddsId !== oddData.oddsId);
+  } else {
+    // Add new odd
+    selectedOdds.value = [...current, oddData];
+    selectedBetType.value = "single";
+  }
+};
+
+// Add all coupon odds to bet slip as multi bet
+const addCouponToBetSlip = (coupon: any[]) => {
+  if (coupon.length === 0) return;
+
+  const newOdds = coupon.map((bet) => ({
+    sport: bet.sport,
+    region: bet.region,
+    league: bet.league,
+    oddsId: bet.oddsId,
+    name: bet.outcomeName,
+    marketId: bet.marketId,
+    eventId: bet.matchId,
+    sportSlug: bet.sport,
+    marketName: bet.marketName,
+    participants: bet.participants,
+    startDate: bet.startDate,
+    isBuilding: false,
+    selectedBank: false,
+    amount: 0,
+  }));
+
+  selectedOdds.value = newOdds;
+  selectedBetType.value = "multi";
+  notify("Added to bet slip", "success");
+};
+
 const TrendingAccas = () => {
   // Generate 3 random coupons from popularMatchesState
-  // Load only once when storeState is initialized
   const [coupons, setCoupons] = React.useState<any[]>([]);
-  const [isInitialized, setIsInitialized] = React.useState(false);
+  const isInitializedRef = React.useRef(false);
 
   React.useEffect(() => {
-    // Only load once when storeState has data (is initialized)
-    if (isInitialized) return;
-
     // Check if storeState has any data
     const hasData = Object.keys(storeState.value).length > 0;
-    if (!hasData) return;
+    const hasPopularMatches = Object.keys(popularMatchesState.value).length > 0;
 
-    setIsInitialized(true);
+    // Only generate coupons once when both storeState and popularMatchesState have data
+    if (!hasData || !hasPopularMatches) return;
+    if (isInitializedRef.current) return;
+
+    isInitializedRef.current = true;
 
     const newCoupons = Array(3)
       .fill(null)
       .map(() =>
         generateRandomCoupon(popularMatchesState.value, storeState.value),
       )
-      .filter((coupon) => coupon.length > 0);
+      .filter((coupon) => coupon.length === 5); // Only keep coupons with exactly 5 odds
     setCoupons(newCoupons);
-  }, [isInitialized, storeState.value]);
+  }, [storeState.value, popularMatchesState.value]);
 
   if (coupons.length === 0) {
     return null;
@@ -251,13 +317,14 @@ const TrendingAccas = () => {
                         </div>
                       </div>
 
-                      {/* Odds */}
+                      {/* Odds - Clickable */}
                       <div
-                        className="px-3 py-1 rounded-md text-sm font-semibold shrink-0"
+                        className="px-3 py-1 rounded-md text-sm font-semibold shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                         style={{
                           color: "var(--text-primary-color)",
                           backgroundColor: "var(--primary-soft-bg)",
                         }}
+                        onClick={() => addSingleOddToBetSlip(bet)}
                       >
                         {bet.odds}
                       </div>
@@ -275,11 +342,12 @@ const TrendingAccas = () => {
                   </div>
 
                   <button
-                    className="w-full py-2 rounded-md font-semibold text-sm"
+                    className="w-full py-2 rounded-md font-semibold text-sm cursor-pointer hover:opacity-90 transition-opacity"
                     style={{
                       backgroundColor: "var(--primary-strong-bg)",
                       color: "var(--text-basic-color)",
                     }}
+                    onClick={() => addCouponToBetSlip(coupon)}
                   >
                     ADD TO BETSLIP »{" "}
                     <span style={{ color: "var(--primary-color)" }}>

@@ -1,11 +1,11 @@
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import React from "react";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
 import { popularMatchesState } from "@/state/popularMatchesState";
 import { selectedOdds, selectedBetType } from "@/state/betState";
 import { notify } from "@/shared/toast";
 import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 // Helper function to extract all available odds from a match
 const extractAllOdds = (match: any) => {
@@ -211,10 +211,10 @@ const addCouponToBetSlip = (coupon: any[]) => {
 
 const TrendingAccas = () => {
   // Generate 3 random coupons from popularMatchesState
-  const [coupons, setCoupons] = React.useState<any[]>([]);
-  const lastSourceSignatureRef = React.useRef<string>("");
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const lastSourceSignatureRef = useRef<string>("");
 
-  const rebuildCoupons = React.useCallback(() => {
+  const rebuildCoupons = useCallback(() => {
     const currentStore = storeState.value;
     const currentPopular = popularMatchesState.value;
     const hasData = Object.keys(currentStore).length > 0;
@@ -252,7 +252,7 @@ const TrendingAccas = () => {
     }
   }, [coupons.length]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     rebuildCoupons();
     const intervalId = window.setInterval(rebuildCoupons, 2000);
     return () => window.clearInterval(intervalId);

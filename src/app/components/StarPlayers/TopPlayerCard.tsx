@@ -1,7 +1,25 @@
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { FunctionComponent } from "preact";
 
-export const TopPlayerCard: FunctionComponent = () => {
+export type StarPlayerCardData = {
+  oddsId: string;
+  eventId: number;
+  playerName: string;
+  matchName: string;
+  marketName: string;
+  outcomeName: string;
+  odds: number;
+};
+
+type TopPlayerCardProps = {
+  data: StarPlayerCardData;
+  onAddToBetSlip: (oddsId: string) => void;
+};
+
+export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
+  data,
+  onAddToBetSlip,
+}) => {
   return (
     <div className="relative flex flex-col items-center justify-end gap-2 w-[238px] h-[290px]">
       <div className="flex flex-col relative w-full h-[270px] rounded-[12px] overflow-hidden bg-[#840E2E]">
@@ -40,8 +58,10 @@ export const TopPlayerCard: FunctionComponent = () => {
             />
           </div>
           <div className="flex flex-col text-white w-full items-center justify-center pt-3 pb-2">
-            <span className="text-[14px] font-bold">Ollie Watkins</span>
-            <span className="text-[12px]">Aston Villa - Nottingham Forest</span>
+            <span className="text-[14px] font-bold text-center px-2">
+              {data.playerName}
+            </span>
+            <span className="text-[12px] text-center px-2">{data.matchName}</span>
           </div>
         </div>
         <div className="flex flex-col w-full justify-center items-center p-2">
@@ -53,38 +73,17 @@ export const TopPlayerCard: FunctionComponent = () => {
               </div>
               <div className="flex-1 items-center justify-center">
                 <span className="text-[12px] text-white">
-                  Match Result - <span className="font-bold">Aston Villa</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col justify-between items-center h-full gap-[2px]">
-                <div className="w-2 h-2 rounded-full border-[2px] border-white" />
-                <div className="w-px h-1 bg-[#A5B3CF]" />
-              </div>
-              <div className="flex-1">
-                <span className="text-[12px] text-white">
-                  Over/Under Total Goals -{" "}
-                  <span className="font-bold">Over 1.5</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col justify-start h-full items-center gap-[2px]">
-                <div className="w-2 h-2 rounded-full border-[2px] border-white" />
-              </div>
-              <div className="flex-1">
-                <span className="text-[12px] text-white">
-                  Ollie Watkins Shots On Target -{" "}
-                  <span className="font-bold">1+</span>
+                  {data.marketName} -{" "}
+                  <span className="font-bold">{data.outcomeName}</span>
                 </span>
               </div>
             </div>
           </div>
-          <button className="flex w-full text-[14px] bg-[var(--sub-element-secondary)] items-center justify-center rounded-[8px] text-[var(--text-primary-color)] font-bold h-[36px]">
-            2.80
+          <button
+            className="flex w-full text-[14px] bg-[var(--sub-element-secondary)] items-center justify-center rounded-[8px] text-[var(--text-primary-color)] font-bold h-[36px]"
+            onClick={() => onAddToBetSlip(data.oddsId)}
+          >
+            {data.odds.toFixed(2)}
           </button>
         </div>
       </div>

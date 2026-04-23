@@ -5,6 +5,7 @@ import { storeState } from "@/state/storeState";
 import { popularMatchesState } from "@/state/popularMatchesState";
 import { selectedOdds, selectedBetType } from "@/state/betState";
 import { notify } from "@/shared/toast";
+import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
 
 // Helper function to extract all available odds from a match
 const extractAllOdds = (match: any) => {
@@ -27,7 +28,11 @@ const extractAllOdds = (match: any) => {
 
     Object.entries(market.value.odds.odds).forEach(
       ([oddId, odd]: [string, any]) => {
-        if (odd.value.status === "nu" && odd.value.value) {
+        const oddStatus = (odd.value.status || "").toLowerCase();
+        const oddValue = Number(odd.value.value);
+        const isSelectableStatus =
+          oddStatus === "nu" || oddStatus === "new" || oddStatus === "active";
+        if (isSelectableStatus && Number.isFinite(oddValue) && oddValue > 0) {
           let outcomeName = "";
 
           // Extract outcome name based on market type
@@ -57,7 +62,7 @@ const extractAllOdds = (match: any) => {
             marketId,
             marketName,
             outcomeName,
-            value: odd.value.value,
+            value: oddValue,
             oddsId: oddId,
             participants,
           });
@@ -81,7 +86,7 @@ const formatDate = (timestamp: number) => {
 };
 
 // Generate a random coupon from popularMatchesState (always 5 odds)
-const generateRandomCoupon = (popularMatches: any, storeState: any) => {
+const generateRandomCoupon = (popularMatches: any, storeStateMap: any) => {
   // Extract all match IDs from popularMatchesState
   const matchIds: number[] = [];
   for (const sport of Object.keys(popularMatches)) {
@@ -96,8 +101,9 @@ const generateRandomCoupon = (popularMatches: any, storeState: any) => {
   if (matchIds.length === 0) return [];
 
   // Get actual match data from storeState
-  const availableMatches = matchIds
-    .map((id) => storeState[id])
+  const uniqueMatchIds = Array.from(new Set(matchIds));
+  const availableMatches = uniqueMatchIds
+    .map((id) => storeStateMap[id])
     .filter((match) => match?.value);
 
   if (availableMatches.length === 0) return [];
@@ -106,10 +112,12 @@ const generateRandomCoupon = (popularMatches: any, storeState: any) => {
   // Shuffle matches for random selection
   const shuffledMatches = [...availableMatches].sort(() => 0.5 - Math.random());
   const selectedBets: any[] = [];
+  const usedMatchIds = new Set<number>();
 
   // Keep trying until we have exactly 5 selections
   for (const match of shuffledMatches) {
     if (selectedBets.length >= numberOfSelections) break;
+    if (usedMatchIds.has(match.value.id)) continue;
 
     const allOdds = extractAllOdds(match.value);
     if (allOdds.length === 0) continue;
@@ -128,13 +136,14 @@ const generateRandomCoupon = (popularMatches: any, storeState: any) => {
       marketName: randomOdd.marketName,
       outcomeName: randomOdd.outcomeName,
       odds: randomOdd.value,
-      oddsId: randomOdd.oddId,
+      oddsId: randomOdd.oddsId,
       participants: randomOdd.participants,
       date: formatDate(match.value.startDate),
     });
+    usedMatchIds.add(match.value.id);
   }
 
-  return selectedBets;
+  return selectedBets.length === numberOfSelections ? selectedBets : [];
 };
 
 // Calculate total odds for a coupon
@@ -157,40 +166,26 @@ const getRandomBetCount = () => {
 
 // Add a single odd to the bet slip
 const addSingleOddToBetSlip = (bet: any) => {
-  const oddData = {
-    sport: bet.sport,
-    region: bet.region,
-    league: bet.league,
-    oddsId: bet.oddsId,
-    name: bet.outcomeName,
-    marketId: bet.marketId,
+  selectedBetType.value = "single";
+  handleClickOdd({
+    oddId: bet.oddsId,
+    oddName: bet.outcomeName,
     eventId: bet.matchId,
-    sportSlug: bet.sport,
+    marketId: bet.marketId,
     marketName: bet.marketName,
     participants: bet.participants,
     startDate: bet.startDate,
-    isBuilding: false,
-    selectedBank: false,
-    amount: 0,
-  };
-
-  // Use the same logic as handleClickOdd from Market.tsx
-  const current = Array.isArray(selectedOdds.value) ? selectedOdds.value : [];
-  const existingIndex = current.findIndex((o) => o.oddsId === oddData.oddsId);
-
-  if (existingIndex >= 0) {
-    // Already selected, remove it
-    selectedOdds.value = current.filter((o) => o.oddsId !== oddData.oddsId);
-  } else {
-    // Add new odd
-    selectedOdds.value = [...current, oddData];
-    selectedBetType.value = "single";
-  }
+    sportSlug: bet.sport,
+  });
 };
 
 // Add all coupon odds to bet slip as multi bet
 const addCouponToBetSlip = (coupon: any[]) => {
   if (coupon.length === 0) return;
+  if (coupon.length !== 5) {
+    notify("Combo must contain exactly 5 odds", "warning");
+    return;
+  }
 
   const newOdds = coupon.map((bet) => ({
     sport: bet.sport,
@@ -217,27 +212,51 @@ const addCouponToBetSlip = (coupon: any[]) => {
 const TrendingAccas = () => {
   // Generate 3 random coupons from popularMatchesState
   const [coupons, setCoupons] = React.useState<any[]>([]);
-  const isInitializedRef = React.useRef(false);
+  const lastSourceSignatureRef = React.useRef<string>("");
+
+  const rebuildCoupons = React.useCallback(() => {
+    const currentStore = storeState.value;
+    const currentPopular = popularMatchesState.value;
+    const hasData = Object.keys(currentStore).length > 0;
+    const hasPopularMatches = Object.keys(currentPopular).length > 0;
+
+    if (!hasData || !hasPopularMatches) return;
+
+    const sourceSignature = `${Object.keys(currentPopular).length}|${Object.keys(currentStore).length}|${Object.keys(currentStore)
+      .slice(0, 200)
+      .map((id) => {
+        const ev = currentStore[Number(id)]?.value;
+        return `${id}:${ev?.status || ""}:${Object.keys(ev?.markets || {}).length}`;
+      })
+      .join(",")}`;
+
+    if (sourceSignature === lastSourceSignatureRef.current && coupons.length > 0) {
+      return;
+    }
+
+    const nextCoupons: any[] = [];
+    let attempts = 0;
+    while (nextCoupons.length < 3 && attempts < 40) {
+      attempts += 1;
+      const coupon = generateRandomCoupon(currentPopular, currentStore);
+      if (coupon.length !== 5) continue;
+      const signature = coupon.map((b) => b.oddsId).join("|");
+      if (!nextCoupons.some((c) => c.map((b: any) => b.oddsId).join("|") === signature)) {
+        nextCoupons.push(coupon);
+      }
+    }
+
+    if (nextCoupons.length > 0) {
+      setCoupons(nextCoupons);
+      lastSourceSignatureRef.current = sourceSignature;
+    }
+  }, [coupons.length]);
 
   React.useEffect(() => {
-    // Check if storeState has any data
-    const hasData = Object.keys(storeState.value).length > 0;
-    const hasPopularMatches = Object.keys(popularMatchesState.value).length > 0;
-
-    // Only generate coupons once when both storeState and popularMatchesState have data
-    if (!hasData || !hasPopularMatches) return;
-    if (isInitializedRef.current) return;
-
-    isInitializedRef.current = true;
-
-    const newCoupons = Array(3)
-      .fill(null)
-      .map(() =>
-        generateRandomCoupon(popularMatchesState.value, storeState.value),
-      )
-      .filter((coupon) => coupon.length === 5); // Only keep coupons with exactly 5 odds
-    setCoupons(newCoupons);
-  }, [storeState.value, popularMatchesState.value]);
+    rebuildCoupons();
+    const intervalId = window.setInterval(rebuildCoupons, 2000);
+    return () => window.clearInterval(intervalId);
+  }, [rebuildCoupons]);
 
   if (coupons.length === 0) {
     return null;

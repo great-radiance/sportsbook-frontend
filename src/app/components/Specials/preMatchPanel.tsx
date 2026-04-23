@@ -98,6 +98,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     region: string;
     league: string;
     sport: string;
+    startDate: number | null;
   };
 
   const liveMatchWouldRender = (
@@ -112,11 +113,22 @@ export const PreMatchPanel: FunctionComponent = () => {
     return allowAutoSelect && !!markets[0]?.id;
   };
 
-  const getEventStartDate = (eventId: number) => {
-    const event = storeState.value[eventId]?.value;
-    return typeof event?.startDate === "number"
-      ? event.startDate
-      : Number.MAX_SAFE_INTEGER;
+  const getEventStartDateFromSummary = (rawEvent: any): number | null => {
+    if (!Array.isArray(rawEvent)) return null;
+    // Prematch payload shape provided by user: [id, false, startDate]
+    if (typeof rawEvent[2] === "number") return rawEvent[2];
+    // Backward-compatible fallbacks for other feeds
+    if (typeof rawEvent[3] === "number") return rawEvent[3];
+    if (typeof rawEvent[9] === "number") return rawEvent[9];
+    return null;
+  };
+
+  const normalizeLeagueEvents = (leagueNode: any): any[] => {
+    if (!leagueNode) return [];
+    // New shape: league is already an array of tuples
+    if (Array.isArray(leagueNode)) return leagueNode;
+    // Old shape: league is object keyed by id => tuple
+    return Object.values(leagueNode);
   };
 
   const getLeaguePriority = (
@@ -146,10 +158,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         ? 1
         : 0;
 
-    const getStartDate = (item: FlatItem) => {
-      const event = storeState.value[item.id]?.value;
-      return typeof event?.startDate === "number" ? event.startDate : null;
-    };
+    const getStartDate = (item: FlatItem) => item.startDate;
 
     const isLoaded = (item: FlatItem) => getStartDate(item) !== null;
 
@@ -159,7 +168,7 @@ export const PreMatchPanel: FunctionComponent = () => {
       const groupB = getTopGroup(b);
       if (groupA !== groupB) return groupA - groupB;
 
-      // 2. Loaded events first
+      // 2. Events with summary startDate first
       const loadedA = isLoaded(a);
       const loadedB = isLoaded(b);
       if (loadedA !== loadedB) return loadedA ? -1 : 1;
@@ -185,7 +194,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         if (priorityA !== priorityB) return priorityA - priorityB;
       }
 
-      // 5. Final tiebreakers for unloaded events
+      // 5. Final deterministic tiebreakers
       const regionCompare = a.region.localeCompare(b.region);
       if (regionCompare !== 0) return regionCompare;
       const leagueCompare = a.league.localeCompare(b.league);
@@ -209,6 +218,7 @@ export const PreMatchPanel: FunctionComponent = () => {
                 region: region as string,
                 league: league as string,
                 sport: sport as string,
+                startDate: null,
               });
             }
           }
@@ -225,13 +235,14 @@ export const PreMatchPanel: FunctionComponent = () => {
         for (const region of regions) {
           const leagues = Object.keys(data[region] ?? {});
           for (const league of leagues) {
-            const events = Object.values(data[region]?.[league] ?? {});
+            const events = normalizeLeagueEvents(data[region]?.[league]);
             for (const e of events) {
               list.push({
                 id: e[0],
                 region: region as string,
                 league: league as string,
                 sport: selectedSport as string,
+                startDate: getEventStartDateFromSummary(e),
               });
             }
           }
@@ -248,13 +259,14 @@ export const PreMatchPanel: FunctionComponent = () => {
       for (const region of regions) {
         const leagues = Object.keys(data[region] ?? {});
         for (const league of leagues) {
-          const events = Object.values(data[region]?.[league] ?? {});
+          const events = normalizeLeagueEvents(data[region]?.[league]);
           for (const e of events) {
             list.push({
               id: e[0],
               region: region as string,
               league: league as string,
               sport: selectedSport as string,
+              startDate: getEventStartDateFromSummary(e),
             });
           }
         }

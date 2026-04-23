@@ -5,6 +5,7 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { selectedOdds, selectedBetType } from "@/state/betState";
 import { notify } from "@/shared/toast";
 import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
+
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 // Helper function to extract all available odds from a match
@@ -215,6 +216,7 @@ const TrendingAccas = () => {
   const lastSourceSignatureRef = useRef<string>("");
 
   const rebuildCoupons = useCallback(() => {
+
     const currentStore = storeState.value;
     const currentPopular = popularMatchesState.value;
     const hasData = Object.keys(currentStore).length > 0;
@@ -253,6 +255,7 @@ const TrendingAccas = () => {
   }, [coupons.length]);
 
   useEffect(() => {
+
     rebuildCoupons();
     const intervalId = window.setInterval(rebuildCoupons, 2000);
     return () => window.clearInterval(intervalId);

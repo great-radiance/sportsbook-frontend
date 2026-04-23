@@ -284,6 +284,7 @@ export const PreMatchPanel: FunctionComponent = () => {
   }, [flatList, loadedCount, selectedSport, storeState.value, isLiveMode]);
 
   useEffect(() => {
+    console.log(popularMatchesState);
     if (Object.keys(popularMatchesState.value).length > 0) return;
     (async () => {
       try {
@@ -322,7 +323,7 @@ export const PreMatchPanel: FunctionComponent = () => {
 
     const list = flatList;
     const firstBatch = list.slice(0, isLiveMode ? 10 : 50);
-    console.log(firstBatch);
+
     if (firstBatch.length === 0) {
       if (
         selectedSport === "Popular"

@@ -23,7 +23,7 @@ export const isEventValidForDisplay = (event?: {
 
 export const sortEventIdsByStartDate = (ids: number[]) =>
   [...ids]
-    .filter((id) => isEventValidForDisplay(storeState.value[id]?.value))
+    // .filter((id) => isEventValidForDisplay(storeState.value[id]?.value))
     .sort((a, b) => {
       const aEvent = storeState.value[a]?.value;
       const bEvent = storeState.value[b]?.value;

@@ -60,6 +60,8 @@ export const RegionMatchesBoard: FunctionComponent = () => {
     );
   }, [sportName, regionName, selectedLeague]);
 
+  console.log("eventIdsForSelectedLeague", eventIdsForSelectedLeague);
+
   const outrightEventIdsForSelectedLeague = useMemo((): number[] => {
     if (!sportName || !regionName || !selectedLeague) return [];
     const leagueOutrights =

@@ -58,7 +58,7 @@ export const RightSidebar: FunctionComponent = () => {
         <OpenBets />
       </div>
       {/* <div
-        className="absolute hidden md:block left-0 z-[100] right-0"
+        className="absolute hidden md:flex left-0 z-[100] right-0"
         style={{
           bottom: `${bottom}px`,
         }}

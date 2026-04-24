@@ -318,7 +318,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         <TabList />
         {/* <img
           src={`${BASE_ASSET_PUBLIC_URL}/icons/search.png`}
-          className="w-6 h-6 hidden md:block brightness-0 invert absolute z-[100] right-5 top-4 cursor-pointer"
+          className="w-6 h-6 hidden md:flex brightness-0 invert absolute z-[100] right-5 top-4 cursor-pointer"
           onClick={() => {
             showSearchState.value = !showSearchState.value;
           }}

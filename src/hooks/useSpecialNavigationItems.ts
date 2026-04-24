@@ -45,7 +45,7 @@ export const useSpecialNavigationItems = () => {
       {
         id: "competitions",
         name: t("FAVOURITE_COMPETITIONS"),
-        icon: "multiple",
+        // icon: "multiple",
         color: "yellow",
         hasArrow: true,
         isExpandable: true,

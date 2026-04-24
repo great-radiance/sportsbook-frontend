@@ -334,7 +334,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     }
 
     const list = flatList;
-    const firstBatch = list.slice(0, isLiveMode ? 10 : 50);
+    const firstBatch = list.slice(0, 10);
 
     if (firstBatch.length === 0) {
       if (

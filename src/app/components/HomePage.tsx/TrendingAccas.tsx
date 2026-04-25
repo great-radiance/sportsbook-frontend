@@ -216,7 +216,6 @@ const TrendingAccas = () => {
   const lastSourceSignatureRef = useRef<string>("");
 
   const rebuildCoupons = useCallback(() => {
-
     const currentStore = storeState.value;
     const currentPopular = popularMatchesState.value;
     const hasData = Object.keys(currentStore).length > 0;
@@ -224,7 +223,9 @@ const TrendingAccas = () => {
 
     if (!hasData || !hasPopularMatches) return;
 
-    const sourceSignature = `${Object.keys(currentPopular).length}|${Object.keys(currentStore).length}|${Object.keys(currentStore)
+    const sourceSignature = `${Object.keys(currentPopular).length}|${Object.keys(currentStore).length}|${Object.keys(
+      currentStore,
+    )
       .slice(0, 200)
       .map((id) => {
         const ev = currentStore[Number(id)]?.value;
@@ -232,7 +233,10 @@ const TrendingAccas = () => {
       })
       .join(",")}`;
 
-    if (sourceSignature === lastSourceSignatureRef.current && coupons.length > 0) {
+    if (
+      sourceSignature === lastSourceSignatureRef.current &&
+      coupons.length > 0
+    ) {
       return;
     }
 
@@ -243,7 +247,11 @@ const TrendingAccas = () => {
       const coupon = generateRandomCoupon(currentPopular, currentStore);
       if (coupon.length !== 5) continue;
       const signature = coupon.map((b) => b.oddsId).join("|");
-      if (!nextCoupons.some((c) => c.map((b: any) => b.oddsId).join("|") === signature)) {
+      if (
+        !nextCoupons.some(
+          (c) => c.map((b: any) => b.oddsId).join("|") === signature,
+        )
+      ) {
         nextCoupons.push(coupon);
       }
     }
@@ -255,7 +263,6 @@ const TrendingAccas = () => {
   }, [coupons.length]);
 
   useEffect(() => {
-
     rebuildCoupons();
     const intervalId = window.setInterval(rebuildCoupons, 2000);
     return () => window.clearInterval(intervalId);
@@ -318,7 +325,7 @@ const TrendingAccas = () => {
                       {/* Left */}
                       <div className="flex gap-2 min-w-0 flex-1">
                         <img
-                          src="/sportsicons/Soccer.png"
+                          src={`${BASE_ASSET_PUBLIC_URL}/sportsicons/${bet.sport}.png`}
                           alt="icon"
                           className="w-4 h-4 mt-1"
                         />

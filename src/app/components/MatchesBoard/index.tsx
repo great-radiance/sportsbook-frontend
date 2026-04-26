@@ -265,12 +265,14 @@ export const MatchesBoard: FunctionComponent = () => {
             </button>
           ))}
         </HorizontalTabs>
-        <MarketNavigation
-          options={selectedMarkets[selectedCategory] || []}
-          selectedValue={selectedMarketSlug}
-          onSelect={setSelectedMarketSlug}
-          className="text-[var(--text-notheme-color)]"
-        />
+        {selectedCategory === "Matches" && (
+          <MarketNavigation
+            options={selectedMarkets[selectedCategory] || []}
+            selectedValue={selectedMarketSlug}
+            onSelect={setSelectedMarketSlug}
+            className="text-[var(--text-notheme-color)]"
+          />
+        )}
       </div>
 
       <div className="flex flex-col w-full h-full rounded-lg overflow-hidden gap-4">

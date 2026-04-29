@@ -235,7 +235,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         for (const region of regions) {
           const leagues = Object.keys(data[region] ?? {});
           for (const league of leagues) {
-            const events = normalizeLeagueEvents(data[region]?.[league]);
+            const events = Object.values(data[region]?.[league]);
             for (const e of events) {
               list.push({
                 id: e[0],
@@ -259,7 +259,7 @@ export const PreMatchPanel: FunctionComponent = () => {
       for (const region of regions) {
         const leagues = Object.keys(data[region] ?? {});
         for (const league of leagues) {
-          const events = normalizeLeagueEvents(data[region]?.[league]);
+          const events = Object.values(data[region]?.[league]);
           for (const e of events) {
             list.push({
               id: e[0],
@@ -282,9 +282,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     const candidates = flatList.slice(0, loaded);
     const validEvents = candidates.filter((item) => {
       const storedEvent = storeState.value[item.id]?.value;
-      return (
-        !!storedEvent && (isLiveMode || isEventValidForDisplay(storedEvent))
-      );
+      return !!storedEvent && isEventValidForDisplay(storedEvent);
     });
     if (validEvents.length > 0) {
       return validEvents;
@@ -293,10 +291,9 @@ export const PreMatchPanel: FunctionComponent = () => {
       (item) => !!storeState.value[item.id]?.value,
     );
     return storedEvents;
-  }, [flatList, loadedCount, selectedSport, storeState.value, isLiveMode]);
+  }, [flatList, loadedCount, selectedSport, storeState.value]);
 
   useEffect(() => {
-    console.log(popularMatchesState);
     if (Object.keys(popularMatchesState.value).length > 0) return;
     (async () => {
       try {

@@ -1,19 +1,25 @@
+import { getLeagueLogoUrl } from "@/helpers/getLeagueLogoUrl";
+import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { storeState } from "@/state/storeState";
 import { FunctionComponent } from "preact";
 
 export type StarPlayerCardData = {
-  oddsId: string;
   eventId: number;
   playerName: string;
   matchName: string;
-  marketName: string;
-  outcomeName: string;
-  odds: number;
+  picks: Array<{
+    oddsId: string;
+    marketId: string;
+    marketName: string;
+    outcomeName: string;
+    odds: number;
+  }>;
 };
 
 type TopPlayerCardProps = {
   data: StarPlayerCardData;
-  onAddToBetSlip: (oddsId: string) => void;
+  onAddToBetSlip: (picks: { oddsId: string; marketId: string }[]) => void;
 };
 
 export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
@@ -46,45 +52,74 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
         <div className="flex items-center flex-col flex-1 justify-start">
           <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] w-[60px] h-[26px] mx-auto">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/8e198a4ec4b9_2562136_x3.webp`}
+              src={getTeamlogo(
+                storeState.value[data.eventId]?.value?.sport,
+                storeState.value[data.eventId]?.value?.participants?.[0]
+                  ?.name || "",
+              )}
+              onError={(e) => {
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
+              }}
               alt="Star"
               className="w-4 h-4"
             />
             <div className="w-[2px] h-full my-[4px] bg-black/30 mx-2" />
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/c1369d385d66_2424654_x3.webp`}
+              src={getTeamlogo(
+                storeState.value[data.eventId]?.value?.sport,
+                storeState.value[data.eventId]?.value?.participants?.[1]
+                  ?.name || "",
+              )}
+              onError={(e) => {
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
+              }}
               alt="Star"
               className="w-4 h-4"
             />
           </div>
-          <div className="flex flex-col text-white w-full items-center justify-center pt-3 pb-2">
+        </div>
+        <div className="flex flex-col w-full h-full justify-between items-center p-2">
+          <div className="flex flex-col text-white w-full items-center justify-center">
             <span className="text-[14px] font-bold text-center px-2">
               {data.playerName}
             </span>
-            <span className="text-[12px] text-center px-2">{data.matchName}</span>
+            <span className="text-[12px] text-center px-2">
+              {data.matchName}
+            </span>
           </div>
-        </div>
-        <div className="flex flex-col w-full justify-center items-center p-2">
-          <div className="flex flex-col px-[6px] py-[6px]">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col justify-between items-center gap-[2px]">
-                <div className="w-2 h-2 rounded-full border-[2px] border-white" />
-                <div className="w-px h-1 bg-[#A5B3CF]" />
+          <div className="flex flex-col w-full">
+            {data.picks.map((pick) => (
+              <div key={pick.oddsId} className="flex w-full flex-col gap-2">
+                <div className="flex flex-col px-[6px] py-[6px]">
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col justify-between items-center gap-[2px]">
+                      <div className="w-2 h-2 rounded-full border-[2px] border-white" />
+                      <div className="w-px h-1 bg-[#A5B3CF]" />
+                    </div>
+                    <div className="flex-1 items-center justify-center">
+                      <span className="text-[12px] text-white starplayers-two-line-clamp">
+                        {pick.marketName} -{" "}
+                        <span className="font-bold">{pick.outcomeName}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 items-center justify-center">
-                <span className="text-[12px] text-white">
-                  {data.marketName} -{" "}
-                  <span className="font-bold">{data.outcomeName}</span>
-                </span>
-              </div>
-            </div>
+            ))}
+            <button
+              className="flex w-full text-[14px] bg-[var(--sub-element-secondary)] items-center justify-center rounded-[8px] text-[var(--text-primary-color)] font-bold h-[36px]"
+              onClick={() =>
+                onAddToBetSlip(
+                  data.picks.map((p) => ({
+                    oddsId: p.oddsId,
+                    marketId: p.marketId,
+                  })),
+                )
+              }
+            >
+              {data.picks.reduce((acc, pick) => acc * pick.odds, 1).toFixed(2)}
+            </button>
           </div>
-          <button
-            className="flex w-full text-[14px] bg-[var(--sub-element-secondary)] items-center justify-center rounded-[8px] text-[var(--text-primary-color)] font-bold h-[36px]"
-            onClick={() => onAddToBetSlip(data.oddsId)}
-          >
-            {data.odds.toFixed(2)}
-          </button>
         </div>
       </div>
     </div>

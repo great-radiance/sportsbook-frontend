@@ -1,22 +1,19 @@
 import { storeState } from "@/state/storeState";
 
 export const isEventValidForDisplay = (event?: {
-  startDate?: number;
+  startDate: number;
   status?: string;
 }) => {
-  if (!event || typeof event.startDate !== "number") return false;
+  if (
+    !event ||
+    event.status === "Finished" ||
+    event.status === "Prefinished" ||
+    event.status === "Coverage lost" ||
+    event.status === "Suspended"
+  )
+    return false;
 
-  const status = event.status?.toUpperCase().trim() ?? "";
-  const isLiveOrSuspended = status === "LIVE" || status === "SUSPENDED";
-  const isFinished =
-    status === "ENDED" ||
-    status === "FINISHED" ||
-    status === "CLOSED" ||
-    status === "COMPLETED";
-
-  // Hide events that are already finished or stale prematch events with a past start time.
-  if (isFinished) return false;
-  if (event.startDate < Date.now() && !isLiveOrSuspended) return false;
+  if (event.startDate < Date.now() - 1000 * 60 * 60 * 24) return false;
 
   return true;
 };

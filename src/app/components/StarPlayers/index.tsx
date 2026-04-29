@@ -13,43 +13,69 @@ import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
 import { popularMatchesState } from "@/state/popularMatchesState";
 import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
-
-const PLAYER_MARKET_KEYWORDS = [
-  "player",
-  "anytime goalscorer",
-  "goalscorer",
-  "to score",
-  "player shots",
-  "shots on target",
-  "player assists",
-  "assist",
-  "player cards",
-  "to be booked",
-];
+import { isBuilding } from "@/state/betState";
+import { selectedOdds } from "@/state/betState";
 
 const formatOddName = (
   oddName: any,
   participants: Array<{ name?: string }>,
 ): string => {
-  if (oddName?.h) return String(oddName.h);
   const code = oddName?.e;
-  if (!code) return "Selection";
+  const line = oddName?.h;
+
+  // Match Result (1/X/2)
   if (code === "1") return `${participants[0]?.name || "Home"} Win`;
   if (code === "0") return "Draw";
   if (code === "2") return `${participants[1]?.name || "Away"} Win`;
+
+  // Yes/No
   if (code === "yes") return "Yes";
   if (code === "no") return "No";
+
+  // Over/Under style (e: over/under, h: line)
+  if (
+    (code === "over" || code === "under") &&
+    (typeof line === "string" || typeof line === "number")
+  ) {
+    return `${code === "over" ? "Over" : "Under"} ${line}`;
+  }
+
+  if (typeof line === "string" || typeof line === "number") return String(line);
+  if (!code) return "Selection";
   return String(code);
 };
 
-const extractPlayerName = (marketName: string, outcomeName: string): string => {
-  const source = `${marketName} ${outcomeName}`.trim();
-  const splitByDash = source.split(" - ")[0];
-  const splitByTo = splitByDash.split(" to ")[0];
-  const cleaned = splitByTo
-    .replace(/shots on target|shots|to score|assists|cards|booked/gi, "")
+const extractPlayerNameFromOddNameE = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  // Non-player selections we don't want to treat as a player card.
+  if (/^no\s+goalscorer$/i.test(trimmed)) return "";
+  if (/^no\s+goal\s+scorer$/i.test(trimmed)) return "";
+
+  // Remove common trailing qualifiers that sometimes appear in odd name `e`.
+  // We keep this conservative because the feed may already send plain player names.
+  const withoutQualifier = trimmed
+    .replace(/\s*-\s*anytime\s+goalscorer\s*$/i, "")
+    .replace(/\s+anytime\s+goalscorer\s*$/i, "")
+    .replace(/\s+to\s+score\s*$/i, "")
+    .replace(/\s+to\s+be\s+booked\s*$/i, "")
+    .replace(/\s+shots\s+on\s+target\s*$/i, "")
+    .replace(/\s+shots\s*$/i, "")
+    .replace(/\s+assists?\s*$/i, "")
+    .replace(/\s+cards?\s*$/i, "")
     .trim();
-  return cleaned.length >= 3 ? cleaned : "Star Player";
+
+  // Feed sometimes sends player like "faye abdoulaye 2" (strip trailing number).
+  const parts = withoutQualifier.split(/\s+/).filter(Boolean);
+  const last = parts[parts.length - 1];
+  const withoutTrailingNumber =
+    last && /^\d+$/.test(last)
+      ? parts.slice(0, -1).join(" ")
+      : withoutQualifier;
+
+  return withoutTrailingNumber.trim();
 };
 
 const isLikelyPlayerName = (name: string): boolean => {
@@ -70,16 +96,17 @@ const isLikelyPlayerName = (name: string): boolean => {
     "handicap",
     "team",
     "both teams",
+    "goalscorer",
+    "goal scorer",
   ];
   const lower = normalized.toLowerCase();
   if (genericTokens.some((token) => lower.includes(token))) return false;
 
-  // Must look like a person-style name: at least two text parts.
+  // Must look like a person-style name: at least two parts and at least one letter.
   const parts = normalized.split(/\s+/).filter(Boolean);
   if (parts.length < 2) return false;
-
-  // At least one part should begin uppercase and contain letters.
-  return parts.some((part) => /^[A-Z][A-Za-z.'-]+$/.test(part));
+  if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(normalized)) return false;
+  return true;
 };
 
 const getPopularMatchIds = (popularMatches: any): number[] => {
@@ -94,6 +121,177 @@ const getPopularMatchIds = (popularMatches: any): number[] => {
   return Array.from(new Set(ids));
 };
 
+type Pick = {
+  oddsId: string;
+  marketId: string;
+  marketName: string;
+  outcomeName: string;
+  odds: number;
+};
+
+const isActiveOdd = (odd: any): boolean => {
+  const st = String(odd?.status || "").toLowerCase();
+  const v = Number(odd?.value);
+  if (!Number.isFinite(v) || v <= 1.01) return false;
+  return st === "nu" || st === "new" || st === "active";
+};
+
+const pickFromMarket = (
+  event: any,
+  marketId: string,
+  market: any,
+  options?: {
+    preferEValues?: string[];
+    outcomeNameBuilder?: (odd: any) => string;
+  },
+): Pick | null => {
+  const oddsMap = market?.odds?.odds;
+  if (!oddsMap) return null;
+
+  const entries = Object.entries(oddsMap)
+    .map(([oddId, oddSig]: [string, any]) => ({
+      oddId,
+      odd: oddSig?.value,
+    }))
+    .filter(({ odd }) => isActiveOdd(odd));
+
+  if (!entries.length) return null;
+
+  const findByE = (e: string) =>
+    entries.find(({ odd }) => String(odd?.name?.e || "").toLowerCase() === e);
+
+  const preferred =
+    options?.preferEValues?.length && options.preferEValues.length > 0
+      ? options.preferEValues
+          .map((e) => findByE(String(e).toLowerCase()))
+          .find(Boolean)
+      : null;
+
+  const chosen = preferred ?? entries[0];
+  const chosenOdd = chosen?.odd;
+  if (!chosenOdd) return null;
+
+  const outcomeName = options?.outcomeNameBuilder
+    ? options.outcomeNameBuilder(chosenOdd)
+    : formatOddName(chosenOdd?.name, event.participants);
+
+  return {
+    oddsId: chosen.oddId,
+    marketId: String(marketId),
+    marketName: String(market?.name || ""),
+    outcomeName,
+    odds: Number(chosenOdd?.value),
+  };
+};
+
+const marketHasOutcomeE = (market: any, eValue: string): boolean => {
+  const oddsMap = market?.odds?.odds;
+  if (!oddsMap) return false;
+  const wanted = String(eValue).toLowerCase();
+  return Object.values(oddsMap).some((oddSig: any) => {
+    const odd = oddSig?.value;
+    if (!isActiveOdd(odd)) return false;
+    return String(odd?.name?.e || "").toLowerCase() === wanted;
+  });
+};
+
+const findMatchResultPick = (event: any): Pick | null => {
+  for (const [marketId, marketSig] of Object.entries(event?.markets ?? {})) {
+    const market = (marketSig as any)?.value;
+    if (!market?.odds?.odds) continue;
+
+    // Detect 1/X/2 by outcome codes rather than market name.
+    const has1 = marketHasOutcomeE(market, "1");
+    const has0 = marketHasOutcomeE(market, "0");
+    const has2 = marketHasOutcomeE(market, "2");
+    if (!(has1 && has0 && has2)) continue;
+
+    const pick =
+      pickFromMarket(event, String(marketId), market, {
+        preferEValues: ["1", "0", "2"],
+      }) ?? null;
+    if (pick) return pick;
+  }
+  return null;
+};
+
+const findTotalGoalsOverUnderPick = (event: any): Pick | null => {
+  for (const [marketId, marketSig] of Object.entries(event?.markets ?? {})) {
+    const market = (marketSig as any)?.value;
+    if (!market?.odds?.odds) continue;
+
+    // Detect O/U by outcome codes, and ensure we can render a sensible line.
+    const hasOver = marketHasOutcomeE(market, "over");
+    const hasUnder = marketHasOutcomeE(market, "under");
+    if (!(hasOver && hasUnder)) continue;
+
+    const pick =
+      pickFromMarket(event, String(marketId), market, {
+        preferEValues: ["over", "under"],
+        outcomeNameBuilder: (odd) =>
+          formatOddName(odd?.name, event.participants),
+      }) ?? null;
+
+    // Ensure it actually formatted into "Over X" / "Under X" (i.e., has a line).
+    if (pick && /^(Over|Under)\s+/i.test(pick.outcomeName)) return pick;
+  }
+  return null;
+};
+
+const isPlayerMarketLike = (market: any): boolean => {
+  const categoryRaw = market?.category;
+  const category =
+    typeof categoryRaw === "string" ? categoryRaw.toLowerCase() : "";
+  if (category === "players" || category.includes("player")) return true;
+
+  const nameRaw = market?.name;
+  const name = typeof nameRaw === "string" ? nameRaw.toLowerCase() : "";
+  if (
+    name.includes("player") ||
+    name.includes("goalscorer") ||
+    name.includes("to score") ||
+    name.includes("shots") ||
+    name.includes("assists") ||
+    name.includes("to be booked") ||
+    name.includes("cards")
+  ) {
+    return true;
+  }
+
+  // Last resort: infer from odds labels looking like human names.
+  const oddsMap = market?.odds?.odds;
+  if (!oddsMap) return false;
+  let scanned = 0;
+  for (const oddSig of Object.values(oddsMap)) {
+    const odd = (oddSig as any)?.value;
+    if (!isActiveOdd(odd)) continue;
+    const e = typeof odd?.name?.e === "string" ? odd.name.e.trim() : "";
+    if (!e) continue;
+
+    // Exclude common non-player codes.
+    const lowerE = e.toLowerCase();
+    if (
+      lowerE === "1" ||
+      lowerE === "0" ||
+      lowerE === "2" ||
+      lowerE === "over" ||
+      lowerE === "under" ||
+      lowerE === "yes" ||
+      lowerE === "no"
+    ) {
+      continue;
+    }
+
+    const playerName = extractPlayerNameFromOddNameE(e);
+    if (isLikelyPlayerName(playerName)) return true;
+
+    scanned += 1;
+    if (scanned >= 20) break;
+  }
+
+  return false;
+};
+
 const buildStarPlayers = (
   popularMatches: any,
   store: Record<number, any>,
@@ -105,63 +303,78 @@ const buildStarPlayers = (
     if (!event || !event.markets || !event.participants?.length) continue;
     const matchName = `${event.participants[0]?.name || "Home"} - ${event.participants[1]?.name || "Away"}`;
 
+    // 1) Pick a single Match Result and Total Goals O/U for the event.
+    const matchResultPick = findMatchResultPick(event);
+    const totalGoalsPick = findTotalGoalsOverUnderPick(event);
+
+    if (!matchResultPick || !totalGoalsPick) continue;
+
+    // 2) Build one Star Player card per valid player odd (category === "players").
     for (const [marketId, marketSig] of Object.entries(event.markets)) {
       const market = (marketSig as any)?.value;
       if (!market?.odds?.odds) continue;
-      const marketName = String(market.name || "");
-      const lowerMarket = marketName.toLowerCase();
 
-      Object.entries(market.odds.odds).forEach(
-        ([oddId, oddSig]: [string, any]) => {
-          const odd = oddSig?.value;
-          const oddStatus = String(odd?.status || "").toLowerCase();
-          const oddValue = Number(odd?.value);
-          if (
-            !(
-              oddStatus === "nu" ||
-              oddStatus === "new" ||
-              oddStatus === "active"
-            )
-          )
-            return;
-          if (!Number.isFinite(oddValue) || oddValue <= 1.01) return;
+      // If `market.category` is missing, infer based on market name / odds labels.
+      if (!isPlayerMarketLike(market)) continue;
 
-          const outcomeName = formatOddName(odd?.name, event.participants);
-          const lowerOutcome = outcomeName.toLowerCase();
-          const isPlayerMarket = PLAYER_MARKET_KEYWORDS.some(
-            (k) => lowerMarket.includes(k) || lowerOutcome.includes(k),
-          );
-          if (!isPlayerMarket) return;
-          const playerName = extractPlayerName(marketName, outcomeName);
-          if (!isLikelyPlayerName(playerName)) return;
+      const marketName = String(market?.name || "");
 
-          rows.push({
-            oddsId: oddId,
-            eventId: event.id,
-            playerName,
-            matchName,
-            marketName,
-            outcomeName,
-            odds: oddValue,
-          });
-        },
-      );
+      for (const [oddId, oddSig] of Object.entries(market.odds.odds)) {
+        const odd = (oddSig as any)?.value;
+        if (!isActiveOdd(odd)) continue;
+
+        // Only show a player card when the feed provides odd name as `{ e: "..." }`.
+        // For player markets, `odd.name.e` is also the label we display for the outcome.
+        const outcomeNameE =
+          odd?.name &&
+          typeof odd.name === "object" &&
+          typeof odd.name.e === "string"
+            ? odd.name.e.trim()
+            : "";
+        if (!outcomeNameE) continue;
+
+        // Extract player name from `odd.name.e` (skip "no goalscorer" and similar).
+        const playerName = extractPlayerNameFromOddNameE(outcomeNameE);
+        if (!isLikelyPlayerName(playerName)) continue;
+
+        const playerPick: Pick = {
+          oddsId: String(oddId),
+          marketId: String(marketId),
+          marketName,
+          outcomeName: outcomeNameE,
+          odds: Number(odd?.value),
+        };
+
+        // Keep player pick first so existing card/button behavior stays consistent.
+        rows.push({
+          eventId: event.id,
+          playerName,
+          matchName,
+          picks: [playerPick, matchResultPick, totalGoalsPick],
+        });
+      }
     }
   }
 
   const unique = new Map<string, StarPlayerCardData>();
   rows.forEach((row) => {
-    if (!unique.has(row.oddsId)) unique.set(row.oddsId, row);
+    const key = row.picks?.[0]?.oddsId;
+    if (key && !unique.has(key)) unique.set(key, row);
   });
 
   return Array.from(unique.values())
     .sort((a, b) => {
+      const aPlayerMarket = a.picks?.[0]?.marketName || "";
+      const bPlayerMarket = b.picks?.[0]?.marketName || "";
+      const aPlayerOdds = a.picks?.[0]?.odds || 999;
+      const bPlayerOdds = b.picks?.[0]?.odds || 999;
+
       const aScore =
-        (a.marketName.toLowerCase().includes("anytime goalscorer") ? -1 : 0) +
-        a.odds;
+        (aPlayerMarket.toLowerCase().includes("anytime goalscorer") ? -1 : 0) +
+        aPlayerOdds;
       const bScore =
-        (b.marketName.toLowerCase().includes("anytime goalscorer") ? -1 : 0) +
-        b.odds;
+        (bPlayerMarket.toLowerCase().includes("anytime goalscorer") ? -1 : 0) +
+        bPlayerOdds;
       return aScore - bScore;
     })
     .slice(0, 20);
@@ -205,35 +418,50 @@ export const StarPlayers: FunctionComponent = () => {
     return () => window.clearInterval(intervalId);
   }, [sourceSignature]);
 
-  const handleAddPlayerOdd = useCallback(
-    (oddsId: string) => {
-      const selected = players.find((p) => p.oddsId === oddsId);
+  const handleAddPickToBetBuilder = useCallback(
+    (picks: { oddsId: string; marketId: string }[]) => {
+      const selected = players.find((p) =>
+        p.picks?.some((x) => picks.some((p) => p.oddsId === x.oddsId)),
+      );
       if (!selected) return;
       const event = storeState.value[selected.eventId]?.value;
       if (!event) return;
-      const marketEntry = Object.entries(event.markets || {}).find(
-        ([, mSig]) => {
-          const m = (mSig as any)?.value;
-          return !!m?.odds?.odds?.[selected.oddsId];
-        },
-      );
-      if (!marketEntry) return;
-      const [marketId, marketSig] = marketEntry as [string, any];
-      const market = marketSig.value;
-      const odd = market?.odds?.odds?.[selected.oddsId]?.value;
-      handleClickOdd({
-        oddId: selected.oddsId,
-        oddName: formatOddName(odd?.name, event.participants as any[]),
-        eventId: selected.eventId,
-        marketId,
-        marketName: market?.name || "Player Market",
-        participants: event.participants,
-        startDate: event.startDate,
-        sportSlug: event.sport,
-      });
+
+      const alreadySelected = (oddsId: string) =>
+        (Array.isArray(selectedOdds.value) ? selectedOdds.value : []).some(
+          (o) => o.oddsId === oddsId,
+        );
+
+      const prevBuilding = isBuilding.value;
+      isBuilding.value = true;
+      try {
+        // Add ALL picks passed in one click (idempotent: don't toggle off)
+        picks.forEach((p) => {
+          if (alreadySelected(p.oddsId)) return;
+          const market = event?.markets?.[p.marketId]?.value;
+          const odd = market?.odds?.odds?.[p.oddsId]?.value;
+          if (!market || !odd) return;
+
+          handleClickOdd({
+            oddId: p.oddsId,
+            oddName: formatOddName(odd?.name, event.participants as any[]),
+            eventId: selected.eventId,
+            marketId: p.marketId,
+            marketName: market?.name || "Market",
+            participants: event.participants,
+            startDate: event.startDate,
+            sportSlug: event.sport,
+          });
+        });
+      } finally {
+        isBuilding.value = prevBuilding;
+      }
     },
     [players],
   );
+
+  // If there are no player markets available in popular matches, hide the whole section.
+  if (players.length === 0) return null;
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -254,9 +482,12 @@ export const StarPlayers: FunctionComponent = () => {
             <HorizontalTabs>
               {players.map((player) => (
                 <TopPlayerCard
-                  key={player.oddsId}
+                  key={
+                    player.picks?.[0]?.oddsId ||
+                    `${player.eventId}-${player.playerName}`
+                  }
                   data={player}
-                  onAddToBetSlip={handleAddPlayerOdd}
+                  onAddToBetSlip={handleAddPickToBetBuilder}
                 />
               ))}
             </HorizontalTabs>

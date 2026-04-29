@@ -102,3 +102,17 @@
 .players-slide > * {
   height: 100%;
 }
+
+/* 2-line clamp for long market/outcome strings (works in Chrome/Edge; has fallback) */
+.starplayers-two-line-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+
+  /* fallback for non-webkit implementations */
+  line-height: 1.2;
+  max-height: calc(2 * 1.2em);
+  white-space: normal;
+  word-break: break-word;
+}

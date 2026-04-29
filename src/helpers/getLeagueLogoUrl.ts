@@ -8,8 +8,10 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
  * e.g. leagueicons/Soccer/premier-league.png
  * If the image does not exist, use onError to fallback to region flag or sport icon.
  */
-export function getLeagueLogoUrl(sport: string, league: string): string {
-  const sportSlug = slugify(sport, { lower: true, strict: true, trim: true });
-  const leagueSlug = slugify(league, { lower: true, strict: true, trim: true });
-  return `${BASE_ASSET_PUBLIC_URL}/stoiximan/leagueicons/${sportSlug}/${leagueSlug}.png`;
+export function getLeagueLogoUrl(
+  sport: string,
+  region: string,
+  league: string,
+): string {
+  return `${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sport || "")}/${encodeURIComponent(region || "")}/${encodeURIComponent(league || "")}.webp`;
 }

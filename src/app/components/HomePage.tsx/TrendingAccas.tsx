@@ -5,8 +5,50 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { selectedOdds, selectedBetType } from "@/state/betState";
 import { notify } from "@/shared/toast";
 import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
+import type { SelectedOddType } from "@/shared/utils/bet";
+import type { tParticipant } from "@/types/tEvent";
+import type {
+  tEventModel,
+  tMarketModel,
+  tOddValue,
+} from "@/types/typesForSocket.ts/tEventModel";
+import type { Signal } from "@preact/signals";
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { getLeagueLogoUrl } from "@/helpers/getLeagueLogoUrl";
+
+/** Same shape as `popularMatchesState` (sport → region → league → event ids). */
+type PopularMatchesTree = Record<
+  string,
+  Record<string, Record<string, number[]>>
+>;
+
+type StoreEventsMap = Record<number, Signal<tEventModel>>;
+
+type TrendingAccaBet = {
+  matchId: number;
+  matchName: string;
+  league: string;
+  region: string;
+  sport: string;
+  startDate: number;
+  marketId: string;
+  marketName: string;
+  outcomeName: string;
+  odds: number;
+  oddsId: string;
+  participants: tParticipant[];
+  date: string;
+};
+
+type TrendingCoupon = TrendingAccaBet[];
+
+const getOutcomeCodeE = (name: tOddValue["name"]): string => {
+  if (name && typeof name === "object" && "e" in name && name.e != null) {
+    return String(name.e).toLowerCase();
+  }
+  return "";
+};
 
 /** Markets named like Match Result / Match Winner (not BTTS, totals, etc.). */
 const isMatchResultOrWinnerMarketName = (name: string): boolean => {
@@ -24,15 +66,19 @@ const isMatchResultOrWinnerMarketName = (name: string): boolean => {
   );
 };
 
-const isSelectableOddStatus = (odd: any): boolean => {
-  const oddStatus = String(odd?.status || "").toLowerCase();
-  const oddValue = Number(odd?.value);
+const isSelectableOddStatus = (odd: tOddValue | undefined): boolean => {
+  if (!odd) return false;
+  const oddStatus = String(odd.status || "").toLowerCase();
+  const oddValue = Number(odd.value);
   const ok =
     oddStatus === "nu" || oddStatus === "new" || oddStatus === "active";
   return ok && Number.isFinite(oddValue) && oddValue > 0;
 };
 
-const outcomeNameFor1x2 = (code: string, participants: any[]): string => {
+const outcomeNameFor1x2 = (
+  code: string,
+  participants: tParticipant[],
+): string => {
   if (code === "1") return `${participants[0]?.name || "Home"} Win`;
   if (code === "0") return "Draw";
   if (code === "2") return `${participants[1]?.name || "Away"} Win`;
@@ -45,42 +91,49 @@ type MatchResultOddRow = {
   outcomeName: string;
   value: number;
   oddsId: string;
-  participants: any;
+  participants: tParticipant[];
   outcomeCode: string;
 };
 
 /** Only Match Result / Match Winner: home/away only (`name.e` 1 or 2), never draw. */
-const extractMatchResultOrWinnerOdds = (match: any): MatchResultOddRow[] => {
+const extractMatchResultOrWinnerOdds = (
+  match: tEventModel,
+): MatchResultOddRow[] => {
   const oddsList: MatchResultOddRow[] = [];
-  if (!match?.markets) return oddsList;
+  if (!match.markets) return oddsList;
 
   const participants = match.participants;
 
-  Object.entries(match.markets).forEach(([marketId, market]: [string, any]) => {
-    if (!market?.value?.odds?.odds) return;
-    const marketName = String(market.value.name || "");
-    if (!isMatchResultOrWinnerMarketName(marketName)) return;
+  for (const marketId of Object.keys(match.markets)) {
+    const marketSig = match.markets[marketId];
+    if (!marketSig) continue;
+    const marketModel: tMarketModel = marketSig.value;
+    if (!marketModel?.odds?.odds) continue;
 
-    Object.entries(market.value.odds.odds).forEach(
-      ([oddId, odd]: [string, any]) => {
-        const ov = odd?.value;
-        if (!isSelectableOddStatus(ov)) return;
+    const marketName = String(marketModel.name || "");
+    if (!isMatchResultOrWinnerMarketName(marketName)) continue;
 
-        const code = String(ov?.name?.e ?? "").toLowerCase();
-        if (code !== "1" && code !== "2") return;
+    const oddsRecord = marketModel.odds.odds;
+    for (const oddId of Object.keys(oddsRecord)) {
+      const oddSig = oddsRecord[oddId];
+      if (!oddSig) continue;
+      const ov = oddSig.value;
+      if (!isSelectableOddStatus(ov)) continue;
 
-        oddsList.push({
-          marketId,
-          marketName,
-          outcomeName: outcomeNameFor1x2(code, participants),
-          value: Number(ov.value),
-          oddsId: oddId,
-          participants,
-          outcomeCode: code,
-        });
-      },
-    );
-  });
+      const code = getOutcomeCodeE(ov.name);
+      if (code !== "1" && code !== "2") continue;
+
+      oddsList.push({
+        marketId,
+        marketName,
+        outcomeName: outcomeNameFor1x2(code, participants),
+        value: Number(ov.value),
+        oddsId: oddId,
+        participants,
+        outcomeCode: code,
+      });
+    }
+  }
 
   return oddsList;
 };
@@ -117,7 +170,9 @@ const formatDate = (timestamp: number) => {
     .padStart(2, "0")}`;
 };
 
-const getPopularMatchIdsOrdered = (popularMatches: any): number[] => {
+const getPopularMatchIdsOrdered = (
+  popularMatches: PopularMatchesTree,
+): number[] => {
   const ids: number[] = [];
   const seen = new Set<number>();
   for (const sport of Object.keys(popularMatches ?? {})) {
@@ -137,14 +192,17 @@ const getPopularMatchIdsOrdered = (popularMatches: any): number[] => {
 
 /** Match Result / Match Winner only: popular matches first, then other events from the store. */
 const generateTrendingCoupon = (
-  popularMatches: any,
-  storeStateMap: any,
+  popularMatches: PopularMatchesTree,
+  storeStateMap: StoreEventsMap,
   couponIndex: number,
-) => {
+): TrendingCoupon => {
   const popularIdsOrdered = getPopularMatchIdsOrdered(popularMatches);
   const popularSet = new Set(popularIdsOrdered);
 
-  const wrapEntry = (match: any, preferenceSeed: number) => {
+  const wrapEntry = (
+    match: tEventModel,
+    preferenceSeed: number,
+  ): TrendingAccaBet | null => {
     const mrOdds = extractMatchResultOrWinnerOdds(match);
     const odd = pickMatchResultOdd(mrOdds, preferenceSeed);
     if (!odd) return null;
@@ -166,10 +224,13 @@ const generateTrendingCoupon = (
   };
 
   const numberOfSelections = 5;
-  const selectedBets: any[] = [];
+  const selectedBets: TrendingAccaBet[] = [];
   const usedMatchIds = new Set<number>();
 
-  const tryConsumeMatch = (match: any | undefined, slotIndex: number) => {
+  const tryConsumeMatch = (
+    match: tEventModel | undefined,
+    slotIndex: number,
+  ): boolean => {
     if (!match?.id || usedMatchIds.has(match.id)) return false;
     const pref = couponIndex * numberOfSelections + slotIndex + match.id;
     const bet = wrapEntry(match, pref);
@@ -214,7 +275,7 @@ const generateTrendingCoupon = (
 };
 
 // Calculate total odds for a coupon
-const calculateTotalOdds = (coupon: any[]) => {
+const calculateTotalOdds = (coupon: TrendingAccaBet[]): number => {
   if (coupon.length === 0) return 0;
   return parseFloat(
     coupon.reduce((total, bet) => total * bet.odds, 1).toFixed(2),
@@ -232,7 +293,7 @@ const getRandomBetCount = () => {
 };
 
 // Add a single odd to the bet slip
-const addSingleOddToBetSlip = (bet: any) => {
+const addSingleOddToBetSlip = (bet: TrendingAccaBet) => {
   selectedBetType.value = "single";
   handleClickOdd({
     oddId: bet.oddsId,
@@ -247,14 +308,14 @@ const addSingleOddToBetSlip = (bet: any) => {
 };
 
 // Add all coupon odds to bet slip as multi bet
-const addCouponToBetSlip = (coupon: any[]) => {
+const addCouponToBetSlip = (coupon: TrendingAccaBet[]) => {
   if (coupon.length === 0) return;
   if (coupon.length !== 5) {
     notify("Combo must contain exactly 5 odds", "warning");
     return;
   }
 
-  const newOdds = coupon.map((bet) => ({
+  const newOdds: SelectedOddType[] = coupon.map((bet) => ({
     sport: bet.sport,
     region: bet.region,
     league: bet.league,
@@ -278,7 +339,7 @@ const addCouponToBetSlip = (coupon: any[]) => {
 
 const TrendingAccas = () => {
   // Generate 3 trending coupons (Match Result / Match Winner only)
-  const [coupons, setCoupons] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<TrendingCoupon[]>([]);
   const lastSourceSignatureRef = useRef<string>("");
 
   const rebuildCoupons = useCallback(() => {
@@ -306,7 +367,7 @@ const TrendingAccas = () => {
       return;
     }
 
-    const nextCoupons: any[] = [];
+    const nextCoupons: TrendingCoupon[] = [];
     let attempts = 0;
     while (nextCoupons.length < 3 && attempts < 40) {
       attempts += 1;
@@ -318,9 +379,7 @@ const TrendingAccas = () => {
       if (coupon.length !== 5) continue;
       const signature = coupon.map((b) => b.oddsId).join("|");
       if (
-        !nextCoupons.some(
-          (c) => c.map((b: any) => b.oddsId).join("|") === signature,
-        )
+        !nextCoupons.some((c) => c.map((b) => b.oddsId).join("|") === signature)
       ) {
         nextCoupons.push(coupon);
       }
@@ -386,7 +445,7 @@ const TrendingAccas = () => {
               <div className="bg-[var(--primary-soft-bg)]">
                 {/* List */}
                 <div className="bg-[var(--sub-element-secondary)] rounded-t-xl overflow-hidden">
-                  {coupon.map((bet: any, betIndex: any) => (
+                  {coupon.map((bet, betIndex) => (
                     <div
                       key={betIndex}
                       className="flex justify-between items-center p-3 border-b border-dashed last:border-none"
@@ -395,11 +454,11 @@ const TrendingAccas = () => {
                       {/* Left */}
                       <div className="flex gap-2 min-w-0 flex-1">
                         <img
-                          src={`${BASE_ASSET_PUBLIC_URL}/sportsicons/${bet.sport}.png`}
+                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${bet.sport}.png`}
                           alt="icon"
-                          className="w-4 h-4 mt-1"
+                          className="w-4 h-4 mt-1 brightness-0 invert"
                         />
-
+                        {console.log(bet)}
                         <div className="flex flex-col min-w-0 flex-1">
                           <span className="text-xs font-semibold text-[var(--text-basic-color)] break-words whitespace-normal">
                             {bet.marketName}: {bet.outcomeName}

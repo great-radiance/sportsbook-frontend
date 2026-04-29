@@ -8,71 +8,102 @@ import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-// Helper function to extract all available odds from a match
-const extractAllOdds = (match: any) => {
-  const oddsList: Array<{
-    marketId: string;
-    marketName: string;
-    outcomeName: string;
-    value: number;
-    oddsId: string;
-    participants: any;
-  }> = [];
+/** Markets named like Match Result / Match Winner (not BTTS, totals, etc.). */
+const isMatchResultOrWinnerMarketName = (name: string): boolean => {
+  const n = String(name || "")
+    .toLowerCase()
+    .trim();
+  if (!n) return false;
+  return (
+    n.includes("match result") ||
+    n.includes("full time result") ||
+    n === "1x2" ||
+    n.includes("match winner") ||
+    (n.includes("winner") &&
+      (n.includes("match") || n.includes("full") || n.endsWith(" winner")))
+  );
+};
 
-  if (!match.markets) return oddsList;
+const isSelectableOddStatus = (odd: any): boolean => {
+  const oddStatus = String(odd?.status || "").toLowerCase();
+  const oddValue = Number(odd?.value);
+  const ok =
+    oddStatus === "nu" || oddStatus === "new" || oddStatus === "active";
+  return ok && Number.isFinite(oddValue) && oddValue > 0;
+};
+
+const outcomeNameFor1x2 = (code: string, participants: any[]): string => {
+  if (code === "1") return `${participants[0]?.name || "Home"} Win`;
+  if (code === "0") return "Draw";
+  if (code === "2") return `${participants[1]?.name || "Away"} Win`;
+  return code;
+};
+
+type MatchResultOddRow = {
+  marketId: string;
+  marketName: string;
+  outcomeName: string;
+  value: number;
+  oddsId: string;
+  participants: any;
+  outcomeCode: string;
+};
+
+/** Only Match Result / Match Winner: home/away only (`name.e` 1 or 2), never draw. */
+const extractMatchResultOrWinnerOdds = (match: any): MatchResultOddRow[] => {
+  const oddsList: MatchResultOddRow[] = [];
+  if (!match?.markets) return oddsList;
+
+  const participants = match.participants;
 
   Object.entries(match.markets).forEach(([marketId, market]: [string, any]) => {
-    if (!market.value.odds?.odds) return;
-
-    const marketName = market.value.name;
-    const participants = match.participants;
+    if (!market?.value?.odds?.odds) return;
+    const marketName = String(market.value.name || "");
+    if (!isMatchResultOrWinnerMarketName(marketName)) return;
 
     Object.entries(market.value.odds.odds).forEach(
       ([oddId, odd]: [string, any]) => {
-        const oddStatus = (odd.value.status || "").toLowerCase();
-        const oddValue = Number(odd.value.value);
-        const isSelectableStatus =
-          oddStatus === "nu" || oddStatus === "new" || oddStatus === "active";
-        if (isSelectableStatus && Number.isFinite(oddValue) && oddValue > 0) {
-          let outcomeName = "";
+        const ov = odd?.value;
+        if (!isSelectableOddStatus(ov)) return;
 
-          // Extract outcome name based on market type
-          if (odd.value.name?.e) {
-            // Handle Match Result (1, 0, 2)
-            if (odd.value.name.e === "1")
-              outcomeName = `${participants[0]?.name || "Home"} Win`;
-            else if (odd.value.name.e === "0") outcomeName = "Draw";
-            else if (odd.value.name.e === "2")
-              outcomeName = `${participants[1]?.name || "Away"} Win`;
-            else if (odd.value.name.e === "yes")
-              outcomeName = "Both Teams Score";
-            else if (odd.value.name.e === "no")
-              outcomeName = "Both Teams NOT Score";
-            else if (odd.value.name.e === "over")
-              outcomeName = `Over ${odd.value.name.h || ""}`;
-            else if (odd.value.name.e === "under")
-              outcomeName = `Under ${odd.value.name.h || ""}`;
-            else outcomeName = odd.value.name.e;
-          } else if (odd.value.name?.h) {
-            outcomeName = odd.value.name.h;
-          } else {
-            outcomeName = "Unknown";
-          }
+        const code = String(ov?.name?.e ?? "").toLowerCase();
+        if (code !== "1" && code !== "2") return;
 
-          oddsList.push({
-            marketId,
-            marketName,
-            outcomeName,
-            value: oddValue,
-            oddsId: oddId,
-            participants,
-          });
-        }
+        oddsList.push({
+          marketId,
+          marketName,
+          outcomeName: outcomeNameFor1x2(code, participants),
+          value: Number(ov.value),
+          oddsId: oddId,
+          participants,
+          outcomeCode: code,
+        });
       },
     );
   });
 
   return oddsList;
+};
+
+/** Pick home or away only (no draw); deterministic preference order. */
+const pickMatchResultOdd = (
+  odds: MatchResultOddRow[],
+  preferenceSeed: number,
+): MatchResultOddRow | null => {
+  const homeAway = odds.filter(
+    (o) => o.outcomeCode === "1" || o.outcomeCode === "2",
+  );
+  if (!homeAway.length) return null;
+  const rotations = [
+    ["1", "2"],
+    ["2", "1"],
+  ] as const;
+  const pref = rotations[Math.abs(preferenceSeed) % rotations.length];
+  for (const code of pref) {
+    const found = homeAway.find((o) => o.outcomeCode === code);
+    if (found) return found;
+  }
+  return homeAway[0];
 };
 
 // Format date from timestamp
@@ -86,62 +117,97 @@ const formatDate = (timestamp: number) => {
     .padStart(2, "0")}`;
 };
 
-// Generate a random coupon from popularMatchesState (always 5 odds)
-const generateRandomCoupon = (popularMatches: any, storeStateMap: any) => {
-  // Extract all match IDs from popularMatchesState
-  const matchIds: number[] = [];
-  for (const sport of Object.keys(popularMatches)) {
+const getPopularMatchIdsOrdered = (popularMatches: any): number[] => {
+  const ids: number[] = [];
+  const seen = new Set<number>();
+  for (const sport of Object.keys(popularMatches ?? {})) {
     for (const region of Object.keys(popularMatches[sport] ?? {})) {
       for (const league of Object.keys(popularMatches[sport][region] ?? {})) {
-        const ids = popularMatches[sport][region][league] ?? [];
-        matchIds.push(...ids);
+        for (const rawId of popularMatches[sport][region][league] ?? []) {
+          const id = Number(rawId);
+          if (!Number.isFinite(id) || seen.has(id)) continue;
+          seen.add(id);
+          ids.push(id);
+        }
       }
     }
   }
+  return ids;
+};
 
-  if (matchIds.length === 0) return [];
+/** Match Result / Match Winner only: popular matches first, then other events from the store. */
+const generateTrendingCoupon = (
+  popularMatches: any,
+  storeStateMap: any,
+  couponIndex: number,
+) => {
+  const popularIdsOrdered = getPopularMatchIdsOrdered(popularMatches);
+  const popularSet = new Set(popularIdsOrdered);
 
-  // Get actual match data from storeState
-  const uniqueMatchIds = Array.from(new Set(matchIds));
-  const availableMatches = uniqueMatchIds
-    .map((id) => storeStateMap[id])
-    .filter((match) => match?.value);
+  const wrapEntry = (match: any, preferenceSeed: number) => {
+    const mrOdds = extractMatchResultOrWinnerOdds(match);
+    const odd = pickMatchResultOdd(mrOdds, preferenceSeed);
+    if (!odd) return null;
+    return {
+      matchId: match.id,
+      matchName: `${match.participants[0]?.name || "Home"} vs ${match.participants[1]?.name || "Away"}`,
+      league: match.league,
+      region: match.region,
+      sport: match.sport,
+      startDate: match.startDate,
+      marketId: odd.marketId,
+      marketName: odd.marketName,
+      outcomeName: odd.outcomeName,
+      odds: odd.value,
+      oddsId: odd.oddsId,
+      participants: odd.participants,
+      date: formatDate(match.startDate),
+    };
+  };
 
-  if (availableMatches.length === 0) return [];
-
-  const numberOfSelections = 5; // Always 5 selections per coupon
-  // Shuffle matches for random selection
-  const shuffledMatches = [...availableMatches].sort(() => 0.5 - Math.random());
+  const numberOfSelections = 5;
   const selectedBets: any[] = [];
   const usedMatchIds = new Set<number>();
 
-  // Keep trying until we have exactly 5 selections
-  for (const match of shuffledMatches) {
+  const tryConsumeMatch = (match: any | undefined, slotIndex: number) => {
+    if (!match?.id || usedMatchIds.has(match.id)) return false;
+    const pref = couponIndex * numberOfSelections + slotIndex + match.id;
+    const bet = wrapEntry(match, pref);
+    if (!bet) return false;
+    selectedBets.push(bet);
+    usedMatchIds.add(match.id);
+    return true;
+  };
+
+  // 1) Popular matches first (preserve sidebar order), one MR/MW odd per event.
+  for (const id of popularIdsOrdered) {
     if (selectedBets.length >= numberOfSelections) break;
-    if (usedMatchIds.has(match.value.id)) continue;
+    const entry = storeStateMap[id];
+    const match = entry?.value;
+    tryConsumeMatch(match, selectedBets.length);
+  }
 
-    const allOdds = extractAllOdds(match.value);
-    if (allOdds.length === 0) continue;
+  // 2) Fill from other events in the store (sorted by start date).
+  if (selectedBets.length < numberOfSelections) {
+    const otherIds = Object.keys(storeStateMap ?? {})
+      .map((k) => Number(k))
+      .filter(
+        (id) =>
+          Number.isFinite(id) &&
+          !popularSet.has(id) &&
+          storeStateMap[id]?.value?.markets,
+      )
+      .sort(
+        (a, b) =>
+          (storeStateMap[a]?.value?.startDate ?? 0) -
+          (storeStateMap[b]?.value?.startDate ?? 0),
+      );
 
-    // Randomly select an odd from available odds
-    const randomOdd: any = allOdds[Math.floor(Math.random() * allOdds.length)];
-
-    selectedBets.push({
-      matchId: match.value.id,
-      matchName: `${match.value.participants[0]?.name || "Home"} vs ${match.value.participants[1]?.name || "Away"}`,
-      league: match.value.league,
-      region: match.value.region,
-      sport: match.value.sport,
-      startDate: match.value.startDate,
-      marketId: randomOdd.marketId,
-      marketName: randomOdd.marketName,
-      outcomeName: randomOdd.outcomeName,
-      odds: randomOdd.value,
-      oddsId: randomOdd.oddsId,
-      participants: randomOdd.participants,
-      date: formatDate(match.value.startDate),
-    });
-    usedMatchIds.add(match.value.id);
+    for (const id of otherIds) {
+      if (selectedBets.length >= numberOfSelections) break;
+      const match = storeStateMap[id]?.value;
+      tryConsumeMatch(match, selectedBets.length);
+    }
   }
 
   return selectedBets.length === numberOfSelections ? selectedBets : [];
@@ -211,7 +277,7 @@ const addCouponToBetSlip = (coupon: any[]) => {
 };
 
 const TrendingAccas = () => {
-  // Generate 3 random coupons from popularMatchesState
+  // Generate 3 trending coupons (Match Result / Match Winner only)
   const [coupons, setCoupons] = useState<any[]>([]);
   const lastSourceSignatureRef = useRef<string>("");
 
@@ -244,7 +310,11 @@ const TrendingAccas = () => {
     let attempts = 0;
     while (nextCoupons.length < 3 && attempts < 40) {
       attempts += 1;
-      const coupon = generateRandomCoupon(currentPopular, currentStore);
+      const coupon = generateTrendingCoupon(
+        currentPopular,
+        currentStore,
+        nextCoupons.length,
+      );
       if (coupon.length !== 5) continue;
       const signature = coupon.map((b) => b.oddsId).join("|");
       if (

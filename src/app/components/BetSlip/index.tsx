@@ -668,7 +668,7 @@ export const BetSlip: FunctionComponent = () => {
     };
   }, [isMobile.value, betSlipExpanded.value]);
 
-  if (isMobile.value && selectedOdds.value.length === 0) return null;
+  if (selectedOdds.value.length === 0) return null;
 
   return (
     <>

@@ -5,7 +5,7 @@ import { isEmpty } from "@/helpers/isEmpty";
 
 export type tSportResponse = Record<
   string,
-  Record<string, Record<string, [number, boolean][]>>
+  Record<string, Record<string, [number, boolean, number][]>>
 >;
 
 export type tPrematchSidebarData = {

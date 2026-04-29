@@ -117,18 +117,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     if (!Array.isArray(rawEvent)) return null;
     // Prematch payload shape provided by user: [id, false, startDate]
     if (typeof rawEvent[2] === "number") return rawEvent[2];
-    // Backward-compatible fallbacks for other feeds
-    if (typeof rawEvent[3] === "number") return rawEvent[3];
-    if (typeof rawEvent[9] === "number") return rawEvent[9];
     return null;
-  };
-
-  const normalizeLeagueEvents = (leagueNode: any): any[] => {
-    if (!leagueNode) return [];
-    // New shape: league is already an array of tuples
-    if (Array.isArray(leagueNode)) return leagueNode;
-    // Old shape: league is object keyed by id => tuple
-    return Object.values(leagueNode);
   };
 
   const getLeaguePriority = (
@@ -203,7 +192,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     });
   };
 
-  const flatList: FlatItem[] = (() => {
+  const flatList: FlatItem[] = useMemo(() => {
     /** Popular = featured matches only; ignores Live / Upcoming toggle */
     if (selectedSport === "Popular") {
       const list: FlatItem[] = [];
@@ -273,7 +262,12 @@ export const PreMatchPanel: FunctionComponent = () => {
       }
     }
     return sortFlatByStartDate(list, selectedSport);
-  })();
+  }, [
+    selectedSport,
+    popularMatchesState.value,
+    summarySports.value.data,
+    summarySportsLive.value.data,
+  ]);
 
   const isLiveMode = matchView === "live";
 
@@ -284,13 +278,13 @@ export const PreMatchPanel: FunctionComponent = () => {
       const storedEvent = storeState.value[item.id]?.value;
       return !!storedEvent && isEventValidForDisplay(storedEvent);
     });
-    if (validEvents.length > 0) {
-      return validEvents;
-    }
-    const storedEvents = candidates.filter(
-      (item) => !!storeState.value[item.id]?.value,
-    );
-    return storedEvents;
+    // if (validEvents.length > 0) {
+    //   return validEvents;
+    // }
+    // const storedEvents = candidates.filter(
+    //   (item) => !!storeState.value[item.id]?.value,
+    // );
+    return validEvents;
   }, [flatList, loadedCount, selectedSport, storeState.value]);
 
   useEffect(() => {
@@ -347,23 +341,19 @@ export const PreMatchPanel: FunctionComponent = () => {
       setLoadedCount({ [selectedSport]: 0 });
       return;
     }
-    const eventsTemp: Record<
-      number,
-      { region: string; league: string; sport: string }
-    > = Object.fromEntries(
-      firstBatch.map(({ id, region, league, sport }) => [
-        id,
-        { region, league, sport },
-      ]),
-    );
+    // const eventsTemp: Record<
+    //   number,
+    //   { region: string; league: string; sport: string }
+    // > = Object.fromEntries(
+    //   firstBatch.map(({ id, region, league, sport }) => [
+    //     id,
+    //     { region, league, sport },
+    //   ]),
+    // );
 
     setLoadedCount({ [selectedSport]: 0 });
     // setLoading(true);
-    setLoadingMatches(
-      !loadedSports[matchView === "live" ? "live" : "upcoming"]?.has(
-        selectedSport,
-      ),
-    );
+    setLoadingMatches(true);
 
     const missingBatch = firstBatch;
     // const missingBatch = firstBatch.filter((x) => !storeState.value[x.id]);
@@ -434,7 +424,6 @@ export const PreMatchPanel: FunctionComponent = () => {
     loadedSidebarState.value,
     popularMatchesState.value,
     matchView,
-    isLiveMode,
   ]);
 
   const handleShowMore = useCallback(() => {
@@ -681,61 +670,57 @@ export const PreMatchPanel: FunctionComponent = () => {
           /> */}
           <div className="flex flex-col mt-1 rounded-[4px]">
             <>
-              {displayedEvents.length === 0 ? (
-                <div className="px-2 py-2">{tCommon("noDataAvailable")}</div>
-              ) : (
-                displayedEvents.map((event) => {
-                  const storedEvent = storeState.value[event.id]?.value;
-                  if (
-                    !storedEvent ||
-                    (!isLiveMode && !isEventValidForDisplay(storedEvent))
-                  )
-                    return null;
-                  const isMoneyline =
-                    storedEvent.sport === "Basketball" ||
-                    storedEvent.sport === "Ice Hockey";
-                  const marketSlug = isLiveMode
-                    ? selectedMarketName || selectedMarkets[0] || ""
-                    : selectedMarketName;
-                  const marketId = !isLiveMode
-                    ? (getMarketId({
-                        eventId: event.id,
-                        marketSlug,
-                        autoSelect: true,
-                      }) ?? "")
-                    : "";
-                  const canRenderLiveMatch =
-                    !isLiveMode ||
-                    isMoneyline ||
-                    liveMatchWouldRender(storedEvent, marketSlug, true);
-                  if (!canRenderLiveMatch) return null;
-                  return (
-                    <div
-                      key={event.id}
-                      className={`flex rounded-[8px] overflow-hidden ${
-                        !isLiveMode && !marketId && !isMoneyline
-                          ? "hidden"
-                          : "flex mb-2"
-                      }`}
-                    >
-                      {isMoneyline ? (
-                        <MoneylineMatch eventId={event.id} />
-                      ) : (
-                        <Match
-                          eventId={event.id}
-                          marketSlug={marketSlug}
-                          marketId={isLiveMode ? undefined : marketId}
-                          showLeagueLogo={true}
-                          allowAutoSelect={
-                            selectedSport === "Popular" || isLiveMode
-                          }
-                          allowRounded={true}
-                        />
-                      )}
-                    </div>
-                  );
-                })
-              )}
+              {displayedEvents.map((event) => {
+                const storedEvent = storeState.value[event.id]?.value;
+                if (
+                  !storedEvent ||
+                  (!isLiveMode && !isEventValidForDisplay(storedEvent))
+                )
+                  return null;
+                const isMoneyline =
+                  storedEvent.sport === "Basketball" ||
+                  storedEvent.sport === "Ice Hockey";
+                const marketSlug = isLiveMode
+                  ? selectedMarketName || selectedMarkets[0] || ""
+                  : selectedMarketName;
+                const marketId = !isLiveMode
+                  ? (getMarketId({
+                      eventId: event.id,
+                      marketSlug,
+                      autoSelect: true,
+                    }) ?? "")
+                  : "";
+                const canRenderLiveMatch =
+                  !isLiveMode ||
+                  isMoneyline ||
+                  liveMatchWouldRender(storedEvent, marketSlug, true);
+                if (!canRenderLiveMatch) return null;
+                return (
+                  <div
+                    key={event.id}
+                    className={`flex rounded-[8px] overflow-hidden ${
+                      !isLiveMode && !marketId && !isMoneyline
+                        ? "hidden"
+                        : "flex mb-2"
+                    }`}
+                  >
+                    {isMoneyline ? (
+                      <MoneylineMatch eventId={event.id} />
+                    ) : (
+                      <Match
+                        eventId={event.id}
+                        marketSlug={marketSlug}
+                        marketId={isLiveMode ? undefined : marketId}
+                        showLeagueLogo={true}
+                        allowAutoSelect={
+                          selectedSport === "Popular" || isLiveMode
+                        }
+                        allowRounded={true}
+                      />
+                    )}
+                  </div>
+                );
+              })}
               {loadingMore && (
                 <div
                   className="flex flex-col gap-[2px] py-[2px] mt-1"

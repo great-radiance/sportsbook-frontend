@@ -11,7 +11,7 @@ export type tSummaryEventResponse = {
 
 export type tSportResponse = Record<
   string,
-  Record<string, Record<string, [number, boolean][]>>
+  Record<string, Record<string, [number, boolean, number][]>>
 >;
 
 export type tLiveSidebarData = {

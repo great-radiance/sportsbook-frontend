@@ -15,34 +15,67 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { handleClickOdd } from "../MatchesBoard/components/Match/Market";
 import { isBuilding } from "@/state/betState";
 import { selectedOdds } from "@/state/betState";
+import type { tParticipant } from "@/types/tEvent";
+import type {
+  tEventModel,
+  tMarketModel,
+  tOddValue,
+} from "@/types/typesForSocket.ts/tEventModel";
+import type { Signal } from "@preact/signals";
+
+/** Same shape as `popularMatchesState` (sport → region → league → event ids). */
+type PopularMatchesTree = Record<
+  string,
+  Record<string, Record<string, number[]>>
+>;
+
+type StoreEventsMap = Record<number, Signal<tEventModel>>;
+
+/** Feed may attach `category` even though `tMarketModel` omits it. */
+type MarketModelAugmented = tMarketModel & { category?: string };
 
 const formatOddName = (
-  oddName: any,
-  participants: Array<{ name?: string }>,
+  oddName: tOddValue["name"],
+  participants: tParticipant[],
 ): string => {
-  const code = oddName?.e;
-  const line = oddName?.h;
+  if (oddName && typeof oddName === "object") {
+    const code = oddName.e != null ? String(oddName.e).toLowerCase() : "";
+    const line = oddName.h;
 
-  // Match Result (1/X/2)
-  if (code === "1") return `${participants[0]?.name || "Home"} Win`;
-  if (code === "0") return "Draw";
-  if (code === "2") return `${participants[1]?.name || "Away"} Win`;
+    // Match Result (1/X/2)
+    if (code === "1") return `${participants[0]?.name || "Home"} Win`;
+    if (code === "0") return "Draw";
+    if (code === "2") return `${participants[1]?.name || "Away"} Win`;
 
-  // Yes/No
-  if (code === "yes") return "Yes";
-  if (code === "no") return "No";
+    // Yes/No
+    if (code === "yes") return "Yes";
+    if (code === "no") return "No";
 
-  // Over/Under style (e: over/under, h: line)
-  if (
-    (code === "over" || code === "under") &&
-    (typeof line === "string" || typeof line === "number")
-  ) {
-    return `${code === "over" ? "Over" : "Under"} ${line}`;
+    // Over/Under style (e: over/under, h: line)
+    if (
+      (code === "over" || code === "under") &&
+      line != null &&
+      line !== "" &&
+      (typeof line === "string" || typeof line === "number")
+    ) {
+      return `${code === "over" ? "Over" : "Under"} ${line}`;
+    }
+
+    if (typeof line === "string" || typeof line === "number")
+      return String(line);
+    if (!code) return "Selection";
+    return String(oddName.e);
   }
 
-  if (typeof line === "string" || typeof line === "number") return String(line);
-  if (!code) return "Selection";
-  return String(code);
+  if (typeof oddName === "string" && oddName.trim()) return oddName.trim();
+  return "Selection";
+};
+
+const getOddNameCodeLower = (name: tOddValue["name"]): string => {
+  if (name && typeof name === "object" && name.e != null) {
+    return String(name.e).toLowerCase();
+  }
+  return "";
 };
 
 const extractPlayerNameFromOddNameE = (value: unknown): string => {
@@ -109,7 +142,7 @@ const isLikelyPlayerName = (name: string): boolean => {
   return true;
 };
 
-const getPopularMatchIds = (popularMatches: any): number[] => {
+const getPopularMatchIds = (popularMatches: PopularMatchesTree): number[] => {
   const ids: number[] = [];
   Object.keys(popularMatches).forEach((sport) => {
     Object.keys(popularMatches[sport] ?? {}).forEach((region) => {
@@ -121,7 +154,7 @@ const getPopularMatchIds = (popularMatches: any): number[] => {
   return Array.from(new Set(ids));
 };
 
-type Pick = {
+type StarPlayerPick = {
   oddsId: string;
   marketId: string;
   marketName: string;
@@ -129,36 +162,37 @@ type Pick = {
   odds: number;
 };
 
-const isActiveOdd = (odd: any): boolean => {
-  const st = String(odd?.status || "").toLowerCase();
-  const v = Number(odd?.value);
+const isActiveOdd = (odd: tOddValue | undefined): boolean => {
+  if (!odd) return false;
+  const st = String(odd.status || "").toLowerCase();
+  const v = Number(odd.value);
   if (!Number.isFinite(v) || v <= 1.01) return false;
   return st === "nu" || st === "new" || st === "active";
 };
 
 const pickFromMarket = (
-  event: any,
+  event: tEventModel,
   marketId: string,
-  market: any,
+  market: tMarketModel,
   options?: {
     preferEValues?: string[];
-    outcomeNameBuilder?: (odd: any) => string;
+    outcomeNameBuilder?: (odd: tOddValue) => string;
   },
-): Pick | null => {
-  const oddsMap = market?.odds?.odds;
+): StarPlayerPick | null => {
+  const oddsMap = market.odds?.odds;
   if (!oddsMap) return null;
 
   const entries = Object.entries(oddsMap)
-    .map(([oddId, oddSig]: [string, any]) => ({
+    .map(([oddId, oddSig]: [string, Signal<tOddValue>]) => ({
       oddId,
-      odd: oddSig?.value,
+      odd: oddSig.value,
     }))
     .filter(({ odd }) => isActiveOdd(odd));
 
   if (!entries.length) return null;
 
   const findByE = (e: string) =>
-    entries.find(({ odd }) => String(odd?.name?.e || "").toLowerCase() === e);
+    entries.find(({ odd }) => getOddNameCodeLower(odd?.name) === e);
 
   const preferred =
     options?.preferEValues?.length && options.preferEValues.length > 0
@@ -178,26 +212,28 @@ const pickFromMarket = (
   return {
     oddsId: chosen.oddId,
     marketId: String(marketId),
-    marketName: String(market?.name || ""),
+    marketName: String(market.name || ""),
     outcomeName,
     odds: Number(chosenOdd?.value),
   };
 };
 
-const marketHasOutcomeE = (market: any, eValue: string): boolean => {
-  const oddsMap = market?.odds?.odds;
+const marketHasOutcomeE = (market: tMarketModel, eValue: string): boolean => {
+  const oddsMap = market.odds?.odds;
   if (!oddsMap) return false;
   const wanted = String(eValue).toLowerCase();
-  return Object.values(oddsMap).some((oddSig: any) => {
+  return Object.values(oddsMap).some((oddSig) => {
     const odd = oddSig?.value;
     if (!isActiveOdd(odd)) return false;
-    return String(odd?.name?.e || "").toLowerCase() === wanted;
+    return getOddNameCodeLower(odd?.name) === wanted;
   });
 };
 
-const findMatchResultPick = (event: any): Pick | null => {
-  for (const [marketId, marketSig] of Object.entries(event?.markets ?? {})) {
-    const market = (marketSig as any)?.value;
+const findMatchResultPick = (event: tEventModel): StarPlayerPick | null => {
+  for (const marketId of Object.keys(event.markets ?? {})) {
+    const marketSig = event.markets[marketId];
+    if (!marketSig) continue;
+    const market = marketSig.value;
     if (!market?.odds?.odds) continue;
 
     // Detect 1/X/2 by outcome codes rather than market name.
@@ -215,9 +251,13 @@ const findMatchResultPick = (event: any): Pick | null => {
   return null;
 };
 
-const findTotalGoalsOverUnderPick = (event: any): Pick | null => {
-  for (const [marketId, marketSig] of Object.entries(event?.markets ?? {})) {
-    const market = (marketSig as any)?.value;
+const findTotalGoalsOverUnderPick = (
+  event: tEventModel,
+): StarPlayerPick | null => {
+  for (const marketId of Object.keys(event.markets ?? {})) {
+    const marketSig = event.markets[marketId];
+    if (!marketSig) continue;
+    const market = marketSig.value;
     if (!market?.odds?.odds) continue;
 
     // Detect O/U by outcome codes, and ensure we can render a sensible line.
@@ -229,7 +269,7 @@ const findTotalGoalsOverUnderPick = (event: any): Pick | null => {
       pickFromMarket(event, String(marketId), market, {
         preferEValues: ["over", "under"],
         outcomeNameBuilder: (odd) =>
-          formatOddName(odd?.name, event.participants),
+          formatOddName(odd.name, event.participants),
       }) ?? null;
 
     // Ensure it actually formatted into "Over X" / "Under X" (i.e., has a line).
@@ -238,13 +278,13 @@ const findTotalGoalsOverUnderPick = (event: any): Pick | null => {
   return null;
 };
 
-const isPlayerMarketLike = (market: any): boolean => {
-  const categoryRaw = market?.category;
+const isPlayerMarketLike = (market: MarketModelAugmented): boolean => {
+  const categoryRaw = market.category;
   const category =
     typeof categoryRaw === "string" ? categoryRaw.toLowerCase() : "";
   if (category === "players" || category.includes("player")) return true;
 
-  const nameRaw = market?.name;
+  const nameRaw = market.name;
   const name = typeof nameRaw === "string" ? nameRaw.toLowerCase() : "";
   if (
     name.includes("player") ||
@@ -259,13 +299,17 @@ const isPlayerMarketLike = (market: any): boolean => {
   }
 
   // Last resort: infer from odds labels looking like human names.
-  const oddsMap = market?.odds?.odds;
+  const oddsMap = market.odds?.odds;
   if (!oddsMap) return false;
   let scanned = 0;
   for (const oddSig of Object.values(oddsMap)) {
-    const odd = (oddSig as any)?.value;
+    const odd = oddSig?.value;
     if (!isActiveOdd(odd)) continue;
-    const e = typeof odd?.name?.e === "string" ? odd.name.e.trim() : "";
+    const nm = odd.name;
+    const e =
+      nm && typeof nm === "object" && typeof nm.e === "string"
+        ? nm.e.trim()
+        : "";
     if (!e) continue;
 
     // Exclude common non-player codes.
@@ -293,8 +337,8 @@ const isPlayerMarketLike = (market: any): boolean => {
 };
 
 const buildStarPlayers = (
-  popularMatches: any,
-  store: Record<number, any>,
+  popularMatches: PopularMatchesTree,
+  store: StoreEventsMap,
 ): StarPlayerCardData[] => {
   const ids = getPopularMatchIds(popularMatches);
   const rows: StarPlayerCardData[] = [];
@@ -310,17 +354,19 @@ const buildStarPlayers = (
     if (!matchResultPick || !totalGoalsPick) continue;
 
     // 2) Build one Star Player card per valid player odd (category === "players").
-    for (const [marketId, marketSig] of Object.entries(event.markets)) {
-      const market = (marketSig as any)?.value;
+    for (const marketId of Object.keys(event.markets)) {
+      const marketSig = event.markets[marketId];
+      if (!marketSig) continue;
+      const market = marketSig.value as MarketModelAugmented;
       if (!market?.odds?.odds) continue;
 
       // If `market.category` is missing, infer based on market name / odds labels.
       if (!isPlayerMarketLike(market)) continue;
 
-      const marketName = String(market?.name || "");
+      const marketName = String(market.name || "");
 
       for (const [oddId, oddSig] of Object.entries(market.odds.odds)) {
-        const odd = (oddSig as any)?.value;
+        const odd = oddSig.value;
         if (!isActiveOdd(odd)) continue;
 
         // Only show a player card when the feed provides odd name as `{ e: "..." }`.
@@ -337,7 +383,7 @@ const buildStarPlayers = (
         const playerName = extractPlayerNameFromOddNameE(outcomeNameE);
         if (!isLikelyPlayerName(playerName)) continue;
 
-        const playerPick: Pick = {
+        const playerPick: StarPlayerPick = {
           oddsId: String(oddId),
           marketId: String(marketId),
           marketName,
@@ -421,7 +467,9 @@ export const StarPlayers: FunctionComponent = () => {
   const handleAddPickToBetBuilder = useCallback(
     (picks: { oddsId: string; marketId: string }[]) => {
       const selected = players.find((p) =>
-        p.picks?.some((x) => picks.some((p) => p.oddsId === x.oddsId)),
+        p.picks?.some((x) =>
+          picks.some((payload) => payload.oddsId === x.oddsId),
+        ),
       );
       if (!selected) return;
       const event = storeState.value[selected.eventId]?.value;
@@ -444,7 +492,7 @@ export const StarPlayers: FunctionComponent = () => {
 
           handleClickOdd({
             oddId: p.oddsId,
-            oddName: formatOddName(odd?.name, event.participants as any[]),
+            oddName: formatOddName(odd.name, event.participants),
             eventId: selected.eventId,
             marketId: p.marketId,
             marketName: market?.name || "Market",

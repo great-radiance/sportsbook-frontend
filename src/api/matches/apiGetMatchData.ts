@@ -3,76 +3,88 @@ import { instance } from "../instance";
 import { tEvent } from "@/types/tEvent";
 
 export type MatchDataResponse = {
-  data: {
-    items: {
-      fixture: {
-        eventId: number;
-        startDate: number;
-        // properties: {
-        //   eventName: string;
-        //   eventRound: string;
-        //   eventType: number;
-        // };
-        status: string;
-        sportRadarId: number;
-        outright: boolean;
-        sport: {
-          name: string;
-        };
-        competition: {
-          name: string;
-        };
-        region: {
-          name: string;
-        };
-        participants: {
-          name: string;
-        }[];
-        participantsInfo: {
-          name: string;
-          home: boolean;
-        }[];
-      };
-      markets: {
-        name: string;
-        marketId: string;
-        providerName: string;
-        status: string;
-        properties: {
-          column: number;
-          groups: number[];
-          id: number;
-          name_template: string;
-          sort: number;
-          numbers: number[];
-          uni_name: string;
-          category: string;
-        };
-        odds: {
-          name: string;
-          status: string;
-          odd: number;
-          properties: {
-            e: string;
-            o: string;
-            h: string;
-            uuid: string;
-          };
-          sort: number;
-          column: number;
-          mv: number;
-          value: number;
-          impliedOdd: number;
-        }[];
-      }[];
-      live: Live;
+  eventInfo: {
+    id: number;
+    name: string;
+    status: number;
+    trandingStatus: number;
+    statusDescription: string;
+    country: {
+      id: number;
+      name: string;
+    };
+    sport: {
+      id: number;
+      name: string;
+    };
+    competition: {
+      id: number;
+      name: string;
+    };
+    season: {
+      id: number;
+      name: string;
+    };
+    competitors: {
+      id: number;
+      name: string;
+    }[];
+    startTime: string;
+    isOutright: boolean;
+    isBetBuilderSuported: boolean;
+    customDisplayData: any;
+    mappingInfo: {
+      feedId: number;
+      id: string;
     }[];
   };
+  markets: {
+    id: number;
+    name: string;
+    tradingStatus: number;
+    selections: {
+      id: number;
+      name: string;
+      probability: number;
+      price: number;
+      originalPrice: number;
+      status: number;
+      settlement: number;
+      deadHeatFactor: number;
+      extraParameters: {
+        [key: string]: string;
+      };
+      isBetBuilderSuported: boolean;
+      competitionId: number;
+      startingPrice: number;
+    }[];
+    type: number;
+    isBestLine: boolean;
+    parameters: {
+      [key: string]: string;
+    };
+    extraParameters: {
+      [key: string]: string;
+    };
+    isBetBuilderSuported: boolean;
+  }[];
+  scoreboard: any;
+  betCancellations: any[];
+  time: number;
+  eventId: number;
+  version: number;
+  correlationId: string;
+  creationTime: string;
+  sportId: number;
+  locationId: number;
+  leagueId: number;
+  updateSequence: number;
+  lastUpdatedTime: number;
 };
 
 export const apiGetMatchData = async (eventId: number) => {
-  const response = await instance.get<MatchDataResponse>(
-    `/cybet/matches/PING-EVENT/${eventId}`,
+  const response = await instance.get<{ data: MatchDataResponse }>(
+    `/events/${eventId}`,
   );
-  return response.data.data.items[0];
+  return response.data.data;
 };

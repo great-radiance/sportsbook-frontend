@@ -4,7 +4,7 @@ import {
   tPrematchSidebarData,
   tSportResponse,
 } from "@/api/sidebar/apiGetPrematchSidebar";
-import { tLiveSidebarData } from "@/api/sidebar/apiGetLiveSidebar";
+import { tLiveSidebarData } from "@/api/sidebar/apiGetSidebar";
 import { tOrderConfigration } from "@/api/sidebar/apiGetOrderConfigration";
 
 interface GroupedData {

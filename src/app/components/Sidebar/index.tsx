@@ -12,7 +12,7 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { apiGetPrematchSidebar } from "@/api/sidebar/apiGetPrematchSidebar";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { PrematchLoader } from "../Loading/PrematchLoader";
-import { apiGetLiveSidebar } from "@/api/sidebar/apiGetLiveSidebar";
+import { apiGetLiveSidebar } from "@/api/sidebar/apiGetSidebar";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";

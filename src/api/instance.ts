@@ -7,7 +7,7 @@ export const instance = axios.create({
 export const setAxiosAuthToken = (
   apiKey: string | null | undefined,
   apiCode: string | null | undefined,
-  apiUserId: string | null | undefined
+  apiUserId: string | null | undefined,
 ) => {
   if (apiKey) {
     instance.defaults.headers["x-api-key"] = apiKey;

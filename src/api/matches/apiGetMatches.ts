@@ -1,19 +1,12 @@
-import {
-  Sport,
-  Region,
-  Competition,
-  Participant,
-  Live,
-  Market,
-  ScoreBoard,
-  Clock,
-  LiveStats,
-  LiveStatus,
-} from "@/shared/utils/types";
+import { ScoreBoard, Clock, LiveStatus } from "@/shared/utils/types";
 import { instance } from "../instance";
-import qs from "qs";
 import { tEvent } from "@/types/tEvent";
-import { summarySportsLive } from "@/state/summarySports";
+import { instanceOdds88 } from "../instanceOdds88";
+import { MatchDataResponse } from "./apiGetMatchData";
+
+export type MatchesResponse = {
+  data: MatchDataResponse[];
+};
 
 export type MatchesResponseOldVersion = {
   data: tEvent[];
@@ -55,12 +48,12 @@ export type responseEvent = [
   LiveStatus | null | undefined, // status
 ];
 
-export type MatchesResponse = {
-  data: {
-    map: responseEvent[];
-    marketsMeta: string[];
-  };
-};
+// export type MatchesResponse = {
+//   data: {
+//     map: responseEvent[];
+//     marketsMeta: string[];
+//   };
+// };
 
 export const apiGetMatches = async (
   eventIds: number[],
@@ -88,8 +81,8 @@ export const apiGetMatches = async (
   );
 
   return {
-    data: response.data.data.map,
-    marketsMeta: response.data.data.marketsMeta,
+    data: response.data.data,
+    // marketsMeta: response.data.data.marketsMeta,
   };
 };
 
@@ -102,11 +95,11 @@ export const apiGetMatchesOldVersion = async (eventIds: number[]) => {
   }
 
   const query = new URLSearchParams();
-  query.append("ids", ids.join(","));
+  query.append("eventIds", ids.join(","));
 
-  const response = await instance.get<MatchesResponseOldVersion>(
+  const response = await instanceOdds88.get<MatchesResponseOldVersion>(
     // `/cybet/matches/Matches?${query.toString()}`,
-    `/cybet/matches/MatchesMarkets?${query.toString()}`,
+    `/events?tradingStatus=0&${query.toString()}`,
   );
 
   // for (const match of response.data.data) {

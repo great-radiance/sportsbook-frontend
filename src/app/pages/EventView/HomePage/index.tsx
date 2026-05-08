@@ -56,7 +56,7 @@ export const HomePage: FunctionComponent = () => {
   return (
     <div className="flex md:p-2 w-full flex-col gap-2">
       {isMobile.value && <TopLeagueMenu />}
-      <PreMatchPanel />
+      {/* <PreMatchPanel /> */}
 
       <HorizontalTabs>
         <TrendingAccas />

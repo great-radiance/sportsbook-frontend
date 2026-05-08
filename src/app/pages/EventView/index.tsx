@@ -17,12 +17,12 @@ export const EventView: FunctionComponent = () => {
       <div className="flex w-full min-w-0 h-full">
         {pageName === "live" ? (
           <div className="flex w-full min-w-0 min-h-0">
-            <LiveEventView />
+            {/* <LiveEventView /> */}
           </div>
         ) : (
           <>
             <div className="flex flex-col w-full min-w-0 h-full transition-all duration-300 ease-in-out">
-              {!pageName && <EmblaBanner />}
+              {/* {!pageName && <EmblaBanner />} */}
               <div className="flex flex-col md:flex-row p-2 w-full min-w-0 h-full">
                 <div className="flex w-full md:max-w-[calc(100%-320px)] h-full shrink-0">
                   <SwitchMachesBoard />
@@ -34,7 +34,7 @@ export const EventView: FunctionComponent = () => {
                     display: isOpenedMyBet.value ? "flex" : "none",
                   }}
                 >
-                  <RightSidebar />
+                  {/* <RightSidebar /> */}
                 </div>
               </div>
             </div>
@@ -42,7 +42,7 @@ export const EventView: FunctionComponent = () => {
         )}
       </div>
       <div className="fixed  bottom-[70px] md:bottom-0 left-1 md:left-auto z-[30] right-1 md:w-full md:max-w-[360px]">
-        <BetSlip />
+        {/* <BetSlip /> */}
       </div>
     </div>
   );

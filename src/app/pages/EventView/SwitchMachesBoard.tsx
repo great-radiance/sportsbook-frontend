@@ -12,31 +12,45 @@ import { RegionMatchesBoard } from "@/app/components/MatchesBoard/RegionMatchesB
 import { SportPage } from "./SportPage";
 
 export const SwitchMachesBoard: FunctionComponent = () => {
-  const { pageName, sportName, eventId, regionName, leagueName } =
-    useRouteParams();
+  const {
+    pageName,
+    sportName,
+    sportIdParam,
+    regionIdParam,
+    leagueIdParam,
+    eventId,
+  } = useRouteParams();
 
   const switchMachesBoard = useCallback(() => {
     if (pageName === "special") {
-      if (sportName === "upcoming") {
-        return <UpcomingMatches />;
-      } else if (sportName === "popular") {
-        return <PopularMatches />;
-      } else if (sportName === "boosted") {
-        return <BoostedOdds />;
-      } else if (sportName === "outright") {
-        return <OutrightMatches />;
-      } else if (sportName === "competitions") {
+      // if (sportName === "upcoming") {
+      //   return <UpcomingMatches />;
+      // } else if (sportName === "popular") {
+      //   return <PopularMatches />;
+      // } else if (sportName === "boosted") {
+      //   return <BoostedOdds />;
+      // } else if (sportName === "outright") {
+      //   return <OutrightMatches />;
+      // } else
+      if (sportName === "competitions") {
         return <MatchesBoard />;
       }
     } else if (pageName === "sport") {
-      return <SportPage />;
+      // return <SportPage />;
     } else if (eventId) return <MarketsBoard />;
-    else if (leagueName) return <MatchesBoard />;
-    else if (regionName) {
-      return <RegionMatchesBoard />;
+    else if (leagueIdParam) return <MatchesBoard />;
+    else if (regionIdParam) {
+      // return <RegionMatchesBoard />;
     }
-    return <HomePage />;
-  }, [pageName, sportName, eventId, regionName, leagueName]);
+    // return <HomePage />;
+  }, [
+    pageName,
+    sportName,
+    sportIdParam,
+    regionIdParam,
+    leagueIdParam,
+    eventId,
+  ]);
 
   return switchMachesBoard();
 };

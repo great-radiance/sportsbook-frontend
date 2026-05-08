@@ -1,32 +1,36 @@
 import { signal } from "@preact/signals";
-import { BoostedOddsEvent } from "@/shared/utils/summary";
-import {
-  tPrematchSidebarData,
-  tSportResponse,
-} from "@/api/sidebar/apiGetPrematchSidebar";
-import { tLiveSidebarData } from "@/api/sidebar/apiGetSidebar";
-import { tOrderConfigration } from "@/api/sidebar/apiGetOrderConfigration";
+import { tCounts, tSportResponse } from "@/api/sidebar/apiGetSidebar";
 
-interface GroupedData {
-  [sportId: number]: {
-    [competitionId: number]: BoostedOddsEvent[];
-  };
-}
+// interface GroupedData {
+//   [sportId: number]: {
+//     [competitionId: number]: BoostedOddsEvent[];
+//   };
+// }
+export type summaryData = {
+  data: tSportResponse;
+  counts: tCounts;
+  TotalCount: number;
+};
 
-export const summarySports = signal<tPrematchSidebarData>({
-  data: {},
+export const summarySports = signal<summaryData>({
+  data: [],
   counts: {},
-  permatchTotalCount: 0,
+  TotalCount: 0,
 });
-export const outRightSummarySports = signal<tSportResponse>({});
 
-export const summarySportsLive = signal<tLiveSidebarData>({
-  data: {},
+export const summarySportsLive = signal<summaryData>({
+  data: [],
   counts: {},
-  liveTotalCount: 0,
+  TotalCount: 0,
+});
+
+export const outRightSummarySports = signal<summaryData>({
+  data: [],
+  counts: {},
+  TotalCount: 0,
 });
 
 export const liveCount = signal<number>(0);
 export const prematchCount = signal<number>(0);
-export const testData = signal<GroupedData>({});
+// export const testData = signal<GroupedData>({});
 export const stateScoreBoardId = signal<string>("");

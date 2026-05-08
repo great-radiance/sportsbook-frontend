@@ -4,7 +4,7 @@ import { useState, useEffect } from "preact/hooks";
 import { Market as MarketType, Odd } from "@/shared/utils/types";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import {
-  handleClickOdd,
+  // handleClickOdd,
   isSelected,
 } from "@/app/components/MatchesBoard/components/Match/Market";
 import { isMobile } from "@/state/isMobile";
@@ -36,8 +36,9 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
 
   const event = storeState.value[eventId]?.value;
   const market = event?.markets?.[marketId]?.value;
-  const { name, column } = market || {};
-  const oddsIdList = market?.odds?.oddIdList || [];
+  const name = market?.name;
+  const tradingStatus = market?.tradingStatus;
+  const selections = market?.selections ?? [];
   // const odds = (oddsIdList as string[])
   //   .map((id) => market?.odds?.[id])
   //   .filter(
@@ -46,7 +47,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   //   )
   //   .map((sig) => sig.value);
 
-  if (market?.status === "deleted") {
+  if (tradingStatus === 2 || tradingStatus === 3) {
     return null;
   }
 
@@ -117,22 +118,15 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
           <div
             className="grid w-full gap-2 mt-2"
             style={{
-              gridTemplateColumns: `repeat(${column}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${selections.length}, minmax(0, 1fr))`,
             }}
           >
-            {oddsIdList.map((oddsId) => {
-              const oddSig =
-                event?.markets?.[marketId]?.value?.odds?.odds?.[oddsId];
-              const odd =
-                oddSig && typeof oddSig === "object" && "value" in oddSig
-                  ? (oddSig as { value: tOdd }).value
-                  : null;
-
-              if (!odd) return null;
-              if (odd.status === "suspended") {
+            {selections.map((selection, index) => {
+              if (!selection) return null;
+              if (selection?.value.status === 1) {
                 return (
                   <div
-                    key={odd.id}
+                    key={selection?.value.id}
                     className="flex items-center border bg-[var(--sub-element-secondary)] border-[var(--border-color)] justify-center px-[10px] py-2  text-[12px] rounded-[8px] min-w-0"
                   >
                     <img
@@ -144,7 +138,10 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                 );
               }
 
-              if (odd.status === "deleted") {
+              if (
+                selection?.value.status === 2 ||
+                selection?.value.status === 3
+              ) {
                 return null;
                 // <span
                 //   className={`flex items-center border ${theme === "dark" ? "bg-[var(--sub-element-secondary)] border-[var(--border-color)]" : "bg-[var(--sub-element-secondary)] border-[var(--border-color)]"} justify-center px-[10px] py-2  text-[12px] rounded-[8px] text-[var(--text-primary-color)] min-w-0`}
@@ -155,49 +152,49 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
 
               return (
                 <div
-                  key={odd.id}
+                  key={selection?.value.id}
                   className={`relative flex items-center border border-[var(--border-color)] justify-between group/m cursor-pointer px-[10px] py-2 text-[12px] rounded-[8px] min-w-0 ${
-                    isSelected(odd.id)
+                    isSelected(selection?.value.id)
                       ? "bg-[var(--primary-color)] text-black"
                       : "bg-[var(--sub-element-secondary)]"
                   } ${isMobile.value ? "" : " hover:bg-[var(--primary-color)] hover:text-black"}`}
-                  onClick={() => {
-                    handleClickOdd({
-                      eventId: eventId,
-                      marketId: marketId,
-                      marketName: market?.name || "",
-                      participants: event?.participants || [],
-                      oddId: odd.id,
-                      oddName: getOddName(odd.name) || "",
-                      startDate: event?.startDate || 0,
-                      sportSlug: event.sport || "",
-                    });
-                    console.log(odd);
-                  }}
+                  // onClick={() => {
+                  //   handleClickOdd({
+                  //     eventId: eventId,
+                  //     marketId: marketId,
+                  //     marketName: market?.name || "",
+                  //     participants: event?.participants || [],
+                  //     oddId: odd.id,
+                  //     oddName: getOddName(odd.name) || "",
+                  //     startDate: event?.startDate || 0,
+                  //     sportSlug: event.sport || "",
+                  //   });
+                  //   console.log(odd);
+                  // }}
                 >
                   <span
                     className={`truncate ${
-                      isSelected(odd.id)
+                      isSelected(selection?.value.id)
                         ? "text-black"
                         : "group-hover/m:text-black"
                     } mr-2`}
                   >
-                    {getOddName(odd.name)}
+                    {getOddName(selection?.value.name)}
                   </span>
 
                   <div
                     className={`flex items-center justify-center px-[10px] text-[12px] rounded-[8px] ${
-                      isSelected(odd.id)
+                      isSelected(selection?.value.id)
                         ? "text-[var(--text-basic-color)]"
                         : "text-[var(--text-primary-color)] group-hover/m:text-black"
                     } shrink-0`}
                   >
-                    {odd.value.toFixed(2)}
+                    {selection?.value.price?.toFixed(2)}
                   </div>
 
-                  {odd.mv === 1 && (
+                  {/* {odd.mv === 1 && (
                     <span
-                      key={`up-${odd.id}`}
+                      key={`up-${selection?.value.id}`}
                       className="absolute odd-move-mark top-1 right-[2px] w-0 h-0 market-indicator-up"
                       style={{
                         borderStyle: "solid",
@@ -228,7 +225,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                           "linear-gradient(to top right, #000000 0%, #FF3449 100%)",
                       }}
                     />
-                  )}
+                  )} */}
                 </div>
               );
             })}

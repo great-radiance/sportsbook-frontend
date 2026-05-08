@@ -8,7 +8,7 @@ import { SportsList } from "../SportsList";
 import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { popularMatchesState } from "@/state/popularMatchesState";
 import { MarketNavigation } from "../marketNavigation";
-import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
+import { storeEvent } from "@/helpers/storeEvent";
 import { Match } from "../MatchesBoard/components/Match";
 import { apiGetMatchesAuto } from "@/api/matches/apiGetMatchesAuto";
 

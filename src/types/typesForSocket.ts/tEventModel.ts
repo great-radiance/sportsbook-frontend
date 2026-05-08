@@ -1,59 +1,67 @@
-import { League } from "@/shared/utils/summary";
-import {
-  Competition,
-  Live,
-  MarketProperties,
-  Odd,
-  Participant,
-  Region,
-  Sport,
-} from "@/shared/utils/types";
-import { OddProperties, OddStatus } from "@/shared/utils/types";
-import { tParticipant } from "../tEvent";
+import { Live } from "@/shared/utils/types";
 import { Signal } from "@preact/signals";
 
 /** Single odd row stored under `tOddsModel.odds[oddId]` */
-export type tOddValue = {
-  id: string;
-  value: number;
-  impliedOdd: number | null;
-  status: string;
-  mv: number;
-  column: number;
-  sort: number;
-  name:
-    | string
-    | { e: string | null; o: string | null; h: string | null }
-    | null;
+export type tSelectionValue = {
+  id: number;
+  name: string;
+  probability: number;
+  price: number;
+  originalPrice: number;
+  status: number;
+  settlement: number;
+  deadHeatFactor: number;
+  extraParameters: Record<string, string>;
+  isBetBuilderSuported: boolean;
+  competitionId: number;
+  startingPrice: number;
 };
 
-export type tOddsModel = {
-  oddIdList: string[];
-  odds: Record<string, Signal<tOddValue>>;
-};
-
-export type tOddSignal = Signal<tOddValue>;
+export type tSelectionSignal = Signal<tSelectionValue>;
 
 export type tMarketModel = {
-  id: string;
-  status: string;
+  id: number;
   name: string;
-  column: number;
-  groups: number[];
-  sort: number;
-  odds: tOddsModel; // oddId to tOddModel
+  tradingStatus: number;
+  type: number;
+  isBestLine: boolean;
+  parameters: Record<string, string>;
+  extraParameters: Record<string, string>;
+  isBetBuilderSuported: boolean;
+  selections: Signal<tSelectionValue>[]; // selection Array
 };
 
 export type tEventModel = {
   id: number;
-  sport: string;
-  region: string;
-  league: string;
-  participants: tParticipant[];
-  startDate: number; // timestamp
-  status: string;
-  sportRadarId: string;
-  outright: boolean;
+  name: string;
+  status: number;
+  trandingStatus: number;
+  statusDescription: string;
+  sport: {
+    id: number;
+    name: string;
+  };
+  region: {
+    id: number;
+    name: string;
+  };
+  league: {
+    id: number;
+    name: string;
+  };
+  season: {
+    id: number;
+    name: string;
+  };
+  competitors: competitor[];
+  startTime: string;
+  isOutright: boolean;
+  customdisplayData: any;
+  isBetBuilderSuported: boolean;
+  mappingInfo: {
+    feedId: number;
+    id: string;
+  }[];
   markets: Record<string, Signal<tMarketModel>>; //marketSlug to marketId (uuid)
   live?: Live;
 };
@@ -64,6 +72,11 @@ export type tBetOddsModel = {
   status: string;
   value: number;
   mv: number;
+};
+
+export type competitor = {
+  id: number;
+  name: string;
 };
 
 // export type tBetMarketModel = {

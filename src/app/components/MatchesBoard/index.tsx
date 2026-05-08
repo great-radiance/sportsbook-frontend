@@ -8,17 +8,19 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { outRightSummarySports, summarySports } from "@/state/summarySports";
 import { Match } from "./components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
-import { apiGetMatches, responseEvent } from "@/api/matches/apiGetMatches";
+import {
+  apiGetMatches,
+  // responseEvent
+} from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { getTranslatedText } from "@/helpers/getTranslate";
 import { MarketNavigation } from "../marketNavigation";
-import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MatchesGroup } from "./components/MatchesGroup";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
-import { apiGetMatchesAuto } from "@/api/matches/apiGetMatchesAuto";
 import { Breadcrumbs } from "../Breadcrumbs";
+import { storeEvent } from "@/helpers/storeEvent";
 
 const switchCategory = (
   category: string,
@@ -62,7 +64,14 @@ export const MatchesBoard: FunctionComponent = () => {
   const CATEGORIES = ["Matches", "Outright"];
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
   const { t } = useTranslate("markets");
-  const { sportName, regionName, leagueName } = useRouteParams();
+  const {
+    sportName,
+    sportIdParam,
+    regionName,
+    regionIdParam,
+    leagueName,
+    leagueIdParam,
+  } = useRouteParams();
   const [, setLocation] = useLocation();
   const [selectedMarketSlug, setSelectedMarketSlug] =
     useState<string>("Winner");
@@ -71,112 +80,114 @@ export const MatchesBoard: FunctionComponent = () => {
   >({});
 
   const [loading, setLoading] = useState(true);
-  const sportRegions = summarySports.value.data?.[sportName || ""] || [];
-  const eventIds =
-    Object.values(
-      summarySports.value?.data?.[sportName || ""]?.[regionName || ""]?.[
-        leagueName || ""
-      ] || {},
-    )?.map((m) => m[0]) || ([] as number[]);
+  const sportRegions =
+    summarySports.value.data?.find((s) => s[0] === Number(sportIdParam))?.[2] ||
+    undefined;
+  const eventIds: number[] =
+    sportRegions
+      ?.find((r) => r[0] === Number(regionIdParam))?.[2]
+      ?.find((l) => l[0] === Number(leagueIdParam))?.[2]
+      ?.map((m) => m[0]) || ([] as number[]);
 
-  const outrightEventIds =
-    Object.values(
-      outRightSummarySports.value?.[sportName || ""]?.[regionName || ""]?.[
-        leagueName || ""
-      ] || {},
-    )?.map((m) => m[0]) || ([] as number[]);
+  // const outrightEventIds =
+  //   Object.values(
+  //     outRightSummarySports.value?.[sportName || ""]?.[regionName || ""]?.[
+  //       leagueName || ""
+  //     ] || {},
+  //   )?.map((m) => m[0]) || ([] as number[]);
+  const outrightEventIds = [1];
 
   const selectValue =
-    regionName && leagueName ? `${regionName}/${leagueName}` : "";
+    regionName || (regionIdParam && leagueName) || leagueIdParam
+      ? `${regionName}/${regionIdParam}/${leagueName}/${leagueIdParam}`
+      : "";
 
   const getMatchesBoard = useCallback(async () => {
     if (
-      !sportName ||
-      !regionName ||
-      !leagueName ||
-      Object.keys(
-        summarySports.value.data[sportName || ""]?.[regionName || ""]?.[
-          leagueName || ""
-        ] || {},
-      ).length === 0
+      !sportIdParam ||
+      !regionIdParam ||
+      !leagueIdParam ||
+      !eventIds.length ||
+      summarySports.value.data
+        .find((s) => s[0] === Number(sportIdParam))?.[2]
+        .find((r) => r[0] === Number(regionIdParam))?.[2]
+        ?.find((l) => l[0] === Number(leagueIdParam))?.[2]?.length === 0
     )
       return;
     try {
       const eventIds: number[] =
-        Object.values(
-          summarySports.value.data[sportName || ""]?.[regionName || ""]?.[
-            leagueName || ""
-          ] || {},
-        ).map((m) => m[0]) || ([] as number[]);
-
+        summarySports.value.data
+          .find((s) => s[0] === Number(sportIdParam))?.[2]
+          .find((r) => r[0] === Number(regionIdParam))?.[2]
+          ?.find((l) => l[0] === Number(leagueIdParam))?.[2]
+          ?.map((m) => m[0]) || ([] as number[]);
+      console.log("eventIds", eventIds);
       const [res, resOutright] = await Promise.all([
-        apiGetMatchesAuto(eventIds),
+        apiGetMatches(eventIds),
+        // apiGetMatchesAuto(eventIds),
         apiGetOutrightMatchs(outrightEventIds),
       ]);
-      const newEvents = res.data?.sort((a, b) => (a[9] ?? 0) - (b[9] ?? 0));
+      const newEvents = res?.sort(
+        (a, b) =>
+          new Date(a.eventInfo.startTime).getTime() -
+          new Date(b.eventInfo.startTime).getTime(),
+      );
       const newOutrightEvents = resOutright.data?.sort(
         (a, b) => (a[9] ?? 0) - (b[9] ?? 0),
       );
-      const tempMarkets: Record<string, string[]> = {};
-      tempMarkets["Matches"] = res.marketsMeta;
-      tempMarkets["Outright"] = resOutright.marketsMeta;
-      convertAndStoreEvent(newEvents);
-      convertAndStoreEvent(newOutrightEvents as unknown as responseEvent[]);
-      setSelectedMarkets(tempMarkets);
+      console.log("newEvents", newEvents);
+      // const tempMarkets: Record<string, string[]> = {};
+      // tempMarkets["Matches"] = res.marketsMeta;
+      // tempMarkets["Outright"] = resOutright.marketsMeta;
+      for (const event of newEvents) {
+        storeEvent(event);
+      }
+      // convertAndStoreEvent(newOutrightEvents as unknown as responseEvent[]);
+      // setSelectedMarkets(tempMarkets);
     } catch (error) {
       console.error("Error fetching matches board:", error);
     }
-  }, [sportName, regionName, leagueName]);
+  }, [sportIdParam, regionIdParam, leagueIdParam, summarySports.value]);
+
+  // useEffect(() => {
+  //   (async () => {
+  //     try {
+  //       await getMatchesBoard();
+  //     } catch (error) {
+  //       console.error("Error fetching matches board:", error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   })();
+  // }, [getMatchesBoard]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!loadedSidebarState.value) return;
     if (
-      !sportName ||
-      !regionName ||
-      !leagueName ||
-      Object.keys(
-        summarySports.value.data[sportName || ""]?.[regionName || ""]?.[
-          leagueName || ""
-        ] || {},
-      ).length === 0
+      sportIdParam &&
+      regionIdParam &&
+      leagueIdParam &&
+      summarySports.value.data
+        .find((s) => s[0] === Number(sportIdParam))?.[2]
+        .find((r) => r[0] === Number(regionIdParam))?.[2]
+        ?.find((l) => l[0] === Number(leagueIdParam))?.[2]?.length
     ) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        await getMatchesBoard();
-      } catch (error) {
-        console.error("Error fetching matches board:", error);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [getMatchesBoard]);
-
-  useEffect(() => {
-    if (
-      sportName &&
-      regionName &&
-      leagueName &&
-      Object.keys(
-        summarySports.value.data[sportName || ""]?.[regionName || ""]?.[
-          leagueName || ""
-        ] || {},
-      ).length > 0 &&
-      loading
-    ) {
+      setLoading(true);
       (async () => {
         try {
           await getMatchesBoard();
         } catch (error) {
+          setLoading(false);
           console.error("Error fetching matches board:", error);
         } finally {
           setLoading(false);
         }
       })();
+    } else {
+      setLoading(false);
+      return;
     }
-  }, [loadedSidebarState.value, leagueName]);
+  }, [loadedSidebarState.value, sportIdParam, regionIdParam, leagueIdParam]);
 
   return (
     <div
@@ -185,9 +196,28 @@ export const MatchesBoard: FunctionComponent = () => {
       <Breadcrumbs
         items={[
           { label: "Home", href: "/event-view" },
-          { label: getTranslatedText(sportName || "") },
-          { label: getTranslatedText(regionName || "") },
-          { label: getTranslatedText(leagueName || "") },
+          {
+            label: getTranslatedText(
+              summarySports.value.data.find(
+                (s) => s[0] === Number(sportIdParam),
+              )?.[1] || "",
+            ),
+          },
+          {
+            label: getTranslatedText(
+              summarySports.value.data
+                .find((s) => s[0] === Number(sportIdParam))?.[2]
+                .find((r) => r[0] === Number(regionIdParam))?.[1] || "",
+            ),
+          },
+          {
+            label: getTranslatedText(
+              summarySports.value.data
+                .find((s) => s[0] === Number(sportIdParam))?.[2]
+                .find((r) => r[0] === Number(regionIdParam))?.[2]
+                ?.find((l) => l[0] === Number(leagueIdParam))?.[1] || "",
+            ),
+          },
         ]}
       />
       <div
@@ -210,7 +240,7 @@ export const MatchesBoard: FunctionComponent = () => {
               // ignore region header selections
               if (!val || val.startsWith("region__")) return;
               // setSelectedleagueNameLocal(val.split("/")[1]);
-              const newPath = `/event-view/pre-match/${sportName}/${val}`;
+              const newPath = `/event-view/pre-match/${sportName}/${sportIdParam}/${val}`;
               setLocation(newPath);
             }}
             className="text-black"
@@ -222,31 +252,31 @@ export const MatchesBoard: FunctionComponent = () => {
             }}
             notInvert
           >
-            {Object.keys(sportRegions).length === 0 ? (
+            {sportRegions?.length === 0 ? (
               <SelectItem value="">{t("noResults")}</SelectItem>
             ) : (
-              Object.keys(sportRegions).map((region) => (
-                <Fragment key={region}>
+              sportRegions?.map((region) => (
+                <Fragment key={region[0]}>
                   <SelectItem
-                    key={`region-${region}`}
-                    value={`region__${region}`}
+                    key={`region-${region[0]}`}
+                    value={`region__${region[0]}`}
                     disabled
                     className="flex font-bold text-[13px] items-center gap-2"
                   >
                     <img
-                      src={getFlagIconFromregionName(region || region)}
-                      alt={region || region}
+                      src={getFlagIconFromregionName(region[1] || "")}
+                      alt={region[1] || ""}
                       className="w-5 h-5 rounded-full"
                     />
-                    {getTranslatedText(region || "")}
+                    {getTranslatedText(region[1] || "")}
                   </SelectItem>
-                  {Object.keys(sportRegions[region] ?? {}).map((l) => (
+                  {region[2]?.map((l) => (
                     <SelectItem
-                      key={`${region}/${l}`}
-                      value={`${region}/${l}`}
+                      key={`${region[1]}/${region[0]}/${l[1]}/${l[0]}`}
+                      value={`${region[1]}/${region[0]}/${l[1]}/${l[0]}`}
                       className="pl-6 text-[12px] text-[var(--text-basic-color)] hover:bg-black/20 rounded-[4px]"
                     >
-                      {getTranslatedText(l)}
+                      {getTranslatedText(l[1] || "")}
                     </SelectItem>
                   ))}
                 </Fragment>

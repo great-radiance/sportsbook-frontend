@@ -170,18 +170,6 @@ export const EmblaBanner = () => {
             const awayTeam = event?.value.participants?.[1]?.name || "Away";
             const eventTime = formatEventTime(event?.value);
             const eventDateLabel = formatEventDate(event?.value);
-            console.log(
-              "homelogo",
-              getTeamlogo(event?.value?.sport, homeTeam),
-              event?.value?.sport,
-              homeTeam,
-            );
-            console.log(
-              "awaylogo",
-              getTeamlogo(event?.value?.sport, awayTeam),
-              event?.value?.sport,
-              awayTeam,
-            );
 
             const selectedMarket = getSelectedMarket(event?.value);
 

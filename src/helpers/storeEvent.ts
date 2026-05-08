@@ -1,34 +1,26 @@
 import { Live } from "@/shared/utils/types";
-import { oddsStoreState, storeState } from "@/state/storeState";
+import { selectionsStoreState, storeState } from "@/state/storeState";
 import { tEvent } from "@/types/tEvent";
 import {
   tEventModel,
   tMarketModel,
-  tOddValue,
-  tOddsModel,
+  tSelectionValue,
 } from "@/types/typesForSocket.ts/tEventModel";
 import { signal, Signal } from "@preact/signals";
+import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 
-export const storeEvent = (event: tEvent) => {
+export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
-  if (!storeState.value[event.id]) {
-    storeState.value[event.id] = signal<tEventModel>({} as tEventModel);
+  if (!storeState.value[event.eventInfo.id]) {
+    storeState.value[event.eventInfo.id] = signal<tEventModel>(
+      {} as tEventModel,
+    );
   }
   const marketsRecord: Record<string, Signal<tMarketModel>> = {};
   for (const market of event.markets ?? []) {
-    const odds: tOddsModel = { oddIdList: [], odds: {} };
-    for (const odd of market.odds ?? []) {
-      odds.oddIdList.push(odd.id);
-      odds.odds[odd.id] = signal<tOddValue>({
-        id: odd.id,
-        value: odd.value,
-        impliedOdd: odd.impliedOdd,
-        status: odd.status,
-        mv: odd.mv,
-        column: odd.column,
-        sort: odd.sort,
-        name: odd.name,
-      });
+    const selections: Signal<tSelectionValue>[] = [];
+    for (const selection of market.selections ?? []) {
+      selections.push(signal<tSelectionValue>(selection));
     }
     // odds.oddIdList.sort((a, b) => {
     //   const oddA = odds[a];
@@ -43,72 +35,75 @@ export const storeEvent = (event: tEvent) => {
     // });
     const marketData: tMarketModel = {
       id: market.id,
-      status: market.status,
       name: market.name,
-      column: market.column,
-      groups: market.groups,
-      sort: market.sort,
-      odds,
+      tradingStatus: market.tradingStatus,
+      type: market.type,
+      isBestLine: market.isBestLine,
+      parameters: market.parameters,
+      extraParameters: market.extraParameters,
+      isBetBuilderSuported: market.isBetBuilderSuported,
+      selections: selections.sort((a, b) => a.value.id - b.value.id),
     };
     marketsRecord[market.id] = signal(marketData);
   }
-  const evSig = storeState.value[event.id];
+  const evSig = storeState.value[event.eventInfo.id];
 
   evSig.value = {
-    id: event.id,
-    sport: evSig.value.sport || event.sport || "",
-    region: evSig.value.region || event.region || "",
-    league: evSig.value.league || event.league || "",
-    participants: event.participants ?? [],
-    startDate: event.startDate ?? 0,
-    status: event.status ?? "",
-    sportRadarId: String(event.sportRadarId ?? ""),
-    outright: event.outright ?? false,
+    id: event.eventInfo.id,
+    name: event.eventInfo.name,
+    status: event.eventInfo.status,
+    trandingStatus: event.eventInfo.trandingStatus,
+    statusDescription: event.eventInfo.statusDescription,
+    sport: event.eventInfo.sport,
+    region: event.eventInfo.country,
+    league: event.eventInfo.competition,
+    season: event.eventInfo.season,
+    competitors: event.eventInfo.competitors,
+    startTime: event.eventInfo.startTime,
+    isOutright: event.eventInfo.isOutright,
+    customdisplayData: event.eventInfo.customDisplayData,
+    isBetBuilderSuported: event.eventInfo.isBetBuilderSuported,
+    mappingInfo: event.eventInfo.mappingInfo,
     markets: {
       ...evSig.value.markets,
       ...marketsRecord,
     },
-    live: (event.live ?? ({} as Live)) as Live,
+    // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
+  console.log("storedEvent", storeState.value);
 };
 
-export const storeOdd = (eventId: number, marketId: string, oddId: string) => {
-  if (!eventId || !marketId || !oddId) return;
-  const oddSig =
-    storeState.value[eventId]?.value.markets?.[marketId]?.value.odds?.odds?.[
-      oddId
-    ];
-  oddsStoreState.value = {
-    ...oddsStoreState.value,
-    [oddId]: signal({
+export const storeSelection = (
+  eventId: number,
+  marketId: string,
+  selectionId: number,
+) => {
+  if (!eventId || !marketId || !selectionId) return;
+  const selectionSig = storeState.value[eventId]?.value.markets?.[
+    marketId
+  ]?.value.selections?.find((selection) => selection.value.id === selectionId);
+  selectionsStoreState.value = {
+    ...selectionsStoreState.value,
+    [selectionId]: signal({
       eId: eventId,
       mId: marketId,
-      id: oddId,
-      eStatus: storeState.value[eventId]?.value.status ?? "",
-      mStatus:
-        storeState.value[eventId]?.value.markets?.[marketId]?.value.status ??
-        "",
-      status:
-        oddSig && typeof oddSig === "object" && "value" in oddSig
-          ? oddSig.value.status
-          : "",
-      value:
-        oddSig && typeof oddSig === "object" && "value" in oddSig
-          ? oddSig.value.value
+      id: selectionId,
+      price:
+        selectionSig &&
+        typeof selectionSig === "object" &&
+        "value" in selectionSig
+          ? selectionSig.value.price
           : 1,
-      mv:
-        oddSig && typeof oddSig === "object" && "value" in oddSig
-          ? oddSig.value.mv
-          : 0,
     }),
   };
+  console.log("storedEvent", selectionsStoreState.value);
 };
 
 export const removeFromOddsStore = (ids: string[]) => {
   if (!ids.length) return;
-  const next = { ...oddsStoreState.value };
+  const next = { ...selectionsStoreState.value };
   for (const id of ids) delete next[id];
-  oddsStoreState.value = next;
+  selectionsStoreState.value = next;
 };
 
 // export const filterOddsByEventMarket = (eventId: number, marketId: string) => {

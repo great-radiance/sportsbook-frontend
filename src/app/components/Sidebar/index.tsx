@@ -9,20 +9,17 @@ import {
 } from "@/state/summarySports";
 import { SpecialNavigation } from "@/app/components/Sidebar/components/SpecialNavigation";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { apiGetPrematchSidebar } from "@/api/sidebar/apiGetPrematchSidebar";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { PrematchLoader } from "../Loading/PrematchLoader";
-import { apiGetLiveSidebar } from "@/api/sidebar/apiGetSidebar";
+import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { apiGetOrderConfigration } from "@/api/sidebar/apiGetOrderConfigration";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { getTranslate } from "@/helpers/getTranslate";
-import { orderConfigState } from "@/state/orderConfigState";
 import { useOrderConfig } from "@/hooks/useOrderConfig";
 import { loadedSportsbookState } from "@/state/loadedSportsbookState";
-import { apiGetOutright } from "@/api/sidebar/apiGetOutright";
 import { apiGetStoiximanSidebar } from "@/api/sidebar/apiGetStoiximanSidebar";
 import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 
@@ -35,22 +32,29 @@ export const Sidebar: FunctionComponent = () => {
       if (loadedSidebarState.value) return;
       try {
         setLoading(true);
-        const [res, res1, res2, res3, configRes] = await Promise.all([
-          apiGetStoiximanSidebar(),
-          apiGetPrematchSidebar(),
-          apiGetLiveSidebar(),
-          apiGetOutright(),
+        const [
+          // res,
+          res1,
+          res2,
+          res3,
+          //  configRes
+        ] = await Promise.all([
+          // apiGetStoiximanSidebar(),
+          apiGetSidebar("1,2"),
+          apiGetSidebar("3"),
+          // apiGetOutright(),
           apiGetOrderConfigration(),
         ]);
-        stoiximanSidebarState.value = res;
+        // stoiximanSidebarState.value = res;
+        console.log("sidebar data", res2);
         summarySports.value = res1;
-        // summarySports.value = { ...summarySports.value };
         summarySportsLive.value = res2;
+        // summarySports.value = { ...summarySports.value };
         // summarySportsLive.value = { ...summarySportsLive.value };
         outRightSummarySports.value = res3;
         console.log("res3", res3);
         // outRightSummarySports.value = { ...outRightSummarySports.value };
-        orderConfigState.value = configRes;
+        // orderConfigState.value = configRes;
         setLoading(false);
         useOrderConfig({
           includeRegionPlaceholders: true,
@@ -86,11 +90,12 @@ export const Sidebar: FunctionComponent = () => {
   const fetchSidebar = useCallback(async () => {
     if (loading) return;
     try {
-      const [res1, res2] = await Promise.all([
-        apiGetPrematchSidebar(),
-        apiGetLiveSidebar(),
+      const [res, res2] = await Promise.all([
+        // apiGetPrematchSidebar(),
+        apiGetSidebar("1,2"),
+        apiGetSidebar("3"),
       ]);
-      summarySports.value = res1;
+      summarySports.value = res;
       // summarySports.value = { ...summarySports.value };
       summarySportsLive.value = res2;
       // summarySportsLive.value = { ...summarySportsLive.value };
@@ -102,12 +107,9 @@ export const Sidebar: FunctionComponent = () => {
   }, [loading]);
 
   useEffect(() => {
-    const interval = setInterval(
-      () => {
-        fetchSidebar();
-      },
-      60 * 1000 * 5,
-    );
+    const interval = setInterval(() => {
+      fetchSidebar();
+    }, 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchSidebar]);
 
@@ -139,7 +141,8 @@ export const Sidebar: FunctionComponent = () => {
             ))}
           </div>
         ) : (
-          <LiveSidebar />
+          <></>
+          // <LiveSidebar />
         )
       ) : (
         <>
@@ -155,9 +158,7 @@ export const Sidebar: FunctionComponent = () => {
                 competitionsPerRegion={2}
               />
             ) : (
-              <>
-                <PrematchSportsNavigation />
-              </>
+              <PrematchSportsNavigation />
             )}
           </div>
         </>

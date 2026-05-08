@@ -6,7 +6,7 @@ import { useRoute } from "wouter-preact";
 
 export const useRouteParams = () => {
   const [, params] = useRoute(
-    "/event-view/:pageName?/:sportName?/:regionName?/:leagueName?/:eventId?/:sportName2?",
+    "/event-view/:pageName?/:sportName?/:sportIdParam?/:regionName?/:regionIdParam?/:leagueName?/:leagueIdParam?/:eventId?/:sportName2?",
   );
 
   const activeTab = useMemo(() => {
@@ -17,8 +17,11 @@ export const useRouteParams = () => {
     ...(params || {
       pageName: "",
       sportName: "",
+      sportIdParam: "",
       regionName: "",
+      regionIdParam: "",
       leagueName: "",
+      leagueIdParam: "",
       eventId: "",
       sportName2: "",
     }),

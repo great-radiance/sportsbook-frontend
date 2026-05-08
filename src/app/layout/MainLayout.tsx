@@ -7,7 +7,7 @@ import { MyBet } from "@/app/components/BetSlip/MyBet";
 import { useMediaQuery } from "usehooks-ts";
 import {
   accessToken,
-  selectedOdds,
+  selectedselections,
   selectedBetType,
   multipleBetAmount,
   myBetsState,
@@ -23,13 +23,12 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import useSocketEvent from "@/hooks/useSocketEvent";
 import { useSocket, useSocketStatus } from "@/context/SocketContext";
 import {
-  oddsStoreState,
+  selectionsStoreState,
   storeState,
   willBeDeletedEventIds,
 } from "@/state/storeState";
 import { summarySports, summarySportsLive } from "@/state/summarySports";
 import { Signal } from "@preact/signals";
-import { tOdd } from "@/types/tEvent";
 import { Search } from "../components/Search";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
@@ -55,12 +54,12 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   const { baseTheme } = getAppConfig();
 
   useEffect(() => {
-    if (selectedOdds.value.length === 0) {
+    if (selectedselections.value.length === 0) {
       window.localStorage.removeItem("selectedBets");
       return;
     }
     const selectedBetsData = {
-      selectedOdds: selectedOdds.value,
+      selectedselections: selectedselections.value,
       selectedBetType: selectedBetType.value,
       multipleBetAmount: multipleBetAmount.value,
       buildingBetAmount: buildingBetAmount.value,
@@ -70,7 +69,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
       JSON.stringify(selectedBetsData),
     );
   }, [
-    selectedOdds.value,
+    selectedselections.value,
     selectedBetType.value,
     multipleBetAmount.value,
     buildingBetAmount.value,
@@ -85,7 +84,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     const myBetsData = window.localStorage.getItem("my_bets");
     if (selectedBetsData) {
       const selectedBetsDataObj = JSON.parse(selectedBetsData);
-      selectedOdds.value = selectedBetsDataObj.selectedOdds;
+      selectedselections.value = selectedBetsDataObj.selectedselections;
       selectedBetType.value = selectedBetsDataObj.selectedBetType;
       multipleBetAmount.value = selectedBetsDataObj.multipleBetAmount;
       buildingBetAmount.value = selectedBetsDataObj.buildingBetAmount;
@@ -154,131 +153,131 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   //   }),
   // );
 
-  useSocketEvent(
-    "f",
-    (data: { i: number; s: string; sd: number; t: 1 | 2 }) => {
-      const evSig = storeState.value[data.i];
-      if (!evSig) return;
-      const prev = evSig.value;
-      console.log(
-        "received 'f' event for eventId:",
-        data.i,
-        "with status:",
-        data.s,
-      );
-      if (
-        data.s === "Finished" ||
-        data.s === "Coverage lost" ||
-        data.s === "PreFinished"
-      ) {
-        if (
-          summarySports.value.data[prev.sport]?.[prev.region]?.[prev.league]?.[
-            data.i
-          ]
-        ) {
-          delete summarySports.value.data[prev.sport][prev.region][prev.league][
-            data.i
-          ];
-          const sportCounts = summarySports.value.counts[prev.sport];
-          if (sportCounts) {
-            sportCounts.total -= 1;
-            const regionCounts = sportCounts.regions?.[prev.region];
-            if (regionCounts) {
-              regionCounts.total -= 1;
-              const leagueCount = regionCounts.leagues?.[prev.league];
-              if (leagueCount) {
-                regionCounts.leagues[prev.league] -= 1;
-              }
-            }
-          }
-        }
-        delete summarySports.value.data[prev.sport]?.[prev.region]?.[
-          prev.league
-        ]?.[data.i];
-        summarySports.value = { ...summarySports.value };
-        if (
-          summarySportsLive.value.data[prev.sport]?.[prev.region]?.[
-            prev.league
-          ]?.[data.i]
-        ) {
-          delete summarySportsLive.value.data[prev.sport][prev.region][
-            prev.league
-          ][data.i];
-          const sportCounts = summarySportsLive.value.counts[prev.sport];
-          if (sportCounts) {
-            sportCounts.total -= 1;
-            const regionCounts = sportCounts.regions?.[prev.region];
-            if (regionCounts) {
-              regionCounts.total -= 1;
-              const leagueCount = regionCounts.leagues?.[prev.league];
-              if (leagueCount) {
-                regionCounts.leagues[prev.league] -= 1;
-              }
-            }
-          }
-        }
-        summarySportsLive.value = { ...summarySportsLive.value };
-        if (eventId && parseInt(eventId) === data.i) {
-          willBeDeletedEventIds.value = data.i;
-        } else {
-          delete storeState.value[data.i];
-          storeState.value = { ...storeState.value };
-          return;
-        }
-      }
-      evSig.value = {
-        ...prev,
-        status: data.s,
-        startDate: data.sd,
-        // type: data.t,
-      };
-    },
-  );
+  // useSocketEvent(
+  //   "f",
+  //   (data: { i: number; s: string; sd: number; t: 1 | 2 }) => {
+  //     const evSig = storeState.value[data.i];
+  //     if (!evSig) return;
+  //     const prev = evSig.value;
+  //     console.log(
+  //       "received 'f' event for eventId:",
+  //       data.i,
+  //       "with status:",
+  //       data.s,
+  //     );
+  //     if (
+  //       data.s === "Finished" ||
+  //       data.s === "Coverage lost" ||
+  //       data.s === "PreFinished"
+  //     ) {
+  //       if (
+  //         summarySports.value.data[prev.sport]?.[prev.region]?.[prev.league]?.[
+  //           data.i
+  //         ]
+  //       ) {
+  //         delete summarySports.value.data[prev.sport][prev.region][prev.league][
+  //           data.i
+  //         ];
+  //         const sportCounts = summarySports.value.counts[prev.sport];
+  //         if (sportCounts) {
+  //           sportCounts.total -= 1;
+  //           const regionCounts = sportCounts.regions?.[prev.region];
+  //           if (regionCounts) {
+  //             regionCounts.total -= 1;
+  //             const leagueCount = regionCounts.leagues?.[prev.league];
+  //             if (leagueCount) {
+  //               regionCounts.leagues[prev.league] -= 1;
+  //             }
+  //           }
+  //         }
+  //       }
+  //       delete summarySports.value.data[prev.sport]?.[prev.region]?.[
+  //         prev.league
+  //       ]?.[data.i];
+  //       summarySports.value = { ...summarySports.value };
+  //       if (
+  //         summarySportsLive.value.data[prev.sport]?.[prev.region]?.[
+  //           prev.league
+  //         ]?.[data.i]
+  //       ) {
+  //         delete summarySportsLive.value.data[prev.sport][prev.region][
+  //           prev.league
+  //         ][data.i];
+  //         const sportCounts = summarySportsLive.value.counts[prev.sport];
+  //         if (sportCounts) {
+  //           sportCounts.total -= 1;
+  //           const regionCounts = sportCounts.regions?.[prev.region];
+  //           if (regionCounts) {
+  //             regionCounts.total -= 1;
+  //             const leagueCount = regionCounts.leagues?.[prev.league];
+  //             if (leagueCount) {
+  //               regionCounts.leagues[prev.league] -= 1;
+  //             }
+  //           }
+  //         }
+  //       }
+  //       summarySportsLive.value = { ...summarySportsLive.value };
+  //       if (eventId && parseInt(eventId) === data.i) {
+  //         willBeDeletedEventIds.value = data.i;
+  //       } else {
+  //         delete storeState.value[data.i];
+  //         storeState.value = { ...storeState.value };
+  //         return;
+  //       }
+  //     }
+  //     evSig.value = {
+  //       ...prev,
+  //       status: data.s,
+  //       startDate: data.sd,
+  //       // type: data.t,
+  //     };
+  //   },
+  // );
 
-  useSocketEvent("m", ({ e, i, s }) => {
-    if (!storeState.value[e]) return;
+  // useSocketEvent("m", ({ e, i, s }) => {
+  //   if (!storeState.value[e]) return;
 
-    const marketSig = storeState.value[e].value.markets?.[i];
-    const oddStoreSig = Object.values(oddsStoreState.value).filter(
-      (odd) => odd.value.mId === i,
-    );
-    if (!marketSig && !oddStoreSig) return;
-    if (marketSig) {
-      marketSig.value = { ...marketSig.value, status: s };
-    }
-    oddStoreSig.forEach((odd) => {
-      odd.value = { ...odd.value, mStatus: s };
-    });
-    return;
-  });
+  //   const marketSig = storeState.value[e].value.markets?.[i];
+  //   const oddStoreSig = Object.values(selectionsStoreState.value).filter(
+  //     (odd) => odd.value.mId === i,
+  //   );
+  //   if (!marketSig && !oddStoreSig) return;
+  //   if (marketSig) {
+  //     marketSig.value = { ...marketSig.value, status: s };
+  //   }
+  //   oddStoreSig.forEach((odd) => {
+  //     odd.value = { ...odd.value, mStatus: s };
+  //   });
+  //   return;
+  // });
 
-  useSocketEvent("o", (data) => {
-    const oddStoreSig = oddsStoreState.value[data.i];
-    const oddSig = storeState.value[data.e]?.value?.markets?.[data.m]?.value
-      ?.odds?.odds?.[data.i] as Signal<tOdd> | undefined;
+  // useSocketEvent("o", (data) => {
+  //   const oddStoreSig = selectionsStoreState.value[data.i];
+  //   const oddSig = storeState.value[data.e]?.value?.markets?.[data.m]?.value
+  //     ?.selections?.selections?.[data.i] as Signal<tSelectionValue> | undefined;
 
-    if (!oddSig && !oddStoreSig) return;
+  //   if (!oddSig && !oddStoreSig) return;
 
-    const patch = {
-      value: data.v,
-      status: data.s,
-      mv: data.mv,
-    };
+  //   const patch = {
+  //     value: data.v,
+  //     status: data.s,
+  //     mv: data.mv,
+  //   };
 
-    if (oddSig) {
-      oddSig.value = {
-        ...oddSig.value,
-        ...patch,
-      };
-    }
+  //   if (oddSig) {
+  //     oddSig.value = {
+  //       ...oddSig.value,
+  //       ...patch,
+  //     };
+  //   }
 
-    if (oddStoreSig) {
-      oddStoreSig.value = {
-        ...oddStoreSig.value,
-        ...patch,
-      };
-    }
-  });
+  //   if (oddStoreSig) {
+  //     oddStoreSig.value = {
+  //       ...oddStoreSig.value,
+  //       ...patch,
+  //     };
+  //   }
+  // });
 
   useEffect(() => {
     if (willBeDeletedEventIds.value)

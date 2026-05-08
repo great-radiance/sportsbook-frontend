@@ -23,7 +23,7 @@ import { MarketComponent } from "@/app/components/MarketsBoard/components/Market
 interface MatchProps {
   eventId: number;
   marketSlug?: string;
-  marketId?: string;
+  marketId?: number;
   showLeagueLogo?: boolean;
   allowAutoSelect?: boolean; // If true, will auto-select the first market if no marketSlug match is found
   allowRounded?: boolean;
@@ -61,21 +61,29 @@ export const Match: FunctionComponent<MatchProps> = ({
   allowRounded = false,
 }) => {
   const event = storeState.value[eventId]?.value;
+  console.log("storeState", storeState.value);
+  console.log(
+    "eventId",
+    eventId,
+    "marketSlug",
+    marketSlug,
+    "marketId",
+    marketId,
+    "event",
+  );
   if (!event) return null;
 
   const showLeague =
-    showLeagueLogo ||
-    event?.sport === "Soccer" ||
-    event?.sport === "Basketball";
+    showLeagueLogo || event?.sport.id === 1 || event?.sport.id === 8;
 
-  const isLive = event?.status === "In progress";
+  const isLive = event?.status === 3;
 
   const [, setLocation] = useLocation();
   const live = event?.live;
   const baseTheme = baseColorTheme.value;
   const clockRef = useRef<HTMLSpanElement>(null);
 
-  const participants = event?.participants || [];
+  const participants = event?.competitors || [];
   const homeTeam = participants[0]?.name || "Team 1";
   const awayTeam = participants[1]?.name || "Team 2";
 
@@ -101,8 +109,7 @@ export const Match: FunctionComponent<MatchProps> = ({
     null;
 
   const showClock =
-    event?.status !== "Finished" &&
-    event?.status !== "Coverage lost" &&
+    (event?.status === 1 || event?.status === 2 || event?.status === 3) &&
     !!event &&
     rawTime !== null &&
     event?.live?.clock?.clock_status !== "stopped";
@@ -110,11 +117,11 @@ export const Match: FunctionComponent<MatchProps> = ({
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
   const getSelectedMarket = useCallback(
-    (marketSlug: string): string => {
-      const marketId = markets.find((m) => m.name === marketSlug)?.id ?? "";
+    (marketSlug: string): number => {
+      const marketId = markets.find((m) => m.name === marketSlug)?.id ?? 1;
       if (marketId) return marketId;
-      if (allowAutoSelect) return markets[0]?.id ?? "";
-      return "";
+      if (allowAutoSelect) return markets[0]?.id ?? 1;
+      return 0;
     },
     [markets, allowAutoSelect],
   );
@@ -128,6 +135,8 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   // Track live elapsed seconds and auto-increment every second while live
   const [liveSeconds, setLiveSeconds] = useState<number | null>(null);
+
+  console.log("event---------", event);
 
   // const parseLiveTime = (t: any): number | null => {
   //   if (t == null) return null;
@@ -215,7 +224,7 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   // const eventSig = storeState.value?.[match[0]];
   //                           const markets = eventSig?.value.markets;
-  if (event?.outright) {
+  if (event?.isOutright) {
     if (!markets)
       return (
         <span className="flex items-center justify-center w-full py-4 text-[12px]">
@@ -230,7 +239,7 @@ export const Match: FunctionComponent<MatchProps> = ({
       >
         <summary className="flex w-full items-center gap-2 cursor-pointer justify-between">
           <span className="text-[14px]">
-            {getTranslatedText(event?.participants?.[0]?.name || "")}
+            {getTranslatedText(event?.competitors?.[0]?.name || "")}
           </span>
           <sl-icon
             name="chevron-down"
@@ -241,7 +250,7 @@ export const Match: FunctionComponent<MatchProps> = ({
           {Object.values(markets || {}).map((market) => (
             <MarketComponent
               key={market?.id}
-              marketId={market?.id}
+              marketId={market?.id.toString()} //temparary fix
               eventId={eventId}
             />
           ))}
@@ -257,10 +266,10 @@ export const Match: FunctionComponent<MatchProps> = ({
       ref={matchRef}
       className={`flex flex-col md:flex-row w-full cursor-pointer text-[14px] font-bold py-[10px] px-3 border-[1px] bg-[var(--sub-element-color)] border-[var(--border-color)] text-[var(--text-basic-color)] ${allowRounded ? "rounded-[8px]" : ""}`}
       style={{
-        order:
-          popularMatchesState.value?.[event?.sport]?.[event?.region]?.[
-            event?.league
-          ]?.indexOf(event.id) ?? 999,
+        order: event?.league?.id ?? 999,
+        // popularMatchesState.value?.[event?.sport]?.[event?.region]?.[
+        //   event?.league
+        // ]?.indexOf(event.id) ?? 999,
       }}
     >
       <span
@@ -281,8 +290,12 @@ export const Match: FunctionComponent<MatchProps> = ({
           </>
         ) : (
           <>
-            <span>{formatStartDate(event?.startDate || 0)}</span>
-            <span>{formatStartTime(event?.startDate || 0)}</span>
+            <span>
+              {formatStartDate(new Date(event?.startTime || "").getTime() || 0)}
+            </span>
+            <span>
+              {formatStartTime(new Date(event?.startTime || "").getTime() || 0)}
+            </span>
           </>
         )}
       </span>
@@ -293,7 +306,7 @@ export const Match: FunctionComponent<MatchProps> = ({
             linkButtonOnClick(e, eventPath, setLocation);
           }}
         >
-          {event?.outright ? (
+          {event?.isOutright ? (
             <>
               <span className="flex flex-1 h-full items-center text-ellipsis overflow-hidden font-bold">
                 OutRight
@@ -305,7 +318,7 @@ export const Match: FunctionComponent<MatchProps> = ({
                 <img
                   key={`${event?.sport}-${homeTeam}`}
                   src={
-                    getTeamlogo(event?.sport, homeTeam) ||
+                    getTeamlogo(event?.sport.name, homeTeam) ||
                     `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                   }
                   // onError={(e) => {
@@ -320,7 +333,7 @@ export const Match: FunctionComponent<MatchProps> = ({
                 <img
                   key={`${event?.sport}-${awayTeam}`}
                   src={
-                    getTeamlogo(event?.sport, awayTeam) ||
+                    getTeamlogo(event?.sport.name, awayTeam) ||
                     `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                   }
                   onError={(e) => {
@@ -345,9 +358,9 @@ export const Match: FunctionComponent<MatchProps> = ({
                   </div>
                   <div className="flex relative left-[-6px] z-[1] items-center overflow-hidden w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event?.sport || "")}/${encodeURIComponent(event?.region || "")}/${encodeURIComponent(event?.league || "")}.webp`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event?.sport.name || "")}/${encodeURIComponent(event?.region.name || "")}/${encodeURIComponent(event?.league.name || "")}.webp`}
                       onError={(e) => {
-                        e.currentTarget.src = `${getFlagIconFromregionName(event?.region || "")}`;
+                        e.currentTarget.src = `${getFlagIconFromregionName(event?.region.name || "")}`;
                         e.currentTarget.className =
                           "rounded-full w-[12px] h-[12px]";
                       }}
@@ -360,7 +373,8 @@ export const Match: FunctionComponent<MatchProps> = ({
                     event.league ||
                     ""} */}
                     {/* {JSON.stringify(event.sport)} */}
-                    {getTranslatedText(event?.league) || event?.league}
+                    {getTranslatedText(event?.league.name) ||
+                      event?.league.name}
                   </span>
                 </div>
               )}
@@ -375,7 +389,7 @@ export const Match: FunctionComponent<MatchProps> = ({
         </div>
 
         <div className="flex gap-2 flex-1 w-full my-[5px] md:my-0 md:min-w-[calc(50%)] md:max-w-[calc(50%)] items-center justify-center">
-          <Market marketId={selectedMarket} single={true} eventId={eventId} />
+          <Market marketId={selectedMarket} eventId={eventId} />
           {/* {compact !== 1 && (
           <Market
             market={totalsMarket?.market as MarketType}

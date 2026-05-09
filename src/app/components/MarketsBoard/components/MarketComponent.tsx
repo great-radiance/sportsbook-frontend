@@ -116,10 +116,10 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
         >
           {/* unified grid rendering: always use grid columns; if column === odds.length render stacked cells (name above odd), otherwise render side-by-side layout inside each cell */}
           <div
-            className="grid w-full gap-2 mt-2"
-            style={{
-              gridTemplateColumns: `repeat(${selections.length}, minmax(0, 1fr))`,
-            }}
+            className="grid grid-cols-4 w-full gap-2 mt-2"
+            // style={{
+            //   gridTemplateColumns: `repeat(${selections.length}, minmax(0, 1fr))`,
+            // }}
           >
             {selections.map((selection, index) => {
               if (!selection) return null;

@@ -70,6 +70,7 @@ export const Match: FunctionComponent<MatchProps> = ({
     "marketId",
     marketId,
     "event",
+    event,
   );
   if (!event) return null;
 
@@ -118,16 +119,20 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   const getSelectedMarket = useCallback(
     (marketSlug: string): number => {
-      const marketId = markets.find((m) => m.name === marketSlug)?.id ?? 1;
+      const marketId = markets.find((m) => m.name === marketSlug)?.id;
       if (marketId) return marketId;
-      if (allowAutoSelect) return markets[0]?.id ?? 1;
-      return 0;
+      console.log("selectedMarketId", markets[0]?.id ?? 1, markets[0]);
+      if (allowAutoSelect) {
+        return markets[0]?.id ?? 1;
+      }
+      return 1;
     },
     [markets, allowAutoSelect],
   );
 
   // Get winner market (usually the first market)
   const selectedMarket = marketId ?? getSelectedMarket(marketSlug ?? "");
+  console.log("selectedMarket---------", selectedMarket);
 
   const [compact, setCompact] = useState<number>();
   const matchRef = useRef<HTMLDivElement>(null);
@@ -136,7 +141,7 @@ export const Match: FunctionComponent<MatchProps> = ({
   // Track live elapsed seconds and auto-increment every second while live
   const [liveSeconds, setLiveSeconds] = useState<number | null>(null);
 
-  console.log("event---------", event);
+  console.log("event---------", event, selectedMarket);
 
   // const parseLiveTime = (t: any): number | null => {
   //   if (t == null) return null;

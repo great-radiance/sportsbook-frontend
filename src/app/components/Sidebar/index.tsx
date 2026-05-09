@@ -107,9 +107,12 @@ export const Sidebar: FunctionComponent = () => {
   }, [loading]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchSidebar();
-    }, 60 * 1000);
+    const interval = setInterval(
+      () => {
+        fetchSidebar();
+      },
+      60 * 1000 * 5,
+    );
     return () => clearInterval(interval);
   }, [fetchSidebar]);
 

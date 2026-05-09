@@ -15,7 +15,7 @@ interface DailyMatchesProps {
 export const MatchesGroup: FunctionComponent<DailyMatchesProps> = ({
   events,
   marketSlug,
-  allowAutoSelect = false,
+  allowAutoSelect = true,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const selectedMarketSlug = marketSlug || "match-result";

@@ -8,6 +8,7 @@ import {
 } from "@/types/typesForSocket.ts/tEventModel";
 import { signal, Signal } from "@preact/signals";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
+import { completeName } from "./completeName";
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
@@ -16,11 +17,25 @@ export const storeEvent = (event: MatchDataResponse) => {
       {} as tEventModel,
     );
   }
+  const competitors = event.eventInfo.competitors ?? [];
   const marketsRecord: Record<string, Signal<tMarketModel>> = {};
   for (const market of event.markets ?? []) {
     const selections: Signal<tSelectionValue>[] = [];
     for (const selection of market.selections ?? []) {
-      selections.push(signal<tSelectionValue>(selection));
+      const selectionExtra = {
+        ...(market.extraParameters ?? {}),
+        ...(selection.extraParameters ?? {}),
+      };
+      const completedSelection: tSelectionValue = {
+        ...selection,
+        name: completeName(
+          selection.name,
+          competitors,
+          market.parameters,
+          selectionExtra,
+        ),
+      };
+      selections.push(signal<tSelectionValue>(completedSelection));
     }
     // odds.oddIdList.sort((a, b) => {
     //   const oddA = odds[a];
@@ -35,7 +50,12 @@ export const storeEvent = (event: MatchDataResponse) => {
     // });
     const marketData: tMarketModel = {
       id: market.id,
-      name: market.name,
+      name: completeName(
+        market.name,
+        competitors,
+        market.parameters,
+        market.extraParameters,
+      ),
       tradingStatus: market.tradingStatus,
       type: market.type,
       isBestLine: market.isBestLine,
@@ -44,7 +64,14 @@ export const storeEvent = (event: MatchDataResponse) => {
       isBetBuilderSuported: market.isBetBuilderSuported,
       selections: selections.sort((a, b) => a.value.id - b.value.id),
     };
-    marketsRecord[market.id] = signal(marketData);
+    if (
+      market.tradingStatus === 0 ||
+      market.tradingStatus === 1
+      // market.tradingStatus === 2 ||
+      // market.tradingStatus === 3
+    ) {
+      marketsRecord[market.id] = signal(marketData);
+    }
   }
   const evSig = storeState.value[event.eventInfo.id];
 

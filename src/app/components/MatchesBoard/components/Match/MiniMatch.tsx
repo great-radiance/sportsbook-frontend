@@ -1,29 +1,18 @@
 import { FunctionComponent } from "preact";
-import { Live, Market } from "@/shared/utils/types";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-  useRef,
-} from "preact/hooks";
-import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { useCallback, useRef } from "preact/hooks";
 import { useLocation } from "wouter-preact";
+
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { Market as MarketComponent } from "./Market";
 import { isMobile } from "@/state/isMobile";
-import { liveMarkets as liveMarketsState } from "@/state/liveMarkets";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
-import { useRouteParams } from "@/hooks/useRotueParams";
-import { favoriteMatches } from "@/state/Favorite";
 import { storeState } from "@/state/storeState";
 import {
   tEventModel,
   tMarketModel,
 } from "@/types/typesForSocket.ts/tEventModel";
 import { MiniMatchLoader } from "@/app/components/Loading";
-import { computed } from "@preact/signals-core";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
-import { normalizeScoreboardFast } from "@/helpers/normalizeScoreboard";
 import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { getTranslatedText } from "@/helpers/getTranslate";
 
@@ -33,9 +22,18 @@ interface MiniMatchProps {
   loading?: boolean;
 }
 
-const formatMinutes = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}'`;
+/** Pull a competitor's score from the new `scoreboard` payload. */
+const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
+  if (!scoreboard) return 0;
+  const fromResults = scoreboard.results?.find(
+    (r: any) => r.competitorPosition === position,
+  )?.value;
+  const parsedResult = Number(fromResults);
+  if (Number.isFinite(parsedResult)) return parsedResult;
+  const fallback =
+    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
+  const parsedFallback = Number(fallback);
+  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
 };
 
 export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
@@ -44,70 +42,36 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
   loading = false,
 }) => {
   const [, setLocation] = useLocation();
-  const { eventId } = useRouteParams();
   const match = storeState.value[selectedEventId]?.value;
   const clockRef = useRef<HTMLSpanElement>(null);
 
-  // const live = storeState.value[match?.id]?.value.live ?? null;
-  const markets = match?.markets || null;
-  const normalizeScoreboard = normalizeScoreboardFast(match?.live?.scoreBoard);
+  const scoreboard = match?.scoreboard;
+  const homeGoals = getCompetitorScore(scoreboard, 1);
+  const awayGoals = getCompetitorScore(scoreboard, 2);
 
-  const rawTime =
-    match?.live?.status?.time ||
-    match?.live?.clock?.clock_seconds ||
-    normalizeScoreboard?.clock?.seconds ||
-    null;
-
+  const rawTime = typeof scoreboard?.time === "number" ? scoreboard.time : null;
   const showClock =
-    match?.status !== "Finished" &&
-    match?.status !== "Coverage lost" &&
-    !!match &&
-    rawTime !== null &&
-    match?.live?.clock?.clock_status !== "stopped";
+    match?.status === 3 && rawTime !== null && !!match;
 
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
   const getTeamNames = useCallback(
-    (m: tEventModel): { homeTeam: string; awayTeam: string } => {
-      if (m?.participants) {
-        return {
-          homeTeam: m?.participants[0]?.name || "Team 1",
-          awayTeam: m?.participants[1]?.name || "Team 2",
-        };
-      }
-      return { homeTeam: "Team 1", awayTeam: "Team 2" };
+    (m: tEventModel | undefined): { homeTeam: string; awayTeam: string } => {
+      const home = m?.competitors?.[0]?.name || "Team 1";
+      const away = m?.competitors?.[1]?.name || "Team 2";
+      return { homeTeam: home, awayTeam: away };
     },
     [],
   );
 
   const { homeTeam, awayTeam } = getTeamNames(match);
 
-  // const homeGoals =
-  //   live?.scoreBoard && "goals" in live.scoreBoard
-  //     ? (live.scoreBoard.goals as { h: number; g: number }).h || 0
-  //     : 0;
+  // The new market model is a record of signal-wrapped markets — unwrap to
+  // plain values so we can run name-based heuristics against it.
+  const marketsList: tMarketModel[] = match?.markets
+    ? Object.values(match.markets).map((sig) => sig.value)
+    : [];
 
-  // const awayGoals =
-  //   live?.scoreBoard && "goals" in live.scoreBoard
-  //     ? (live.scoreBoard.goals as { h: number; g: number }).g || 0
-  //     : 0;
-
-  // const liveMinutes = live?.status?.time
-  //   ? live.status.time
-  //   : live?.scoreBoard && "time" in live.scoreBoard
-  //     ? (live.scoreBoard as { time: string }).time
-  //     : null;
-
-  // const minutesDisplay = liveMinutes
-  //   ? typeof liveMinutes === "string"
-  //     ? liveMinutes
-  //     : formatMinutes(liveMinutes as number)
-  //   : null;
-
-  // if (!Array.isArray(markets) || markets.length === 0) return undefined;
-
-  // const desiredId = liveMarketsState.value[marketSlug]?.marketInfo?.id;
-  const marketsList = Object.values(markets || {}).map((sig) => sig.value);
   const selectedMarket =
     marketsList.find((m) => {
       const name = (m?.name || "").toLowerCase();
@@ -116,7 +80,6 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
       const nameMatch =
         name.includes(slug === "winner" ? "match result" : slug) ||
         name.includes(slug);
-      // const winnerMarket = name.includes("match result") || name.includes("winner");
       return (
         nameMatch ||
         name.includes("match result") ||
@@ -124,9 +87,7 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
         name.includes("total") ||
         name.includes("handicap")
       );
-    }) ??
-    // marketsList[0] ??
-    ({} as tMarketModel);
+    }) ?? marketsList[0];
 
   const EmptyMarketPlaceholder = () => (
     <div
@@ -139,9 +100,11 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
       </div>
     </div>
   );
+
   if (loading) return <MiniMatchLoader />;
-  console.log("minimatchMarkets", markets);
   if (!match || !marketsList.length) return null;
+
+  const isLive = match.status === 3;
 
   return (
     <div
@@ -153,9 +116,7 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
             e.stopPropagation();
             linkButtonOnClick(
               e,
-              `/event-view/${
-                match?.status === "Not started yet" ? "pre-match" : "live"
-              }/${match?.sport}/${match?.region}/${match?.league}/${match?.id}`,
+              `/event-view/${isLive ? "live" : "pre-match"}/${match.sport?.name}/${match.sport?.id}/${match.region?.name}/${match.region?.id}/${match.league?.name}/${match.league?.id}/${match.id}`,
               setLocation,
             );
           }}
@@ -168,24 +129,24 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
             <div className="flex items-center gap-2 text-[12px] min-w-0 truncate text-ellipsis overflow-hidden">
               <img
                 src={
-                  getTeamlogo(match.sport, homeTeam) ||
+                  getTeamlogo(match.sport?.name, homeTeam) ||
                   `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                 }
                 className="w-[14px] h-[14px] object-contain shrink-0"
                 alt=""
               />
-              {getTranslatedText(homeTeam)}
+              {getTranslatedText(homeTeam) || homeTeam}
             </div>
             <div className="flex items-center gap-2 text-[12px] min-w-0 truncate text-ellipsis overflow-hidden">
               <img
                 src={
-                  getTeamlogo(match.sport, awayTeam) ||
+                  getTeamlogo(match.sport?.name, awayTeam) ||
                   `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                 }
                 className="w-[14px] h-[14px] object-contain shrink-0"
                 alt=""
               />
-              {getTranslatedText(awayTeam)}
+              {getTranslatedText(awayTeam) || awayTeam}
             </div>
           </div>
 
@@ -197,22 +158,22 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
                 className="w-[14px] h-[14px]"
               />
             </div>
-            <span className="text-[12px]">
-              {normalizeScoreboard?.mainScore?.home}
-            </span>
-            <span className="text-[12px]">
-              {normalizeScoreboard?.mainScore?.away}
-            </span>
+            {isLive && (
+              <>
+                <span className="text-[12px]">{homeGoals}</span>
+                <span className="text-[12px]">{awayGoals}</span>
+              </>
+            )}
           </div>
         </div>
 
         <div className="flex w-full h-full gap-2">
           {selectedMarket ? (
             <MarketComponent
-              key={match?.id}
+              key={match.id}
               marketId={selectedMarket.id}
               single={true}
-              eventId={match?.id}
+              eventId={match.id}
             />
           ) : (
             <EmptyMarketPlaceholder />

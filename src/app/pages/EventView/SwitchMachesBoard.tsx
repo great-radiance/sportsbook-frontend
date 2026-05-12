@@ -15,6 +15,7 @@ export const SwitchMachesBoard: FunctionComponent = () => {
   const {
     pageName,
     sportName,
+
     sportIdParam,
     regionIdParam,
     leagueIdParam,
@@ -23,16 +24,15 @@ export const SwitchMachesBoard: FunctionComponent = () => {
 
   const switchMachesBoard = useCallback(() => {
     if (pageName === "special") {
-      // if (sportName === "upcoming") {
-      //   return <UpcomingMatches />;
-      // } else if (sportName === "popular") {
-      //   return <PopularMatches />;
-      // } else if (sportName === "boosted") {
-      //   return <BoostedOdds />;
-      // } else if (sportName === "outright") {
-      //   return <OutrightMatches />;
-      // } else
-      if (sportName === "competitions") {
+      if (sportName === "upcoming") {
+        return <UpcomingMatches />;
+        // } else if (sportName === "popular") {
+        //   return <PopularMatches />;
+        // } else if (sportName === "boosted") {
+        //   return <BoostedOdds />;
+      } else if (sportName === "outright") {
+        return <OutrightMatches />;
+      } else if (sportName === "competitions") {
         return <MatchesBoard />;
       }
     } else if (eventId) return <MarketsBoard />;
@@ -43,7 +43,7 @@ export const SwitchMachesBoard: FunctionComponent = () => {
       // return <SportPage />;
       return null;
     }
-    // return <HomePage />;
+    return <HomePage />;
   }, [
     pageName,
     sportName,

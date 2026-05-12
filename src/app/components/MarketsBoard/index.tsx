@@ -1,5 +1,11 @@
 import { FunctionComponent } from "preact";
-import { useState, useRef, useEffect, useCallback } from "preact/hooks";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "preact/hooks";
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MarketBoardLoader } from "@/app/components/Loading/MarketBoardLoader";
@@ -20,6 +26,7 @@ import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { Switch } from "@/app/components/Switch";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
 
 /**
  * Read a competitor's score from the scoreboard shape.
@@ -62,6 +69,15 @@ export const MarketsBoard: FunctionComponent = () => {
 
   const markets =
     Object.values(eventData?.markets ?? {}).map((sig) => sig.value) || [];
+
+  const mergedMarkets = useMemo(
+    () => groupMarketsByNameAndType(markets),
+    [markets],
+  );
+  const mergedSearchResults = useMemo(
+    () => groupMarketsByNameAndType(searchResultMarkets),
+    [searchResultMarkets],
+  );
 
   const scoreboard = eventData?.scoreboard;
   const homeGoals = getCompetitorScore(scoreboard, 1);
@@ -296,16 +312,17 @@ export const MarketsBoard: FunctionComponent = () => {
                 </span>
               </div>
             ) : (
-              (searchQuery.length > 0 ? searchResultMarkets : markets)?.map(
-                (market) => (
-                  <MarketComponent
-                    key={market.id}
-                    marketId={String(market.id)}
-                    eventId={eventId ? parseInt(eventId) : 0}
-                    Collapsed={allCollapsed}
-                  />
-                ),
-              )
+              (searchQuery.length > 0
+                ? mergedSearchResults
+                : mergedMarkets
+              )?.map((group) => (
+                <MarketComponent
+                  key={group.key}
+                  marketId={group.ids.length === 1 ? group.ids[0] : group.ids}
+                  eventId={eventId ? parseInt(eventId) : 0}
+                  Collapsed={allCollapsed}
+                />
+              ))
             )}
           </div>
         </>

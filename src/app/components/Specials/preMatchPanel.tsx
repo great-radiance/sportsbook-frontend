@@ -1,49 +1,41 @@
 import { FunctionComponent } from "preact";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+
 import { apiGetMatches } from "@/api/matches/apiGetMatches";
-import { apiGetMatchesAuto } from "@/api/matches/apiGetMatchesAuto";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { summarySports, summarySportsLive } from "@/state/summarySports";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "preact/hooks";
 import { SportsList } from "../SportsList";
-import {
-  LiveMatchesPanelLoader,
-  UpcomingMatchSkeleton,
-} from "@/app/components/Loading";
+import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { storeState } from "@/state/storeState";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { loadedAllMatches } from "@/state/loadedAllMatches";
 import { Match } from "../MatchesBoard/components/Match";
-import { popularMatchesState } from "@/state/popularMatchesState";
-import { apiGetFeaturedMatches } from "@/api/special-matches/apiGetFeaturedMatches";
 import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { loadedPrematchState } from "@/state/loadedPrematch";
 import { isEventValidForDisplay } from "@/helpers/sortEventIdsByStartDate";
-
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
+import { storeEvent } from "@/helpers/storeEvent";
 import { MarketNavigation } from "../marketNavigation";
-import { getMarketId } from "@/hooks/useGetMarketId";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
-import TrendingAccas from "../HomePage.tsx/TrendingAccas";
-import { HorizontalTabs } from "../HorizontalTabs";
 
-// Top leagues configuration by sport
-type TopLeague = {
-  league: string;
-  region: string;
-};
+// --- Popular matches feature (disabled) ----------------------------------
+// The `/popular` endpoint isn't ready yet. All popular-matches handling is
+// commented out and the SportsList "Popular" tab is hidden until the API
+// returns. Keep the imports + state stubs in place so re-enabling is a
+// localized change.
+// import { apiGetMatchesAuto } from "@/api/matches/apiGetMatchesAuto";
+// import { apiGetFeaturedMatches } from "@/api/special-matches/apiGetFeaturedMatches";
+// import { popularMatchesState } from "@/state/popularMatchesState";
 
-type TopLeaguesMap = {
-  [sport: string]: TopLeague[];
-};
+const PAGE_SIZE = 10;
+const DEFAULT_SPORT_ID = 1; // Soccer
+const FALLBACK_MARKET_OPTIONS = ["Match Result", "Total", "Handicap"];
+const MONEYLINE_SPORT_NAMES = new Set(["Basketball", "Ice Hockey"]);
+
+type TopLeague = { league: string; region: string };
+type TopLeaguesMap = { [sport: string]: TopLeague[] };
 
 const topLeaguesMap: TopLeaguesMap = {
   soccer: [
@@ -67,336 +59,212 @@ const topLeaguesMap: TopLeaguesMap = {
   hockey: [{ league: "NHL", region: "USA" }],
 };
 
+type FlatItem = {
+  id: number;
+  regionId: number;
+  regionName: string;
+  leagueId: number;
+  leagueName: string;
+  sportId: number;
+  sportName: string;
+};
+
+const getLeaguePriority = (
+  league: string,
+  region: string,
+  sport: string,
+): number => {
+  const sportKey = sport?.toLowerCase() ?? "";
+  const topLeagues = topLeaguesMap[sportKey] ?? [];
+  const index = topLeagues.findIndex(
+    (top) =>
+      top.league.toLowerCase() === league.toLowerCase() &&
+      top.region.toLowerCase() === region.toLowerCase(),
+  );
+  return index === -1 ? Infinity : index;
+};
+
+/**
+ * Order events for initial display. The new tuple summary doesn't carry a
+ * per-event `startTime` so we can't sort by kick-off until events land in
+ * `storeState`. We use league priority + lexical tiebreakers as a stable
+ * pre-load order; once each event loads, the actual `startTime` is reflected
+ * in the per-card display.
+ */
+const sortFlatList = (items: FlatItem[]): FlatItem[] =>
+  [...items].sort((a, b) => {
+    const priorityA = getLeaguePriority(
+      a.leagueName,
+      a.regionName,
+      a.sportName,
+    );
+    const priorityB = getLeaguePriority(
+      b.leagueName,
+      b.regionName,
+      b.sportName,
+    );
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    const regionCompare = a.regionName.localeCompare(b.regionName);
+    if (regionCompare !== 0) return regionCompare;
+    const leagueCompare = a.leagueName.localeCompare(b.leagueName);
+    if (leagueCompare !== 0) return leagueCompare;
+    return a.id - b.id;
+  });
+
+/**
+ * Heuristic: does the event carry a market we can render in the requested
+ * slot (used in live mode to filter out events whose market navigation
+ * doesn't include the active slug). Same shape on every event since the
+ * migration to `tEventModel.markets: Record<string, Signal<tMarketModel>>`.
+ */
+const liveMatchWouldRender = (
+  event: any,
+  marketSlug: string,
+  allowAutoSelect: boolean,
+): boolean => {
+  if (!event?.markets) return false;
+  const markets = Object.values(event.markets).map((sig: any) => sig.value);
+  if (!markets.length) return false;
+  if (markets.find((m: any) => m.name === marketSlug)?.id) return true;
+  return allowAutoSelect && !!markets[0]?.id;
+};
+
 export const PreMatchPanel: FunctionComponent = () => {
-  const { t: tCommon } = useTranslate("common");
   const { t } = useTranslate("navigation");
 
-  const [selectedSport, setSelectedSport] = useState<string>("Popular");
-  /** upcoming = prematch (current behavior); live = in-play from summarySportsLive */
+  // `selectedSport` is now a sport id (number) — Popular (id 0) is disabled
+  // while the endpoint is unavailable.
+  const [selectedSport, setSelectedSport] = useState<number>(DEFAULT_SPORT_ID);
+  /** upcoming = prematch (current behaviour); live = in-play. */
   const [matchView, setMatchView] = useState<"upcoming" | "live" | "">("");
 
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedMarketName, setselectedMarketName] =
+  const [selectedMarketName, setSelectedMarketName] =
     useState<string>("Match Result");
-  const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
   const [sportsData, setSportsData] = useState<
-    { count: number; name: string; slug: string }[]
+    { count: number; name: string; id: number }[]
   >([]);
   const [isSportsListInitialized, setIsSportsListInitialized] =
     useState<boolean>(false);
-  const [loadedCount, setLoadedCount] = useState<Record<string, number>>({});
+  const [loadedCount, setLoadedCount] = useState<Record<number, number>>({});
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const [loadedSports, setLoadedSports] = useState<Record<string, Set<string>>>(
-    {},
-  );
   const { pageName } = useRouteParams();
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-
-  type FlatItem = {
-    id: number;
-    region: string;
-    league: string;
-    sport: string;
-    startDate: number | null;
-  };
-
-  const liveMatchWouldRender = (
-    event: any,
-    marketSlug: string,
-    allowAutoSelect: boolean,
-  ) => {
-    if (!event?.markets) return false;
-    const markets = Object.values(event.markets).map((sig: any) => sig.value);
-    if (!markets.length) return false;
-    if (markets.find((m: any) => m.name === marketSlug)?.id) return true;
-    return allowAutoSelect && !!markets[0]?.id;
-  };
-
-  const getEventStartDateFromSummary = (rawEvent: any): number | null => {
-    if (!Array.isArray(rawEvent)) return null;
-    // Prematch payload shape provided by user: [id, false, startDate]
-    if (typeof rawEvent[2] === "number") return rawEvent[2];
-    return null;
-  };
-
-  const getLeaguePriority = (
-    league: string,
-    region: string,
-    sport: string,
-  ): number => {
-    const sportKey = sport?.toLowerCase() ?? "";
-    const topLeagues = topLeaguesMap[sportKey] ?? [];
-
-    const index = topLeagues.findIndex(
-      (top) =>
-        top.league.toLowerCase() === league.toLowerCase() &&
-        top.region.toLowerCase() === region.toLowerCase(),
-    );
-
-    return index === -1 ? Infinity : index;
-  };
-
-  const sortFlatByStartDate = (items: FlatItem[], sport: string = "") => {
-    const getLookupSport = (item: FlatItem) =>
-      item.sport || (sport?.toLowerCase() ?? "");
-
-    const getTopGroup = (item: FlatItem) =>
-      getLeaguePriority(item.league, item.region, getLookupSport(item)) ===
-      Infinity
-        ? 1
-        : 0;
-
-    const getStartDate = (item: FlatItem) => item.startDate;
-
-    const isLoaded = (item: FlatItem) => getStartDate(item) !== null;
-
-    return [...items].sort((a, b) => {
-      // 1. Top leagues first
-      const groupA = getTopGroup(a);
-      const groupB = getTopGroup(b);
-      if (groupA !== groupB) return groupA - groupB;
-
-      // 2. Events with summary startDate first
-      const loadedA = isLoaded(a);
-      const loadedB = isLoaded(b);
-      if (loadedA !== loadedB) return loadedA ? -1 : 1;
-
-      // 3. Sort by START TIME (primary sort within each group)
-      const startA = getStartDate(a);
-      const startB = getStartDate(b);
-      if (startA !== null && startB !== null && startA !== startB)
-        return startA - startB;
-
-      // 4. League priority only as tiebreaker for same start time
-      if (startA === startB) {
-        const priorityA = getLeaguePriority(
-          a.league,
-          a.region,
-          getLookupSport(a),
-        );
-        const priorityB = getLeaguePriority(
-          b.league,
-          b.region,
-          getLookupSport(b),
-        );
-        if (priorityA !== priorityB) return priorityA - priorityB;
-      }
-
-      // 5. Final deterministic tiebreakers
-      const regionCompare = a.region.localeCompare(b.region);
-      if (regionCompare !== 0) return regionCompare;
-      const leagueCompare = a.league.localeCompare(b.league);
-      if (leagueCompare !== 0) return leagueCompare;
-      return a.id - b.id;
-    });
-  };
-
-  const flatList: FlatItem[] = useMemo(() => {
-    /** Popular = featured matches only; ignores Live / Upcoming toggle */
-    if (selectedSport === "Popular") {
-      const list: FlatItem[] = [];
-      const state = popularMatchesState.value;
-      for (const sport of Object.keys(state)) {
-        for (const region of Object.keys(state[sport] ?? {})) {
-          for (const league of Object.keys(state[sport][region] ?? {})) {
-            const ids = state[sport][region][league] ?? [];
-            for (const id of ids) {
-              list.push({
-                id: id,
-                region: region as string,
-                league: league as string,
-                sport: sport as string,
-                startDate: null,
-              });
-            }
-          }
-        }
-      }
-      return sortFlatByStartDate(list, "");
-    }
-
-    if (matchView === "live") {
-      const data = summarySportsLive.value.data?.[selectedSport];
-      const list: FlatItem[] = [];
-      if (data) {
-        const regions = Object.keys(data).filter((r) => r !== "Esoccer");
-        for (const region of regions) {
-          const leagues = Object.keys(data[region] ?? {});
-          for (const league of leagues) {
-            const events = Object.values(data[region]?.[league]);
-            for (const e of events) {
-              list.push({
-                id: e[0],
-                region: region as string,
-                league: league as string,
-                sport: selectedSport as string,
-                startDate: getEventStartDateFromSummary(e),
-              });
-            }
-          }
-        }
-      }
-      return list;
-    }
-
-    const data = summarySports.value.data?.[selectedSport];
-    const list: FlatItem[] = [];
-
-    if (data) {
-      const regions = Object.keys(data).filter((r) => r !== "Esoccer");
-      for (const region of regions) {
-        const leagues = Object.keys(data[region] ?? {});
-        for (const league of leagues) {
-          const events = Object.values(data[region]?.[league]);
-          for (const e of events) {
-            list.push({
-              id: e[0],
-              region: region as string,
-              league: league as string,
-              sport: selectedSport as string,
-              startDate: getEventStartDateFromSummary(e),
-            });
-          }
-        }
-      }
-    }
-    return sortFlatByStartDate(list, selectedSport);
-  }, [
-    selectedSport,
-    popularMatchesState.value,
-    summarySports.value.data,
-    summarySportsLive.value.data,
-  ]);
 
   const isLiveMode = matchView === "live";
 
+  /**
+   * Flatten the tuple-tree summary for the active sport into one ordered list
+   * of `FlatItem`s. `summarySports` (prematch) and `summarySportsLive` share
+   * the same tuple shape — only the source changes by `matchView`.
+   */
+  const flatList: FlatItem[] = useMemo(() => {
+    // --- Popular branch (disabled while endpoint is unavailable) ---
+    // if (selectedSport === 0 /* Popular */) {
+    //   const list: FlatItem[] = [];
+    //   const state = popularMatchesState.value;
+    //   for (const sport of Object.keys(state)) { /* ... */ }
+    //   return sortFlatList(list);
+    // }
+
+    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
+    const sportTuple = summary.data?.find((s) => s[0] === selectedSport);
+    if (!sportTuple) return [];
+    const sportName = sportTuple[1];
+
+    const list: FlatItem[] = [];
+    for (const region of sportTuple[2] ?? []) {
+      const [regionId, regionName, leagues] = region;
+      if (regionName === "Esoccer") continue;
+      for (const league of leagues ?? []) {
+        const [leagueId, leagueName, eventIds] = league;
+        for (const eventId of eventIds ?? []) {
+          list.push({
+            id: eventId,
+            regionId,
+            regionName,
+            leagueId,
+            leagueName,
+            sportId: selectedSport,
+            sportName,
+          });
+        }
+      }
+    }
+    return sortFlatList(list);
+  }, [selectedSport, isLiveMode, summarySports.value, summarySportsLive.value]);
+
+  /**
+   * Sliced view of `flatList` based on `loadedCount[selectedSport]`, filtered
+   * down to events that have actually landed in `storeState` and still look
+   * displayable. Reading `storeState.value` here means this memo re-evaluates
+   * as events stream in.
+   */
   const displayedEvents = useMemo(() => {
     const loaded = loadedCount[selectedSport] ?? 0;
     const candidates = flatList.slice(0, loaded);
-    const validEvents = candidates.filter((item) => {
+    return candidates.filter((item) => {
       const storedEvent = storeState.value[item.id]?.value;
       return !!storedEvent && isEventValidForDisplay(storedEvent);
     });
-    // if (validEvents.length > 0) {
-    //   return validEvents;
-    // }
-    // const storedEvents = candidates.filter(
-    //   (item) => !!storeState.value[item.id]?.value,
-    // );
-    return validEvents;
   }, [flatList, loadedCount, selectedSport, storeState.value]);
 
-  useEffect(() => {
-    if (Object.keys(popularMatchesState.value).length > 0) return;
-    (async () => {
-      try {
-        const res = await apiGetFeaturedMatches();
-        popularMatchesState.value = (res ?? {}) as Record<
-          string,
-          Record<string, Record<string, number[]>>
-        >;
-        // popularMatchesState.value = { ...popularMatchesState.value };
-      } catch (e) {
-        console.error("Error fetching featured/popular matches:", e);
-      }
-    })();
-  }, []);
+  // --- Popular fetch (disabled) ---
+  // useEffect(() => {
+  //   if (Object.keys(popularMatchesState.value).length > 0) return;
+  //   (async () => {
+  //     try {
+  //       const res = await apiGetFeaturedMatches();
+  //       popularMatchesState.value = (res ?? {}) as Record<...>;
+  //     } catch (e) {
+  //       console.error("Error fetching featured/popular matches:", e);
+  //     }
+  //   })();
+  // }, []);
 
+  // Reset per-sport pagination whenever the active sport or view changes.
   useEffect(() => {
-    if (selectedSport === "Popular") return;
     setLoadedCount({});
-    setLoadedSports({});
   }, [matchView, selectedSport]);
 
-  // Initial load: fetch first 10 events for Popular or selected sport.
-  // Do not depend on summarySports.value.data or flatList so polling does not re-run this.
+  /**
+   * Initial fetch for the active (sport, matchView). Pulls the first
+   * `PAGE_SIZE` event ids from `flatList`, fetches their details via
+   * `apiGetMatches(ids)` and stores each with `storeEvent`.
+   */
   useEffect(() => {
     if (!loadedSidebarState.value) return;
 
-    if (selectedSport === "Popular") {
-      if (!popularMatchesState.value) return;
-    } else if (matchView === "live") {
-      if (!summarySportsLive.value.data) return;
-      if (!summarySportsLive.value.data[selectedSport]) return;
-    } else {
-      if (!summarySports.value.data) return;
-      if (!summarySports.value.data[selectedSport]) return;
-    }
+    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
+    if (!summary.data) return;
+    const sportTuple = summary.data.find((s) => s[0] === selectedSport);
+    if (!sportTuple) return;
 
-    const list = flatList;
-    const firstBatch = list.slice(0, 10);
+    const firstBatch = flatList.slice(0, PAGE_SIZE);
 
     if (firstBatch.length === 0) {
-      if (
-        selectedSport === "Popular"
-          ? Object.keys(popularMatchesState.value).length > 0
-          : matchView === "live"
-            ? !!summarySportsLive.value.data?.[selectedSport]
-            : !!summarySports.value.data?.[selectedSport]
-      ) {
-        setLoadingMatches(false);
-        setLoading(false);
-      }
+      setLoadingMatches(false);
+      setLoading(false);
       setLoadedCount({ [selectedSport]: 0 });
       return;
     }
-    // const eventsTemp: Record<
-    //   number,
-    //   { region: string; league: string; sport: string }
-    // > = Object.fromEntries(
-    //   firstBatch.map(({ id, region, league, sport }) => [
-    //     id,
-    //     { region, league, sport },
-    //   ]),
-    // );
 
     setLoadedCount({ [selectedSport]: 0 });
-    // setLoading(true);
     setLoadingMatches(true);
-
-    const missingBatch = firstBatch;
-    // const missingBatch = firstBatch.filter((x) => !storeState.value[x.id]);
 
     let cancelled = false;
 
     (async () => {
       try {
-        if (missingBatch.length === 0) {
-          setLoadedCount({ [selectedSport]: firstBatch.length });
-          loadedPrematchState.value = true;
-          loadedAllMatches.value = true;
-          return;
-        }
+        if (pageName) return; // Don't fetch a panel-wide page when a specific event is open.
 
-        if (
-          !loadedSidebarState.value ||
-          (selectedSport !== "Popular" && pageName)
-        ) {
-          return;
-        }
-
-        const ids = missingBatch.map((x) => x.id);
-        const res =
-          selectedSport.toLowerCase() === "popular"
-            ? await apiGetMatchesAuto(ids)
-            : await apiGetMatches(
-                ids,
-                matchView === "live" ? "InPlay" : "PreMatch",
-                selectedSport,
-              );
+        const ids = firstBatch.map((x) => x.id);
+        const events = await apiGetMatches(ids);
         if (cancelled) return;
-        convertAndStoreEvent(
-          isLiveMode
-            ? res.data.sort((a, b) => (b[9] ?? 0) - (a[9] ?? 0))
-            : res.data,
-        );
-        if (selectedSport.toLowerCase() !== "popular") {
-          setSelectedMarkets(res.marketsMeta);
-        }
-        setLoadedCount({
-          [selectedSport]: firstBatch.length,
-        });
+
+        (events ?? []).forEach((event) => storeEvent(event));
+
+        setLoadedCount({ [selectedSport]: firstBatch.length });
         loadedPrematchState.value = true;
         loadedAllMatches.value = true;
       } catch (err) {
@@ -405,12 +273,6 @@ export const PreMatchPanel: FunctionComponent = () => {
         if (!cancelled) {
           setLoadingMatches(false);
           setLoading(false);
-          setLoadedSports((prev) => ({
-            ...prev,
-            [matchView === "live" ? "live" : "upcoming"]: (
-              prev[matchView === "live" ? "live" : "upcoming"] ?? new Set()
-            ).add(selectedSport),
-          }));
           loadedMatchesState.value = true;
         }
       }
@@ -419,52 +281,23 @@ export const PreMatchPanel: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [
-    selectedSport,
-    loadedSidebarState.value,
-    popularMatchesState.value,
-    matchView,
-  ]);
+  }, [selectedSport, matchView, loadedSidebarState.value, flatList]);
 
   const handleShowMore = useCallback(() => {
     (async () => {
       const current = loadedCount[selectedSport] ?? 0;
       if (loadingMore || current >= flatList.length) return;
-      const nextBatch = flatList.slice(current, current + 10);
+      const nextBatch = flatList.slice(current, current + PAGE_SIZE);
       if (nextBatch.length === 0) return;
 
-      const missingBatch = nextBatch;
-      // const missingBatch = nextBatch.filter((x) => !storeState.value[x.id]);
-      if (missingBatch.length === 0) {
-        setLoadedCount((prev) => ({
-          ...prev,
-          [selectedSport]: prev[selectedSport] + nextBatch.length,
-        }));
-        return;
-      }
-
       setLoadingMore(true);
-      const ids = missingBatch.map((x) => x.id);
-      const res =
-        selectedSport.toLowerCase() === "popular"
-          ? await apiGetMatchesAuto(ids)
-          : await apiGetMatches(
-              ids,
-              matchView === "live" ? "InPlay" : "PreMatch",
-              selectedSport,
-            );
-      setLoadingMore(false);
-
       try {
-        if (!res) return;
-        convertAndStoreEvent(
-          isLiveMode
-            ? res.data.sort((a, b) => (b[9] ?? 0) - (a[9] ?? 0))
-            : res.data,
-        );
+        const ids = nextBatch.map((x) => x.id);
+        const events = await apiGetMatches(ids);
+        (events ?? []).forEach((event) => storeEvent(event));
         setLoadedCount((prev) => ({
           ...prev,
-          [selectedSport]: prev[selectedSport] + nextBatch.length,
+          [selectedSport]: (prev[selectedSport] ?? 0) + nextBatch.length,
         }));
       } catch (err) {
         console.error("Error fetching more prematch matches:", err);
@@ -472,21 +305,14 @@ export const PreMatchPanel: FunctionComponent = () => {
         setLoadingMore(false);
       }
     })();
-  }, [
-    loadingMore,
-    loadedCount,
-    flatList,
-    selectedSport,
-    matchView,
-    isLiveMode,
-  ]);
+  }, [loadingMore, loadedCount, flatList, selectedSport]);
 
   const handleSelectLiveView = useCallback(() => {
     setMatchView("live");
-    if (selectedSport !== "Popular") return;
-    const liveSports = Object.keys(summarySportsLive.value.data ?? {});
-    setSelectedSport(liveSports[0] ?? "Soccer");
-  }, [selectedSport]);
+    // Snap to the first live sport that actually has events.
+    const firstLive = summarySportsLive.value.data?.find((s) => s[0]);
+    if (firstLive) setSelectedSport(firstLive[0]);
+  }, []);
 
   const handleSelectUpcomingView = useCallback(() => {
     setLoading(true);
@@ -500,43 +326,26 @@ export const PreMatchPanel: FunctionComponent = () => {
     setMatchView("");
   }, []);
 
+  // Build the SportsList tabs from the active summary signal.
   useEffect(() => {
-    if (matchView === "live" && selectedSport !== "Popular") {
-      const liveData = summarySportsLive.value.data ?? {};
-
-      setSportsData(
-        Object.keys(liveData).map((sport) => ({
-          count: Object.values(liveData[sport] ?? {}).reduce(
-            (acc, regionObj) =>
-              acc +
-              Object.values(regionObj ?? {}).reduce(
-                (a, leagueObj) => a + Object.keys(leagueObj ?? {}).length,
-                0,
-              ),
-            0,
-          ),
-          name: sport,
-          slug: sport,
-        })),
-      );
-      return;
-    }
+    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
+    const data = summary.data ?? [];
     setSportsData(
-      Object.keys(summarySports.value.data).map((sport) => ({
-        count: Object.values(summarySports.value.data[sport]).reduce(
-          (acc, region) =>
-            acc +
-            Object.values(region).reduce(
-              (acc, league) => acc + Object.keys(league).length,
+      data.map((sport) => {
+        const [sportId, sportName, regions] = sport;
+        const count = (regions ?? []).reduce(
+          (regionAcc, region) =>
+            regionAcc +
+            (region[2] ?? []).reduce(
+              (leagueAcc, league) => leagueAcc + (league[2] ?? []).length,
               0,
             ),
           0,
-        ),
-        name: sport,
-        slug: sport,
-      })) || [],
+        );
+        return { count, name: sportName, id: sportId };
+      }),
     );
-  }, [summarySports.value, summarySportsLive.value, matchView, selectedSport]);
+  }, [summarySports.value, summarySportsLive.value, isLiveMode]);
 
   useEffect(() => {
     if (sportsData.length > 0 && !isSportsListInitialized) {
@@ -547,7 +356,6 @@ export const PreMatchPanel: FunctionComponent = () => {
   return (
     <div
       className={`overflow-hidden flex w-full flex-col gap-2 rounded-[16px] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
-      // className={`overflow-hidden flex w-full flex-col gap-2 md:p-2 rounded-[16px] bg-[var(--background-element)] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
     >
       <div className="flex flex-col w-full sticky top-0">
         <div className="flex w-full pt-4 pb-2 items-center justify-between">
@@ -624,17 +432,6 @@ export const PreMatchPanel: FunctionComponent = () => {
               )}
             </div>
           </div>
-          {/* <div className="flex items-center gap-2">
-            <span className="text-[12px] text-[var(--text-secondary-color)] rounded-full cursor-default bg-[var(--sub-element-secondary)] px-2 py-1">
-              {summarySports.value.counts[selectedSport]?.total} {tCommon("liveMatches")}
-            </span>
-            <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/arrow.png`}
-              className="w-[12px] h-[12px] object-contain cursor-pointer"
-              alt="arrow"
-              onClick={() => setLocation("/event-view/live")}
-            />
-          </div> */}
         </div>
 
         <SportsList
@@ -642,17 +439,17 @@ export const PreMatchPanel: FunctionComponent = () => {
           selectedSport={selectedSport}
           onSelectSport={(sport) => setSelectedSport(sport)}
           loading={loading && !isSportsListInitialized}
-          isLive={selectedSport === "Popular" ? false : matchView === "live"}
-          showPopular={true}
+          isLive={isLiveMode}
+          showPopular={false}
         />
-        {selectedSport !== "Popular" && (
-          <MarketNavigation
-            options={selectedMarkets}
-            selectedValue={selectedMarketName}
-            onSelect={setselectedMarketName}
-          />
-        )}
+
+        <MarketNavigation
+          options={FALLBACK_MARKET_OPTIONS}
+          selectedValue={selectedMarketName}
+          onSelect={setSelectedMarketName}
+        />
       </div>
+
       {loadingMatches ? (
         <div className="flex flex-col mt-1 rounded-[4px]">
           <div className="flex flex-col gap-[2px] py-[2px]">
@@ -663,75 +460,54 @@ export const PreMatchPanel: FunctionComponent = () => {
         </div>
       ) : (
         <>
-          {/* <MarketNavigation
-            options={selectedMarekts}
-            selectedValue={selectedMarketName}
-            onSelect={setselectedMarketName}
-          /> */}
           <div className="flex flex-col mt-1 rounded-[4px]">
-            <>
-              {displayedEvents.map((event) => {
-                const storedEvent = storeState.value[event.id]?.value;
-                if (
-                  !storedEvent ||
-                  (!isLiveMode && !isEventValidForDisplay(storedEvent))
-                )
-                  return null;
-                const isMoneyline =
-                  storedEvent.sport === "Basketball" ||
-                  storedEvent.sport === "Ice Hockey";
-                const marketSlug = isLiveMode
-                  ? selectedMarketName || selectedMarkets[0] || ""
-                  : selectedMarketName;
-                const marketId = !isLiveMode
-                  ? (getMarketId({
-                      eventId: event.id,
-                      marketSlug,
-                      autoSelect: true,
-                    }) ?? "")
-                  : "";
-                const canRenderLiveMatch =
-                  !isLiveMode ||
-                  isMoneyline ||
-                  liveMatchWouldRender(storedEvent, marketSlug, true);
-                if (!canRenderLiveMatch) return null;
-                return (
-                  <div
-                    key={event.id}
-                    className={`flex rounded-[8px] overflow-hidden ${
-                      !isLiveMode && !marketId && !isMoneyline
-                        ? "hidden"
-                        : "flex mb-2"
-                    }`}
-                  >
-                    {isMoneyline ? (
-                      <MoneylineMatch eventId={event.id} />
-                    ) : (
-                      <Match
-                        eventId={event.id}
-                        marketSlug={marketSlug}
-                        marketId={isLiveMode ? undefined : marketId}
-                        showLeagueLogo={true}
-                        allowAutoSelect={
-                          selectedSport === "Popular" || isLiveMode
-                        }
-                        allowRounded={true}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-              {loadingMore && (
+            {displayedEvents.map((event) => {
+              const storedEvent = storeState.value[event.id]?.value;
+              if (
+                !storedEvent ||
+                (!isLiveMode && !isEventValidForDisplay(storedEvent))
+              )
+                return null;
+
+              const isMoneyline = MONEYLINE_SPORT_NAMES.has(
+                storedEvent.sport?.name ?? "",
+              );
+              const marketSlug = selectedMarketName;
+              const canRenderLiveMatch =
+                !isLiveMode ||
+                isMoneyline ||
+                liveMatchWouldRender(storedEvent, marketSlug, true);
+              if (!canRenderLiveMatch) return null;
+
+              return (
                 <div
-                  className="flex flex-col gap-[2px] py-[2px] mt-1"
-                  style={{ order: Number.MAX_SAFE_INTEGER }}
+                  key={event.id}
+                  className="flex rounded-[8px] overflow-hidden mb-2"
                 >
-                  <UpcomingMatchSkeleton />
-                  <UpcomingMatchSkeleton />
-                  <UpcomingMatchSkeleton />
+                  {isMoneyline ? (
+                    <MoneylineMatch eventId={event.id} />
+                  ) : (
+                    <Match
+                      eventId={event.id}
+                      marketSlug={marketSlug}
+                      showLeagueLogo={true}
+                      allowAutoSelect={isLiveMode}
+                      allowRounded={true}
+                    />
+                  )}
                 </div>
-              )}
-            </>
+              );
+            })}
+            {loadingMore && (
+              <div
+                className="flex flex-col gap-[2px] py-[2px] mt-1"
+                style={{ order: Number.MAX_SAFE_INTEGER }}
+              >
+                <UpcomingMatchSkeleton />
+                <UpcomingMatchSkeleton />
+                <UpcomingMatchSkeleton />
+              </div>
+            )}
           </div>
           {(loadedCount[selectedSport] ?? 0) > 0 &&
             (loadedCount[selectedSport] ?? 0) < flatList.length && (

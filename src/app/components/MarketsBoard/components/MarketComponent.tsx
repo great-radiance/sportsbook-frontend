@@ -19,7 +19,15 @@ import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
 
 interface MarketProps {
   Collapsed?: boolean;
-  marketId: string;
+  /**
+   * A single market id, or an array of market ids that should be merged into
+   * one visual block (used when several backend markets share the same
+   * `name` + `type` — e.g. multiple "1st half - total" rows with different
+   * handicaps). The first id in the array is treated as the primary; its
+   * name / trading-status / column-count drive the header, and selections
+   * from all listed markets are concatenated.
+   */
+  marketId: string | string[];
   eventId: number;
 }
 
@@ -35,10 +43,28 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   }, [Collapsed]);
 
   const event = storeState.value[eventId]?.value;
-  const market = event?.markets?.[marketId]?.value;
-  const name = market?.name;
-  const tradingStatus = market?.tradingStatus;
-  const selections = market?.selections ?? [];
+  const marketIds = Array.isArray(marketId) ? marketId : [marketId];
+  const primaryId = marketIds[0];
+  const primaryMarket = event?.markets?.[primaryId]?.value;
+  const name = primaryMarket?.name;
+  const tradingStatus = primaryMarket?.tradingStatus;
+  const primarySelections = primaryMarket?.selections ?? [];
+  // Concatenate selections across every merged market in the order given,
+  // tagging each entry with its origin marketId so React keys stay unique —
+  // `tSelectionValue.id` is the canonical selection-type id (e.g. 19 = "Over")
+  // and would otherwise collide across merged markets sharing the same name.
+  const selections =
+    marketIds.length === 1
+      ? primarySelections.map((sig) => ({ sig, mid: primaryId }))
+      : marketIds.flatMap((mid) =>
+          (event?.markets?.[mid]?.value.selections ?? []).map((sig) => ({
+            sig,
+            mid,
+          })),
+        );
+  // Use the primary market's selection count for column layout so that
+  // each "row" stays paired (e.g. Over | Under) when extras are appended.
+  const columns = Math.min(4, Math.max(1, primarySelections.length));
   // const odds = (oddsIdList as string[])
   //   .map((id) => market?.odds?.[id])
   //   .filter(
@@ -59,7 +85,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
 
   return (
     <div
-      key={`market-component-${marketId}-${eventId}`}
+      key={`market-component-${marketIds.join("_")}-${eventId}`}
       className="flex flex-col w-full rounded-[12px] border bg-[var(--sub-element-color)] text-[var(--text-basic-color)] border-[var(--border-color)]"
     >
       <div className={`flex flex-col w-full justify-center rounded-[8px] p-3`}>
@@ -118,15 +144,20 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
           <div
             className="grid w-full gap-2 mt-2"
             style={{
-              gridTemplateColumns: `repeat(${Math.min(4, selections.length)}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
             }}
           >
-            {selections.map((selection, index) => {
+            {selections.map(({ sig: selection, mid }, index) => {
               if (!selection) return null;
+              // Namespace the key by origin marketId so merged markets that
+              // share canonical selection ids (e.g. two "Over/Under" rows
+              // each carrying selection id 19/20) don't trip Preact's
+              // duplicate-key warning.
+              const cellKey = `${mid}-${selection.value.id ?? index}`;
               if (selection?.value.status === 1) {
                 return (
                   <div
-                    key={selection?.value.id}
+                    key={cellKey}
                     className="flex items-center border bg-[var(--sub-element-secondary)] border-[var(--border-color)] justify-center px-[10px] py-2  text-[12px] rounded-[8px] min-w-0"
                   >
                     <img
@@ -152,7 +183,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
 
               return (
                 <div
-                  key={selection?.value.id}
+                  key={cellKey}
                   className={`relative flex items-center border border-[var(--border-color)] justify-between group/m cursor-pointer px-[10px] py-2 text-[12px] rounded-[8px] min-w-0 ${
                     isSelected(selection?.value.id)
                       ? "bg-[var(--primary-color)] text-black"

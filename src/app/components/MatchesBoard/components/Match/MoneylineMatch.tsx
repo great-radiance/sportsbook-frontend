@@ -1,7 +1,7 @@
 import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
-import { handleClickOdd, isSelected } from "./Market";
+import { isSelected } from "./Market";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import {
   currentCompactState,
@@ -9,14 +9,14 @@ import {
 } from "@/state/panelCompactState";
 import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { popularMatchesState } from "@/state/popularMatchesState";
 import { getTranslatedText } from "@/helpers/getTranslate";
 import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
-import { normalizeScoreboardFast } from "@/helpers/normalizeScoreboard";
 import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
-import type { tMarketModel } from "@/types/typesForSocket.ts/tEventModel";
-import { tOdd } from "@/types/tEvent";
+import type {
+  tMarketModel,
+  tSelectionValue,
+} from "@/types/typesForSocket.ts/tEventModel";
 import { isMobile } from "@/state/isMobile";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
@@ -25,7 +25,7 @@ interface MoneylineMatchProps {
   eventId: number;
 }
 
-export const formatStartTime = (timestamp: number): string => {
+const formatStartTime = (timestamp: number): string => {
   try {
     const date = new Date(timestamp);
     const hours = date.getHours().toString().padStart(2, "0");
@@ -36,7 +36,7 @@ export const formatStartTime = (timestamp: number): string => {
   }
 };
 
-export const formatStartDate = (timestamp: number): string => {
+const formatStartDate = (timestamp: number): string => {
   try {
     const date = new Date(timestamp);
     const day = date.getDate().toString().padStart(2, "0");
@@ -47,24 +47,39 @@ export const formatStartDate = (timestamp: number): string => {
   }
 };
 
-function sortedOdds(market: tMarketModel | undefined): tOdd[] {
-  if (!market?.odds?.oddIdList?.length) return [];
-  return market.odds.oddIdList
-    .map((id) => market.odds.odds[id]?.value)
-    .filter((v): v is NonNullable<typeof v> => v != null) as unknown as tOdd[];
-}
+/**
+ * Read the value of a competitor's score off the new `scoreboard` payload.
+ * Position 1 = home, 2 = away. Falls back to `homeGameScore`/`awayGameScore`
+ * if the per-competitor `results[]` entry is missing.
+ */
+const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
+  if (!scoreboard) return 0;
+  const fromResults = scoreboard.results?.find(
+    (r: any) => r.competitorPosition === position,
+  )?.value;
+  const parsedResult = Number(fromResults);
+  if (Number.isFinite(parsedResult)) return parsedResult;
+  const fallback =
+    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
+  const parsedFallback = Number(fallback);
+  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
+};
+
+/** Selections live as signal-wrapped values on the new market model. */
+const marketSelections = (market: tMarketModel | undefined): tSelectionValue[] =>
+  (market?.selections ?? [])
+    .map((sig) => sig?.value)
+    .filter((s): s is tSelectionValue => !!s);
 
 function oddLabel(
   _market: tMarketModel | undefined,
-  odd: tOdd | undefined,
+  odd: tSelectionValue | undefined,
   _index: number,
   kind: "moneyline" | "spread" | "total",
 ): string {
   if (!odd) return "—";
   const name = getOddName(odd.name as Parameters<typeof getOddName>[0]);
-  if (kind === "moneyline") {
-    return "";
-  }
+  if (kind === "moneyline") return "";
   const num = getOnlyNumber(name as string);
   if (kind === "spread") {
     return num
@@ -89,65 +104,47 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
   eventId,
 }) => {
   const event = storeState.value[eventId]?.value;
-  const isLive = event?.status === "In progress";
   const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();
-  const live = event?.live;
   const clockRef = useRef<HTMLSpanElement>(null);
 
-  const participants = event?.participants || [];
-  const homeTeam = participants[0]?.name || "Team 1";
-  const awayTeam = participants[1]?.name || "Team 2";
+  const isLive = event?.status === 3;
+
+  const competitors = event?.competitors || [];
+  const homeTeam = competitors[0]?.name || "Team 1";
+  const awayTeam = competitors[1]?.name || "Team 2";
 
   const markets = event?.markets
     ? Object.values(event.markets).map((sig) => sig.value)
     : [];
 
+  // Heuristic market pickers — `tMarketModel` no longer carries a `column`
+  // field; the column count is implicit in `selections.length`.
   const moneylineMarket = markets.find((m) => {
     const n = m.name.toLowerCase();
     return (
-      (n.includes("match result") ||
-        n.includes("winner") ||
-        n.includes("moneyline")) &&
-      m.column === 2
+      n.includes("match result") ||
+      n.includes("winner") ||
+      n.includes("moneyline")
     );
   });
   const spreadMarket = markets.find((m) => {
     const n = m.name.toLowerCase();
-    return n.includes("handicap") && !n.includes("3-") && m.column === 2;
+    return n.includes("handicap") && !n.includes("3-");
   });
   const totalMarket = markets.find((m) => {
     const n = m.name.toLowerCase();
     return (
-      (n.includes("total goals") ||
-        (n.includes("total") && n.includes("over"))) &&
-      m.column === 2
+      n.includes("total goals") || (n.includes("total") && n.includes("over"))
     );
   });
 
-  const homeGoals =
-    live?.scoreBoard && "goals" in live.scoreBoard
-      ? (live.scoreBoard.goals as { h: number; g: number }).h || 0
-      : 0;
-  const awayGoals =
-    live?.scoreBoard && "goals" in live.scoreBoard
-      ? (live.scoreBoard.goals as { h: number; g: number }).g || 0
-      : 0;
+  const scoreboard = event?.scoreboard;
+  const homeGoals = getCompetitorScore(scoreboard, 1);
+  const awayGoals = getCompetitorScore(scoreboard, 2);
 
-  const normalizeScoreboard = normalizeScoreboardFast(event?.live?.scoreBoard);
-
-  const rawTime =
-    event?.live?.status?.time ||
-    event?.live?.clock?.clock_seconds ||
-    normalizeScoreboard?.clock?.seconds ||
-    null;
-
-  const showClock =
-    event?.status !== "Finished" &&
-    event?.status !== "Coverage lost" &&
-    !!event &&
-    rawTime !== null &&
-    event?.live?.clock?.clock_status !== "stopped";
+  const rawTime = typeof scoreboard?.time === "number" ? scoreboard.time : null;
+  const showClock = isLive && rawTime !== null;
 
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
@@ -196,14 +193,18 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     }
   }, [rootWidthPx]);
 
-  const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event?.sport}/${event?.region}/${event?.league}/${event?.id}`;
+  const startMs = new Date(event?.startTime || "").getTime() || 0;
 
-  const mlOdds = sortedOdds(moneylineMarket);
-  const spOdds = sortedOdds(spreadMarket);
-  const totOdds = sortedOdds(totalMarket);
+  const eventPath = event
+    ? `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`
+    : "#";
+
+  const mlOdds = marketSelections(moneylineMarket);
+  const spOdds = marketSelections(spreadMarket);
+  const totOdds = marketSelections(totalMarket);
 
   const renderOddButton = (
-    odd: tOdd | undefined,
+    odd: tSelectionValue | undefined,
     market: tMarketModel | undefined,
     index: number,
     kind: "moneyline" | "spread" | "total",
@@ -218,14 +219,12 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         </div>
       );
     }
-    const oddName =
-      getOddName(odd.name as Parameters<typeof getOddName>[0]) || "";
-    const suspended = odd.status === "suspended";
-    const deleted = odd.status === "deleted";
+    const suspended = odd.status === 1;
+    const closed = odd.status === 2 || odd.status === 3;
     const lineText = oddLabel(market, odd, index, kind);
     const selected = isSelected(odd.id);
 
-    if (deleted) {
+    if (closed) {
       return (
         <div
           key={odd.id}
@@ -259,16 +258,9 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         } ${selected ? "bg-[var(--primary-color)] text-white/90" : "text-[var(--text-basic-color)] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] group group-hover:text-white"}`}
         onClick={(e) => {
           e.stopPropagation();
-          handleClickOdd({
-            eventId: event?.id ?? 0,
-            marketId: market.id,
-            marketName: market.name,
-            participants: event?.participants ?? [],
-            startDate: event?.startDate ?? 0,
-            oddId: odd.id,
-            oddName: oddName,
-            sportSlug: event?.sport ?? "",
-          });
+          // Bet-slip click handler is being rewired against the new selection
+          // model in `Market.tsx`; until that lands the button is a no-op so
+          // we don't crash on the old `handleClickOdd` contract.
         }}
       >
         {kind !== "moneyline" && lineText ? (
@@ -289,7 +281,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
               : `text-[var(--text-primary-color)] ${isMobile.value ? "" : "group-hover:text-white"}`
           }`}
         >
-          {odd.value != null ? odd.value.toFixed(2) : "—"}
+          {odd.price != null ? odd.price.toFixed(2) : "—"}
         </span>
       </button>
     );
@@ -302,18 +294,14 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
       ref={matchRef}
       className="flex w-full cursor-pointer flex-col overflow-hidden rounded-[8px] border border-[var(--border-color)] bg-[var(--sub-element-color)] text-[var(--text-basic-color)]"
       style={{
-        order:
-          popularMatchesState.value?.[event?.sport]?.[event?.region]?.[
-            event?.league
-          ]?.indexOf(event.id) ?? 999,
+        order: event.league?.id ?? 999,
       }}
     >
-      {/* Header: Matches + column titles */}
       <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] bg-[var(--sub-element-secondary)] px-3 pr-5 py-2">
         <div className="flex gap-[2px] h-full text-[11px] items-center justify-start truncate text-ellipsis overflow-hidden">
           <div className="flex relative items-center w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${event?.sport}.png`}
+              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${event.sport?.name}.png`}
               onError={(e) => {
                 e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
               }}
@@ -323,21 +311,17 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
           </div>
           <div className="flex relative left-[-6px] z-[1] items-center overflow-hidden w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event?.sport || "")}/${encodeURIComponent(event?.region || "")}/${encodeURIComponent(event?.league || "")}.webp`}
+              src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event.sport?.name || "")}/${encodeURIComponent(event.region?.name || "")}/${encodeURIComponent(event.league?.name || "")}.webp`}
               className="w-[12px] h-[12px] object-contain shrink-0"
               onError={(e) => {
-                e.currentTarget.src = `${getFlagIconFromregionName(event?.region || "")}`;
+                e.currentTarget.src = `${getFlagIconFromregionName(event.region?.name || "")}`;
                 e.currentTarget.className = "rounded-full w-[14px] h-[14px]";
               }}
               alt=""
             />
           </div>
           <span>
-            {/* {translationState.value.translations?.[event.league || ""] ||
-                    event.league ||
-                    ""} */}
-            {/* {JSON.stringify(event.sport)} */}
-            {getTranslatedText(event?.league) || event?.league}
+            {getTranslatedText(event.league?.name) || event.league?.name}
           </span>
         </div>
         <div className="grid min-w-0 grid-cols-3 gap-1 text-center md:min-w-[50%] md:max-w-[50%]">
@@ -354,92 +338,87 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
       </div>
 
       <div className="flex gap-2 p-2 md:items-stretch md:gap-3 md:p-3 h-full">
-        {/* Left: status + teams + scores */}
         <div
           className="flex min-w-0 md:flex-1 flex-col gap-2 md:max-w-[48%] h-full"
           onClick={(e) => {
             linkButtonOnClick(e, eventPath, setLocation);
           }}
         >
-          {event?.outright ? (
+          {event.isOutright ? (
             <span className="truncate font-bold">OutRight</span>
           ) : (
-            <>
-              <div className="flex flex-col justify-space-between h-full">
-                <div className="flex flex-col gap-2 h-full">
-                  <div className="flex items-center gap-2 text-[11px] text-[var(--text-sub-color)]">
-                    {isLive ? (
-                      <>
-                        <img
-                          src={`${BASE_ASSET_PUBLIC_URL}/icons/multiple.png`}
-                          className="h-4 w-4 shrink-0 object-contain"
-                          alt=""
-                        />
-                        <span
-                          ref={clockRef}
-                          className="font-medium text-[var(--text-basic-color)]"
-                        >
-                          00:00
-                        </span>
-                      </>
-                    ) : (
-                      <span>
-                        {formatStartDate(event?.startDate || 0)}{" "}
-                        {formatStartTime(event?.startDate || 0)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex flex-col justify-space-between h-full">
+              <div className="flex flex-col gap-2 h-full">
+                <div className="flex items-center gap-2 text-[11px] text-[var(--text-sub-color)]">
+                  {isLive ? (
+                    <>
                       <img
-                        src={
-                          getTeamlogo(event?.sport, homeTeam) ||
-                          `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
-                        }
-                        className="h-3.5 w-3.5 shrink-0 object-contain"
+                        src={`${BASE_ASSET_PUBLIC_URL}/icons/multiple.png`}
+                        className="h-4 w-4 shrink-0 object-contain"
                         alt=""
                       />
-                      <span className="truncate text-[13px] font-bold">
-                        {getTranslatedText(homeTeam) || homeTeam}
+                      <span
+                        ref={clockRef}
+                        className="font-medium text-[var(--text-basic-color)]"
+                      >
+                        00:00
                       </span>
-                    </div>
-                    {isLive && (
-                      <span className="shrink-0 text-[13px] font-bold tabular-nums">
-                        {homeGoals}
-                      </span>
-                    )}
-                  </div>
+                    </>
+                  ) : (
+                    <span>
+                      {formatStartDate(startMs)} {formatStartTime(startMs)}
+                    </span>
+                  )}
                 </div>
-                <div className="h-[1px] bg-[var(--border-color)] w-full" />
-                <div className="flex items-center justify-between gap-2 h-full">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <img
                       src={
-                        getTeamlogo(event?.sport, awayTeam) ||
-                        `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
+                        getTeamlogo(event.sport?.name, homeTeam) ||
+                        `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                       }
                       className="h-3.5 w-3.5 shrink-0 object-contain"
                       alt=""
-                      onError={(e) => {
-                        e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
-                      }}
                     />
                     <span className="truncate text-[13px] font-bold">
-                      {getTranslatedText(awayTeam) || awayTeam}
+                      {getTranslatedText(homeTeam) || homeTeam}
                     </span>
                   </div>
                   {isLive && (
                     <span className="shrink-0 text-[13px] font-bold tabular-nums">
-                      {awayGoals}
+                      {homeGoals}
                     </span>
                   )}
                 </div>
               </div>
-            </>
+              <div className="h-[1px] bg-[var(--border-color)] w-full" />
+              <div className="flex items-center justify-between gap-2 h-full">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <img
+                    src={
+                      getTeamlogo(event.sport?.name, awayTeam) ||
+                      `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
+                    }
+                    className="h-3.5 w-3.5 shrink-0 object-contain"
+                    alt=""
+                    onError={(e) => {
+                      e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
+                    }}
+                  />
+                  <span className="truncate text-[13px] font-bold">
+                    {getTranslatedText(awayTeam) || awayTeam}
+                  </span>
+                </div>
+                {isLive && (
+                  <span className="shrink-0 text-[13px] font-bold tabular-nums">
+                    {awayGoals}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Right: 3×2 odds grid */}
         <div
           className="grid min-w-0 flex-1 grid-cols-3 gap-1.5 md:max-w-[52%]"
           onClick={(e) => e.stopPropagation()}

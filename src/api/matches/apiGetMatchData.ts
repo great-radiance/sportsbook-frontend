@@ -2,6 +2,7 @@ import { Live } from "@/shared/utils/types";
 import { instance } from "../instance";
 import { tEvent } from "@/types/tEvent";
 import { getAppConfig } from "@/shared/config/appConfig";
+import { instanceOdds88 } from "../instanceOdds88";
 
 export type MatchDataResponse = {
   eventInfo: {
@@ -84,7 +85,7 @@ export type MatchDataResponse = {
 };
 
 export const apiGetMatchData = async (eventId: number) => {
-  const response = await instance.get<{ data: MatchDataResponse }>(
+  const response = await instanceOdds88.get<{ data: MatchDataResponse }>(
     `/events/${eventId}?lang=${getAppConfig().lang}`,
   );
   return response.data.data;

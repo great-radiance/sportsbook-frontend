@@ -1,36 +1,56 @@
 import { FunctionComponent } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { apiGetUpcomingMatches } from "@/api/special-matches/apiGetUpcomingMatches";
-import { tGetUpcomingMatchesResponse } from "@/api/special-matches/apiGetUpcomingMatches";
+import {
+  apiGetUpcomingMatches,
+  tGetUpcomingMatchesResponse,
+} from "@/api/special-matches/apiGetUpcomingMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { storeEvent } from "@/helpers/storeEvent";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
+import { summarySports } from "@/state/summarySports";
+import { tSportResponse } from "@/api/sidebar/apiGetSidebar";
 import { Select, SelectItem } from "../Select";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader, UpcomingMatchSkeleton } from "../Loading";
-import { tParticipant, tMarket, tOdd } from "@/types/tEvent";
-import { getTeamlogosByArray } from "@/helpers/getTeamlogos";
-import { getTranslate } from "@/helpers/getTranslate";
-import { getAppConfig } from "@/shared/config/appConfig";
-import { storeEvent } from "@/helpers/storeEvent";
 import { MarketNavigation } from "../marketNavigation";
 import { Match } from "../MatchesBoard/components/Match";
-import { summarySports } from "@/state/summarySports";
 
 const PAGE_SIZE = 10;
 const FALLBACK_MARKET_OPTIONS = ["Winner", "Total", "Handicap"];
 
-function appendUniqueIds(existing: number[], chunk: number[]): number[] {
-  const seen = new Set(existing);
-  const next = [...existing];
-  for (const id of chunk) {
+/**
+ * Walk the `tSportResponse` tuple tree returned by `apiGetUpcomingMatches`
+ * and pull every event id, preserving the server-provided ordering
+ * (sports → regions → leagues → eventIds).
+ */
+const flattenEventIds = (data: tSportResponse | undefined): number[] => {
+  const ids: number[] = [];
+  if (!Array.isArray(data)) return ids;
+  for (const sport of data) {
+    for (const region of sport?.[2] ?? []) {
+      for (const league of region?.[2] ?? []) {
+        for (const id of league?.[2] ?? []) {
+          if (typeof id === "number") ids.push(id);
+        }
+      }
+    }
+  }
+  return ids;
+};
+
+const dedupe = (ids: number[]): number[] => {
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const id of ids) {
     if (seen.has(id)) continue;
     seen.add(id);
-    next.push(id);
+    out.push(id);
   }
-  return next;
-}
+  return out;
+};
 
 export const UpcomingMatches: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
@@ -43,284 +63,167 @@ export const UpcomingMatches: FunctionComponent = () => {
     2: { id: 2, name: "12 hours", value: 12 },
     3: { id: 3, name: "24 hours", value: 24 },
   };
+
   const [selectedTimeFilter, setSelectedTimeFilter] = useState<number>(
     timeFilterOptions[1].value,
   );
-  const [selectedMarket, setSelectedMarket] = useState<string>("winner");
-  const [loading, setLoading] = useState<boolean>(true);
-  const [loadingMatches, setLoadingMatches] = useState<boolean>(false);
-  /** Ordered event ids loaded per sport (accumulated via load more). */
-  const [eventIdsBySport, setEventIdsBySport] = useState<
-    Record<string, number[]>
-  >({});
-  /** Whether more pages exist for each sport (last page was full). */
-  const [hasMoreBySport, setHasMoreBySport] = useState<Record<string, boolean>>(
-    {},
+  const [selectedMarket, setSelectedMarket] = useState<string>(
+    FALLBACK_MARKET_OPTIONS[0],
   );
-  /** marketsMeta from API, keyed by sport (same lifecycle as eventIdsBySport). */
-  const [marketsMetaBySport, setMarketsMetaBySport] = useState<
-    Record<string, string[]>
-  >({});
-  const [upcomingSummaryCount, setUpcomingSummaryCount] = useState<
-    { count: number; name: string; slug: string }[]
-  >([]);
-  const [selectedSport, setSelectedSport] = useState<string>("Soccer");
+  const [selectedSport, setSelectedSport] = useState<number>(1);
+  const [loadedIds, setLoadedIds] = useState<number[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
 
-  const initialFetchGenRef = useRef(0);
-  const loadMoreGenRef = useRef(0);
-  const eventIdsBySportRef = useRef(eventIdsBySport);
-  eventIdsBySportRef.current = eventIdsBySport;
-  const prevTimeFilterRef = useRef(selectedTimeFilter);
+  /**
+   * Each initial fetch bumps this generation token; in-flight responses for a
+   * stale generation are discarded so rapid tab/time-filter changes don't race.
+   */
+  const fetchGenRef = useRef(0);
 
-  const processAndStoreEvents = (res: tGetUpcomingMatchesResponse) => {
-    const participantNames: Record<string, string[]> = {};
-
-    for (const [
-      id,
-      sport,
-      region,
-      league,
-      participants,
-      outright,
-      sportRadarId,
-      markets,
-      status,
-      startDate,
-    ] of res.map ?? []) {
-      const participantsTemp: tParticipant[] = [];
-      for (const [name, home] of participants ?? []) {
-        participantsTemp.push({ name, home });
-      }
-
-      const marketsTemp: tMarket[] = [];
-      for (const [
-        marketId,
-        name,
-        odds,
-        status,
-        sort,
-        column,
-        groups,
-      ] of markets ?? []) {
-        const oddsTemp: tOdd[] = [];
-        for (const [
-          oddId,
-          value,
-          impliedOdd,
-          mv,
-          column,
-          status,
-          name,
-          sort,
-        ] of odds ?? []) {
-          oddsTemp.push({
-            id: oddId ?? "",
-            value: value ?? 0,
-            status: status ?? "",
-            mv: mv ?? 0,
-            impliedOdd: impliedOdd ?? null,
-            name: name ?? "",
-            column: column ?? 0,
-            sort: sort ?? 0,
-          });
-        }
-        marketsTemp.push({
-          id: marketId ?? "",
-          name: name ?? "",
-          status: status ?? "",
-          sort: sort ?? 0,
-          column: column ?? 0,
-          groups: groups ?? [],
-          odds: oddsTemp ?? [],
-        });
-      }
-      storeEvent({
-        id: id ?? 0,
-        sport: sport ?? "",
-        region: region ?? "",
-        league: league ?? "",
-        participants: participantsTemp ?? [],
-        outright: outright ?? false,
-        sportRadarId: sportRadarId ?? 0,
-        markets: marketsTemp ?? [],
-        status: status ?? "",
-        startDate: startDate ?? 0,
-      });
-      (participantsTemp ?? []).forEach((p) => {
-        if (p?.name && sport) {
-          if (!participantNames[sport]) {
-            participantNames[sport] = [];
-          }
-          participantNames[sport].push(p.name);
-        }
-      });
-    }
-
-    if (
-      getAppConfig().lang !== "en" &&
-      Object.values(participantNames).flat().length > 0
-    ) {
-      getTranslate(Object.values(participantNames).flat());
-    }
-    for (const sport of Object.keys(participantNames)) {
-      if (participantNames[sport].length > 0) {
-        void getTeamlogosByArray(sport, participantNames[sport]);
-      }
-    }
-  };
-
-  const applyPageResult = (
-    sportKey: string,
-    res: tGetUpcomingMatchesResponse,
-    mode: "replace" | "append",
-  ) => {
-    const chunkIds = (res.map ?? []).map((row) => row[0] ?? 0);
-
-    processAndStoreEvents(res);
-
-    if (res.marketsMeta?.length) {
-      setMarketsMetaBySport((prev) => ({
-        ...prev,
-        [sportKey]: res.marketsMeta,
-      }));
-    }
-
-    setEventIdsBySport((prev) => {
-      const existing = prev[sportKey] ?? [];
-      const nextIds =
-        mode === "replace" ? chunkIds : appendUniqueIds(existing, chunkIds);
-      return { ...prev, [sportKey]: nextIds };
+  /** Sports tabs come from the prematch sidebar summary. */
+  const sportsWithCount = useMemo(() => {
+    const data = summarySports.value.data ?? [];
+    return data.map((sport) => {
+      const count = (sport[2] ?? []).reduce(
+        (regionAcc, region) =>
+          regionAcc +
+          (region[2] ?? []).reduce(
+            (leagueAcc, league) => leagueAcc + (league[2] ?? []).length,
+            0,
+          ),
+        0,
+      );
+      return { count, name: sport[1], id: sport[0] };
     });
-
-    setHasMoreBySport((prev) => ({
-      ...prev,
-      [sportKey]: (res.map?.length ?? 0) >= PAGE_SIZE,
-    }));
-  };
+  }, [summarySports.value]);
 
   /**
-   * First page (10 events): when sidebar is ready and either the time range changed,
-   * or the active sport has no cached ids yet. Cached ids per sport are kept when
-   * switching tabs so load-more progress is preserved.
+   * The API filters by sport name (e.g. "Soccer"), so resolve the currently
+   * selected sport id against the sidebar summary.
    */
+  const selectedSportName = useMemo(
+    () =>
+      summarySports.value.data?.find((s) => s[0] === selectedSport)?.[1] ?? "",
+    [summarySports.value.data, selectedSport],
+  );
+
+  /**
+   * Fetch upcoming events for the active sport + time window and store the
+   * detailed payloads. Returns the appended ids and the server-reported total.
+   */
+  const fetchPage = useCallback(
+    async (
+      offset: number,
+      sportName: string,
+      timeFilter: number,
+      gen: number,
+    ): Promise<{ ids: number[]; total: number } | null> => {
+      const from = Math.floor(Date.now() / 1000);
+      const to = from + timeFilter * 3600;
+
+      const res: tGetUpcomingMatchesResponse = await apiGetUpcomingMatches({
+        from,
+        to,
+        sport: sportName,
+        limit: PAGE_SIZE,
+        offset,
+      });
+
+      if (gen !== fetchGenRef.current) return null;
+
+      const ids = flattenEventIds(res.data);
+      if (ids.length > 0) {
+        const events = await apiGetMatches(ids);
+        if (gen !== fetchGenRef.current) return null;
+        (events ?? [])
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(a?.eventInfo?.startTime ?? 0).getTime() -
+              new Date(b?.eventInfo?.startTime ?? 0).getTime(),
+          )
+          .forEach((event) => storeEvent(event));
+      }
+
+      return { ids, total: res.total ?? 0 };
+    },
+    [],
+  );
+
+  // Initial / refetch on sport or time filter change.
   useEffect(() => {
     if (!loadedSidebarState.value) return;
 
-    const timeFilterChanged = prevTimeFilterRef.current !== selectedTimeFilter;
-    if (timeFilterChanged) {
-      prevTimeFilterRef.current = selectedTimeFilter;
-      setEventIdsBySport({});
-      setHasMoreBySport({});
-      setMarketsMetaBySport({});
-    }
-
-    const sport = selectedSport;
-    const cachedLen = eventIdsBySportRef.current[sport]?.length ?? 0;
-    if (!timeFilterChanged && cachedLen > 0) {
-      setLoading(false);
+    if (!selectedSportName) {
+      setLoadedIds([]);
+      setTotal(0);
       setLoadingMatches(false);
       return;
     }
 
-    const gen = ++initialFetchGenRef.current;
+    const gen = ++fetchGenRef.current;
+    setLoadingMatches(true);
+    setLoadedIds([]);
+    setTotal(0);
 
     (async () => {
       try {
-        setLoading(true);
-        setLoadingMatches(true);
-        const now = Date.now();
-        const to = now + selectedTimeFilter * 60 * 60 * 1000;
-
-        const res = await apiGetUpcomingMatches({
-          from: now,
-          to,
-          limit: PAGE_SIZE,
-          offset: 0,
-          sport,
-        });
-
-        if (gen !== initialFetchGenRef.current) return;
-
-        applyPageResult(sport, res, "replace");
-      } catch (error) {
-        console.error("Error fetching upcoming matches:", error);
+        const result = await fetchPage(0, selectedSportName, selectedTimeFilter, gen);
+        if (!result || gen !== fetchGenRef.current) return;
+        setLoadedIds(result.ids);
+        setTotal(result.total);
+      } catch (err) {
+        console.error("Error fetching upcoming matches:", err);
       } finally {
-        if (gen === initialFetchGenRef.current) {
-          setLoading(false);
+        if (gen === fetchGenRef.current) {
           setLoadingMatches(false);
         }
       }
     })();
-  }, [selectedSport, selectedTimeFilter, loadedSidebarState.value]);
-
-  useEffect(() => {
-    if (!loadedSidebarState.value) return;
-    setUpcomingSummaryCount(
-      Object.keys(summarySports.value.counts).map((sport) => ({
-        count: summarySports.value.counts[sport].total,
-        name: sport,
-        slug: sport,
-      })),
-    );
-  }, [loadedSidebarState.value]);
-
-  const loadMore = useCallback(() => {
-    if (loadingMore) return;
-    const sport = selectedSport;
-    const loaded = eventIdsBySport[sport]?.length ?? 0;
-    if (!hasMoreBySport[sport] || loaded === 0) return;
-
-    const now = Date.now();
-    const filterTo = now + selectedTimeFilter * 60 * 60 * 1000;
-    setLoadingMore(true);
-
-    const gen = ++loadMoreGenRef.current;
-
-    apiGetUpcomingMatches({
-      from: now,
-      to: filterTo,
-      sport,
-      limit: PAGE_SIZE,
-      offset: loaded,
-    })
-      .then((res) => {
-        if (gen !== loadMoreGenRef.current) return;
-        applyPageResult(sport, res, "append");
-      })
-      .catch((err) =>
-        console.error("Error fetching more upcoming matches:", err),
-      )
-      .finally(() => {
-        if (gen === loadMoreGenRef.current) {
-          setLoadingMore(false);
-        }
-      });
   }, [
-    loadingMore,
-    selectedSport,
+    selectedSportName,
     selectedTimeFilter,
-    eventIdsBySport,
-    hasMoreBySport,
+    loadedSidebarState.value,
+    fetchPage,
   ]);
 
-  const handleTimeFilterClick = (option: number) => {
-    setSelectedTimeFilter(option);
-  };
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loadingMatches) return;
+    if (!selectedSportName) return;
+    if (loadedIds.length >= total) return;
 
-  const idsForTab = eventIdsBySport[selectedSport] ?? [];
-  const showLoadMore = hasMoreBySport[selectedSport] === true;
+    const gen = fetchGenRef.current;
+    setLoadingMore(true);
+    try {
+      const result = await fetchPage(
+        loadedIds.length,
+        selectedSportName,
+        selectedTimeFilter,
+        gen,
+      );
+      if (!result || gen !== fetchGenRef.current) return;
+      setLoadedIds((prev) => dedupe([...prev, ...result.ids]));
+      setTotal(result.total);
+    } catch (err) {
+      console.error("Error fetching more upcoming matches:", err);
+    } finally {
+      if (gen === fetchGenRef.current) {
+        setLoadingMore(false);
+      }
+    }
+  }, [
+    loadingMore,
+    loadingMatches,
+    selectedSportName,
+    selectedTimeFilter,
+    loadedIds.length,
+    total,
+    fetchPage,
+  ]);
 
-  const metaForTab = marketsMetaBySport[selectedSport];
-  const marketSelectOptions = metaForTab?.length
-    ? metaForTab
-    : FALLBACK_MARKET_OPTIONS;
-
-  useEffect(() => {
-    const meta = marketsMetaBySport[selectedSport];
-    if (!meta?.length) return;
-    setSelectedMarket((prev) => (meta.includes(prev) ? prev : meta[0]!));
-  }, [selectedSport, marketsMetaBySport]);
+  const showLoadMore = !loadingMatches && loadedIds.length < total;
 
   return (
     <div
@@ -330,9 +233,7 @@ export const UpcomingMatches: FunctionComponent = () => {
         <div className="flex w-full items-center gap-2 p-3 rounded-[4px]">
           <Select
             value={selectedTimeFilter}
-            onSelect={(key: any) => {
-              handleTimeFilterClick(key);
-            }}
+            onSelect={(key: any) => setSelectedTimeFilter(key)}
             className="text-[var(--text-basic-color)]"
             notInvert
             classNames={{
@@ -362,10 +263,8 @@ export const UpcomingMatches: FunctionComponent = () => {
         </div>
         <div className="flex w-full pb-[10px]">
           <SportsList
-            sportsData={upcomingSummaryCount}
-            selectedSport={
-              selectedSport || upcomingSummaryCount[0]?.slug || "soccer"
-            }
+            sportsData={sportsWithCount}
+            selectedSport={selectedSport}
             onSelectSport={setSelectedSport}
             loading={loadingMatches}
           />
@@ -382,19 +281,19 @@ export const UpcomingMatches: FunctionComponent = () => {
             style={{ height: "-webkit-fill-available" }}
           >
             <MarketNavigation
-              options={marketSelectOptions}
+              options={FALLBACK_MARKET_OPTIONS}
               selectedValue={selectedMarket}
               onSelect={setSelectedMarket}
             />
             <div className="w-full rounded-lg overflow-hidden flex-1 min-h-0">
-              {idsForTab.length === 0 && !loadingMatches ? (
+              {loadedIds.length === 0 ? (
                 <div className="px-2 py-2 text-[var(--text-secondary-color)]">
                   {tCommon("noDataAvailable")}
                 </div>
               ) : (
-                idsForTab.map((item) => (
-                  <div key={`upcoming-${item}`} className="flex w-full">
-                    <Match eventId={item} marketSlug={selectedMarket} />
+                loadedIds.map((id) => (
+                  <div key={`upcoming-${id}`} className="flex w-full">
+                    <Match eventId={id} marketSlug={selectedMarket} />
                   </div>
                 ))
               )}

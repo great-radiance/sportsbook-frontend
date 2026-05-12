@@ -16,7 +16,7 @@ if (import.meta.env.DEV && typeof document !== "undefined") {
     initSportsbookApp({
       host: import.meta.env.VITE_API_HOST || "https://api.example.com",
       cid: import.meta.env.VITE_PARTNER_ID || "dev-partner-id",
-      lang: "zh",
+      lang: "en",
       containerId: "sportsbook-placeholder",
       themeEditorData: import.meta.env.VITE_THEME_COLORS as string,
       disallowUrlChange: true,

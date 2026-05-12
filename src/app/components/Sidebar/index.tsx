@@ -165,8 +165,8 @@ export const Sidebar: FunctionComponent = () => {
             ))}
           </div>
         ) : (
-          <></>
-          // <LiveSidebar />
+          // <></>
+          <LiveSidebar />
         )
       ) : (
         <>

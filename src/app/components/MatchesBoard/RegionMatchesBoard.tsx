@@ -106,6 +106,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
           ?.find((l) => l[0] === league?.[0])?.[2];
         return leagueOutrights || [];
       });
+      console.log("outrightEventIds", outrightEventIds);
 
       const [matchResults, outrightResults] = await Promise.all([
         Promise.all(matchPromises),

@@ -47,28 +47,34 @@ export const LiveSportsNavigation: FunctionComponent<
 
   return (
     <div className="flex flex-col w-full gap-[2px] rounded-[4px]">
-      {Object.keys(summarySportsLive.value.data)?.map((sport) => {
-        if (summarySportsLive.value.counts[sport]?.total === 0) return null;
-        const isExpanded = expandedSports.has(sport) && !!eventId;
+      {(summarySportsLive.value.data ?? []).map((sportTuple) => {
+        const sportId = sportTuple[0];
+        const sportName = sportTuple[1];
+        // `counts` is keyed by numeric sport id; `orderConfigState` and the
+        // `expandedSports` Set stay keyed by sport name so the existing
+        // `LiveSportSection` prop contract is unchanged.
+        if ((summarySportsLive.value.counts[sportId]?.total ?? 0) === 0)
+          return null;
+        const isExpanded = expandedSports.has(sportName) && !!eventId;
         if (!isExpanded && isMobile.value) return null;
         return (
           <div
             className="flex w-full"
-            key={sport}
+            key={sportId}
             style={{
-              order: orderConfigState.value[sport]?.order || 999,
+              order: orderConfigState.value[sportName]?.order || 999,
               display:
-                orderConfigState.value[sport]?.enabled === false
+                orderConfigState.value[sportName]?.enabled === false
                   ? "none"
                   : "flex",
             }}
           >
             <LiveSportSection
-              key={sport}
+              key={sportId}
               isExpanded={isExpanded}
               toggleSport={toggleSport}
               groupByRegions={groupByRegions}
-              selectedSportName={sport}
+              selectedSportName={sportName}
             />
           </div>
         );

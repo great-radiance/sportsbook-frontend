@@ -2,7 +2,10 @@ import { storeState } from "@/state/storeState";
 
 export const isEventValidForDisplay = (event?: {
   startTime: string;
-  status?: string;
+  // `tEventModel.status` is numeric in the new model — kept permissive
+  // because the legacy string compares below still no-op for numbers and a
+  // proper numeric mapping ("Finished" → ?, etc.) hasn't landed yet.
+  status?: string | number;
 }) => {
   if (
     !event ||

@@ -1,15 +1,30 @@
-import { tMarket, tParticipant } from "@/types/tEvent";
 import { instance } from "../instance";
-import { responseEvent } from "../matches/apiGetMatches";
+import { instanceOdds88 } from "../instanceOdds88";
+import { tSportResponse } from "../sidebar/apiGetSidebar";
 
+/**
+ * Response shape of `/cybet/matches/upcoming-fixtures`.
+ *
+ * `data` carries the same `tSportResponse` tuple tree as the live/prematch
+ * sidebar — `[sportId, sportName, [[regionId, regionName, [[leagueId,
+ * leagueName, eventId[]]]]]][]` — but the server filters by the `from`/`to`
+ * time window and pages with `limit`/`offset` (and reports the page-agnostic
+ * `total` count).
+ */
 export type tGetUpcomingMatchesResponse = {
-  map: responseEvent[];
-  marketsMeta: string[];
+  data: tSportResponse;
+  total: number;
+  offset: number;
+  limit: number;
+  ms: number;
 };
 
 type tParam = {
+  /** Unix timestamp in seconds, inclusive lower bound. */
   from?: number;
+  /** Unix timestamp in seconds, exclusive upper bound. */
   to?: number;
+  /** Sport name (e.g. "Soccer"). */
   sport?: string;
   region?: string;
   competition?: string;
@@ -17,31 +32,28 @@ type tParam = {
   offset?: number;
 };
 
-type tFilters = {
-  sport?: string[];
-  includeLive?: number;
-  includeMarket?: number;
-  // competition?: string;
-};
-
-export const apiGetUpcomingMatches = async (
-  { from, to, sport, region, competition, limit, offset }: tParam,
-  filters?: tFilters,
-) => {
-  const response = await instance.get<{ data: tGetUpcomingMatchesResponse }>(
-    `cybet/matches/upcoming-fixtures`,
+export const apiGetUpcomingMatches = async ({
+  from,
+  to,
+  sport,
+  region,
+  competition,
+  limit,
+  offset,
+}: tParam): Promise<tGetUpcomingMatchesResponse> => {
+  const response = await instanceOdds88.get<tGetUpcomingMatchesResponse>(
+    `events/upcoming/array`,
     {
       params: {
         from: from?.toString() || "",
         to: to?.toString() || "",
-        sport: sport?.toString() || "",
-        region: region?.toString() || "",
-        competition: competition?.toString() || "",
+        sport: sport || "",
+        region: region || "",
+        competition: competition || "",
         limit: limit?.toString() || "",
         offset: offset?.toString() || "",
       },
     },
   );
-
-  return response.data.data;
+  return response.data;
 };

@@ -18,6 +18,7 @@ import { MoneylineMatch } from "./MoneylineMatch";
 import { getRegionNameById } from "@/shared/utils/Resion";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
+import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
 
 interface MatchProps {
   eventId: number;
@@ -79,7 +80,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   allowRounded = false,
 }) => {
   const event = storeState.value[eventId]?.value;
-  console.log("event---------", event);
   if (!event) return null;
 
   const showLeague =
@@ -236,10 +236,10 @@ export const Match: FunctionComponent<MatchProps> = ({
           />
         </summary>
         <div className="flex flex-col w-full rounded-[8px] gap-2 p-2">
-          {Object.values(markets || {}).map((market) => (
+          {groupMarketsByNameAndType(markets ?? []).map((group) => (
             <MarketComponent
-              key={market?.id}
-              marketId={market?.id.toString()} //temparary fix
+              key={group.key}
+              marketId={group.ids.length === 1 ? group.ids[0] : group.ids}
               eventId={eventId}
             />
           ))}

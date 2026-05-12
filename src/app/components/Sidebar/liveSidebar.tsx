@@ -48,7 +48,7 @@ export const LiveSidebar: FunctionComponent = () => {
           className="w-[24px] h-[24px] object-contain"
         />
         <span className="text-[20px] font-bold text-[var(--text-basic-color-dark)]">
-          {tCommon("liveMatches")}({summarySportsLive.value.liveTotalCount})
+          {tCommon("liveMatches")}({summarySportsLive.value.TotalCount})
         </span>
       </div>
       <div

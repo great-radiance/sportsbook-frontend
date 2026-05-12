@@ -9,8 +9,7 @@ import { MarketComponent } from "../MarketsBoard/components/MarketComponent";
 import { UpcomingMatchesLoader } from "../Loading";
 import { getTranslate, getTranslatedText } from "@/helpers/getTranslate";
 import { orderConfigState } from "@/state/orderConfigState";
-import { apiGetMatches, responseEvent } from "@/api/matches/apiGetMatches";
-import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
+import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { Match } from "../MatchesBoard/components/Match";
 import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
@@ -109,9 +108,7 @@ export const OutrightMatches: FunctionComponent = () => {
         }
 
         const results = await Promise.all(
-          batches.map((batch) =>
-            apiGetOutrightMatchs(batch).then((res) => res.data),
-          ),
+          batches.map((batch) => apiGetMatches(batch).then((res) => res.data)),
         );
         convertAndStoreEvent(results.flat() as unknown as responseEvent[]);
       } catch (error) {

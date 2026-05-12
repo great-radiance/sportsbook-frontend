@@ -12,9 +12,9 @@ import { SportsListLoader } from "../Loading";
 import { orderConfigState } from "@/state/orderConfigState";
 
 interface SportsListProps {
-  sportsData: { count: number; name: string; slug: string }[];
-  selectedSport: string;
-  onSelectSport: (sport: string) => void;
+  sportsData: { count: number; name: string; id: number }[];
+  selectedSport: number;
+  onSelectSport: (sport: number) => void;
   loading?: boolean;
   isLive?: boolean;
   showPopular?: boolean;
@@ -37,15 +37,15 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
   const [showLeftArrow, setShowLeftArrow] = useState<boolean>(false);
   const [showRightArrow, setShowRightArrow] = useState<boolean>(false);
 
-  // Keep your filter deterministic and avoid re-filtering during measurements
-  const filteredSports = useMemo(() => {
-    return sportsData.filter((sport) => {
-      if (isLive) {
-        return (summarySportsLive.value.counts[sport.name]?.total ?? 0) > 0;
-      }
-      return (summarySports.value.counts[sport.name]?.total ?? 0) > 0;
-    });
-  }, [sportsData, isLive]);
+  // `sportsData` is built by the parent panel and already carries a
+  // pre-computed `count` (sum of event IDs per sport). Filtering on that is
+  // both correct and avoids subscribing to `summarySports*.value.counts`,
+  // which previously caused this memo to cache an empty result when the
+  // counts signal had not yet populated.
+  const filteredSports = useMemo(
+    () => sportsData.filter((sport) => sport.count > 0),
+    [sportsData],
+  );
 
   const checkScrollPosition = () => {
     const el = scrollContainerRef.current;
@@ -133,7 +133,7 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
 
   return (
     <div
-      className={`relative -z-1 flex w-full py-[10px] gap-0 font-bold items-center ${"text-[var(--text-basic-color)]"} rounded-full`}
+      className={`relative flex w-full py-[10px] gap-0 font-bold items-center ${"text-[var(--text-basic-color)]"} rounded-full`}
     >
       {/* Left Arrow */}
       {/* {showLeftArrow && (
@@ -173,14 +173,12 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
             <div
               key="Popular"
               onClick={() => {
-                onSelectSport("Popular");
+                onSelectSport(0);
                 // selection can change layout slightly; re-measure
                 scheduleMeasure();
               }}
               className={`relative flex ${
-                selectedSport === "Popular"
-                  ? "bg-[var(--highlight-background)]"
-                  : ""
+                selectedSport === 0 ? "bg-[var(--highlight-background)]" : ""
               } rounded-full px-2 py-1 gap-1 items-center justify-center cursor-pointer`}
               style={{
                 order: 0,
@@ -204,27 +202,24 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
             </div>
           )}
           {filteredSports.map((sport) => {
-            const countZero = isLive
-              ? (summarySportsLive.value.counts[sport.name]?.total ?? 0) === 0
-              : (summarySports.value.counts[sport.name]?.total ?? 0) === 0;
-            if (sport.count === 0 || countZero) return null;
+            if (sport.count === 0) return null;
             return (
               <div
-                key={sport.name}
+                key={sport.id}
                 onClick={() => {
-                  onSelectSport(sport.name);
+                  onSelectSport(sport.id);
                   // selection can change layout slightly; re-measure
                   scheduleMeasure();
                 }}
                 className={`relative flex ${
-                  sport.name === selectedSport
+                  sport.id === selectedSport
                     ? "bg-[var(--highlight-background)]"
                     : ""
                 } rounded-full px-2 py-1 gap-1 items-center justify-center cursor-pointer`}
                 style={{
-                  order: orderConfigState.value[sport.name]?.order || 999,
+                  order: sport.id || 999,
                   display:
-                    orderConfigState.value[sport.name]?.enabled === false
+                    orderConfigState.value[sport.id]?.enabled === false
                       ? "none"
                       : "flex", // (summarySportsLive.value.config.find(
                   //     (s) =>

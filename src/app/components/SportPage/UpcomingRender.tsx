@@ -1,11 +1,16 @@
 import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
-import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 import { useEffect, useMemo, useState } from "preact/hooks";
+
+const eventStartMs = (eventId: number): number => {
+  const startTime = storeState.value[eventId]?.value?.startTime;
+  if (!startTime) return 0;
+  const ms = new Date(startTime).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+};
 
 interface League {
   key: string;
@@ -71,17 +76,16 @@ const UpcomingRender = ({
   const baseTheme = baseColorTheme.value;
 
   const visibleLeagueGroups = useMemo(() => {
+    const now = Date.now();
+    const windowEnd = now + filterStartTime * 60 * 60 * 1000;
     return leagueEntries
       .map((league) => {
         const ids =
           selectedCategory === "Matches" ? league.eventIds : league.outrightIds;
         const visibleEventIds = ids.filter((eventId) => {
-          const event = storeState.value[eventId]?.value;
-          if (!event?.startDate) return false;
-          return (
-            event.startDate >= Date.now() &&
-            event.startDate <= Date.now() + filterStartTime * 60 * 60 * 1000
-          );
+          const startMs = eventStartMs(eventId);
+          if (!startMs) return false;
+          return startMs >= now && startMs <= windowEnd;
         });
         return {
           ...league,
@@ -108,10 +112,6 @@ const UpcomingRender = ({
   ]);
 
   useEffect(() => {
-    console.log(leagueEntries);
-    console.log(
-      stoiximanSidebarState.value.find((item) => item.name === sportName),
-    );
     if (openedLeagueKeys.size === 0 && visibleLeagueGroups.length > 0) {
       setOpenedLeagueKeys(
         new Set(visibleLeagueGroups.slice(0, 5).map((league) => league.key)),
@@ -243,20 +243,16 @@ const UpcomingRender = ({
                 ? league.eventIds
                 : league.outrightIds
               ).filter((eventId) => {
-                const event = storeState.value[eventId]?.value;
-                if (!event?.startDate) return false;
+                const startMs = eventStartMs(eventId);
+                if (!startMs) return false;
+                const now = Date.now();
                 return (
-                  event.startDate >= Date.now() &&
-                  event.startDate <=
-                    Date.now() + filterStartTime * 60 * 60 * 1000
+                  startMs >= now &&
+                  startMs <= now + filterStartTime * 60 * 60 * 1000
                 );
               }),
             )
-            .sort((a, b) => {
-              const aStart = storeState.value[a]?.value?.startDate ?? 0;
-              const bStart = storeState.value[b]?.value?.startDate ?? 0;
-              return aStart - bStart;
-            })
+            .sort((a, b) => eventStartMs(a) - eventStartMs(b))
             .map((eventId) => (
               <Match
                 key={eventId}

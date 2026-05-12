@@ -71,8 +71,8 @@ const slides = [
 ];
 
 const formatEventTime = (event: tEventModel | undefined): string => {
-  if (!event?.startDate) return "22:00";
-  const d = new Date(event.startDate);
+  if (!event?.startTime) return "22:00";
+  const d = new Date(event.startTime);
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
@@ -80,8 +80,8 @@ const formatEventTime = (event: tEventModel | undefined): string => {
 
 // return 'today' if the event is today (local), otherwise return M/D (e.g. 2/17)
 const formatEventDate = (event: tEventModel | undefined): string => {
-  if (!event?.startDate) return "";
-  const d = new Date(event.startDate);
+  if (!event?.startTime) return "";
+  const d = new Date(event.startTime);
   const now = new Date();
   if (
     d.getFullYear() === now.getFullYear() &&
@@ -166,8 +166,8 @@ export const EmblaBanner = () => {
           {slides.map((slide, index) => {
             const eventId = events.length ? events[index % events.length] : 1;
             const event = storeState.value[eventId];
-            const homeTeam = event?.value.participants?.[0]?.name || "Home";
-            const awayTeam = event?.value.participants?.[1]?.name || "Away";
+            const homeTeam = event?.value?.competitors?.[0]?.name || "Home";
+            const awayTeam = event?.value?.competitors?.[1]?.name || "Away";
             const eventTime = formatEventTime(event?.value);
             const eventDateLabel = formatEventDate(event?.value);
 
@@ -184,7 +184,7 @@ export const EmblaBanner = () => {
                       onClick={(e) => {
                         linkButtonOnClick(
                           e,
-                          `/event-view/${event.value.status === "Not started yet" ? "pre-match" : "live"}/${event.value.sport}/${event.value.region}/${event.value.league}/${event.value.id}`,
+                          `/event-view/${event.value?.status === 1 ? "pre-match" : "live"}/${event.value?.sport?.name}/${event.value?.sport?.id}/${event.value?.region?.name}/${event.value?.region?.id}/${event.value?.league?.name}/${event.value?.league?.id}/${event.value?.id}`,
                           setLocation,
                         );
                       }}
@@ -203,7 +203,7 @@ export const EmblaBanner = () => {
                       onClick={(e) => {
                         linkButtonOnClick(
                           e,
-                          `/event-view/${event.value.status === "Not started yet" ? "pre-match" : "live"}/${event.value.sport}/${event.value.region}/${event.value.league}/${event.value.id}`,
+                          `/event-view/${event.value?.status !== 3 ? "pre-match" : "live"}/${event.value?.sport?.name}/${event.value?.sport?.id}/${event.value?.region?.name}/${event.value?.region?.id}/${event.value?.league?.name}/${event.value?.league?.id}/${event.value?.id}`,
                           setLocation,
                         );
                       }}
@@ -211,7 +211,7 @@ export const EmblaBanner = () => {
                       <div class="banner-team flex items-center">
                         <img
                           src={
-                            getTeamlogo(event?.value?.sport, homeTeam) ||
+                            getTeamlogo(event?.value?.sport?.name, homeTeam) ||
                             `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                           }
                           alt={homeTeam}
@@ -222,7 +222,7 @@ export const EmblaBanner = () => {
                       <div class="banner-team flex items-center gap-2">
                         <img
                           src={
-                            getTeamlogo(event?.value?.sport, awayTeam) ||
+                            getTeamlogo(event?.value?.sport?.name, awayTeam) ||
                             `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                           }
                           alt={awayTeam}
@@ -237,7 +237,7 @@ export const EmblaBanner = () => {
                         <Market
                           eventId={event?.value?.id}
                           marketId={selectedMarket.id}
-                          single={true}
+                          // single={true}
                         />
                       )}
                     </div>

@@ -1,7 +1,7 @@
 import { storeState } from "@/state/storeState";
 
 export const isEventValidForDisplay = (event?: {
-  startDate: number;
+  startTime: string;
   status?: string;
 }) => {
   if (
@@ -13,7 +13,8 @@ export const isEventValidForDisplay = (event?: {
   )
     return false;
 
-  if (event.startDate < Date.now() - 1000 * 60 * 60 * 24) return false;
+  if (new Date(event.startTime).getTime() < Date.now() - 1000 * 60 * 60 * 24)
+    return false;
 
   return true;
 };
@@ -25,5 +26,8 @@ export const sortEventIdsByStartDate = (ids: number[]) =>
       const aEvent = storeState.value[a]?.value;
       const bEvent = storeState.value[b]?.value;
 
-      return (aEvent?.startDate ?? 0) - (bEvent?.startDate ?? 0);
+      return (
+        new Date(aEvent?.startTime ?? "").getTime() -
+        new Date(bEvent?.startTime ?? "").getTime()
+      );
     });

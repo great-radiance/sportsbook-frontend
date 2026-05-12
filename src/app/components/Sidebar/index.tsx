@@ -40,10 +40,23 @@ export const Sidebar: FunctionComponent = () => {
           //  configRes
         ] = await Promise.all([
           // apiGetStoiximanSidebar(),
-          apiGetSidebar("1,2"),
-          apiGetSidebar("3"),
+          apiGetSidebar({
+            status: [1, 2],
+            tradingStatus: 0,
+            isOutright: false,
+          }),
+          apiGetSidebar({
+            status: [3],
+            tradingStatus: 0,
+            isOutright: false,
+          }),
+          apiGetSidebar({
+            status: [1, 2],
+            tradingStatus: 0,
+            isOutright: true,
+          }),
           // apiGetOutright(),
-          apiGetOrderConfigration(),
+          // apiGetOrderConfigration(),
         ]);
         // stoiximanSidebarState.value = res;
         console.log("sidebar data", res2);
@@ -92,8 +105,16 @@ export const Sidebar: FunctionComponent = () => {
     try {
       const [res, res2] = await Promise.all([
         // apiGetPrematchSidebar(),
-        apiGetSidebar("1,2"),
-        apiGetSidebar("3"),
+        apiGetSidebar({
+          status: [1, 2],
+          tradingStatus: 0,
+          isOutright: false,
+        }),
+        apiGetSidebar({
+          status: [3],
+          tradingStatus: 0,
+          isOutright: false,
+        }),
       ]);
       summarySports.value = res;
       // summarySports.value = { ...summarySports.value };

@@ -396,9 +396,8 @@ export const Search: FunctionComponent = () => {
           )}
 
           <div className="flex-1 overflow-y-auto min-h-0 scrollbar-none">
-            {!isQueryActive ? (
-              <PopularMatches />
-            ) : loading ? (
+            {!isQueryActive ? // <PopularMatches />
+            null : loading ? (
               <div className="flex justify-center py-8 text-[14px] text-[var(--text-sub-color)]">
                 Searching…
               </div>

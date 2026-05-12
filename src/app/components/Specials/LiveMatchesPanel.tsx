@@ -25,7 +25,7 @@ import { getTranslate, getTranslatedText } from "@/helpers/getTranslate";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { MarketNavigation } from "../marketNavigation";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
+import { storeEvent } from "@/helpers/storeEvent";
 import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 import { firstEventState } from "@/state/firstEventState";
 
@@ -49,19 +49,21 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
   const [, setLocation] = useLocation();
   const baseTheme = baseColorTheme.value;
-  const [selectedSport, setSelectedSport] = useState<string>("Soccer");
+  const [selectedSport, setSelectedSport] = useState<number>(1);
 
   const pendingDeleteRef = useRef<number[]>([]);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMarketSlug, setSelectedMarketSlug] = useState<string>("");
   const [sportsData, setSportsData] = useState<
-    { count: number; name: string; slug: string }[]
+    { count: number; name: string; id: number }[]
   >([]);
   const { pageName } = useRouteParams();
   const [loadedCount, setLoadedCount] = useState<number>(0);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
+
+  console.log("rendering live ......");
 
   useEffect(() => {
     if (!selectedMarkets.length) return;
@@ -72,48 +74,66 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     );
   }, [selectedMarkets]);
 
-  useEffect(() => {
-    (async () => {
-      const lang = getAppConfig().lang;
-      if (lang === "en") return;
-      const data = summarySportsLive.value.data;
-      if (!data) return;
-      const sourceTexts = [
-        ...Object.keys(data),
-        ...Object.values(data).flatMap((sport) => Object.keys(sport)),
-        ...Object.values(data).flatMap((sport) =>
-          Object.values(sport).flatMap((region) => Object.keys(region)),
-        ),
-      ];
-      await getTranslate(sourceTexts);
-    })();
-  }, [summarySportsLive.value]);
+  // useEffect(() => {
+  //   (async () => {
+  //     const lang = getAppConfig().lang;
+  //     if (lang === "en") return;
+  //     const data = summarySportsLive.value.data;
+  //     if (!data?.length) return;
+  //     const sourceTexts: string[] = [];
+  //     for (const sport of data) {
+  //       sourceTexts.push(sport[1]);
+  //       for (const region of sport[2] ?? []) {
+  //         sourceTexts.push(region[1]);
+  //         for (const league of region[2] ?? []) {
+  //           sourceTexts.push(league[1]);
+  //         }
+  //       }
+  //     }
+  //     await getTranslate(sourceTexts);
+  //   })();
+  // }, [summarySportsLive.value]);
+
+  const sportRegions = useMemo(() => {
+    return (
+      summarySportsLive.value.data?.find((s) => s[0] === selectedSport)?.[2] ??
+      []
+    );
+  }, [selectedSport, summarySportsLive.value.data]);
+
+  const selectedSportName = useMemo(() => {
+    return (
+      summarySportsLive.value.data?.find((s) => s[0] === selectedSport)?.[1] ??
+      ""
+    );
+  }, [selectedSport, summarySportsLive.value.data]);
 
   const flatList = useMemo(() => {
-    const data = summarySportsLive.value.data?.[selectedSport];
-    if (!data) return [];
-    const regions = Object.keys(data).filter((r) => r !== "Esoccer");
-    const flat: { id: number; region: string; league: string }[] = [];
-    for (const region of regions) {
-      const leagues = Object.keys(data[region] ?? {});
-      for (const league of leagues) {
-        const events = Object.values(data[region]?.[league] ?? {});
-        for (const e of events) flat.push({ id: e[0], region, league });
+    const flat: number[] = [];
+    for (const region of sportRegions) {
+      for (const league of region[2] ?? []) {
+        flat.push(...league[2]);
       }
     }
     return flat;
-  }, [selectedSport, summarySportsLive.value.data]);
+  }, [sportRegions]);
 
   const groupedLimited = useMemo(() => {
-    const limited = flatList.slice(0, loadedCount);
-    const grouped: Record<string, Record<string, { id: number }[]>> = {};
-    for (const { id, region, league } of limited) {
-      if (!grouped[region]) grouped[region] = {};
-      if (!grouped[region][league]) grouped[region][league] = [];
-      grouped[region][league].push({ id });
+    const grouped: Record<number, Record<number, number[]>> = {};
+    let count = 0;
+    outer: for (const region of sportRegions) {
+      const regionId = region[0];
+      for (const league of region[2] ?? []) {
+        const leagueId = league[0];
+        if (count >= loadedCount) break outer;
+        if (!grouped[regionId]) grouped[regionId] = {};
+        if (!grouped[regionId][leagueId]) grouped[regionId][leagueId] = [];
+        grouped[regionId][leagueId].push(...league[2]);
+        count++;
+      }
     }
     return grouped;
-  }, [flatList, loadedCount]);
+  }, [sportRegions, loadedCount]);
 
   // const selectedMarkets = useMemo(() => {
   //   return (
@@ -135,26 +155,17 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   useEffect(() => {
     pendingDeleteRef.current = [];
     if (!loadedSidebarState.value || !summarySportsLive.value.data) return;
-    const data = summarySportsLive.value.data[selectedSport];
-    if (!data) return;
 
-    const regions = Object.keys(data).filter((r) => r !== "Esoccer");
-    const flat: { id: number; region: string; league: string }[] = [];
-    for (const region of regions) {
-      const leagues = Object.keys(data[region] ?? {});
-      for (const league of leagues) {
-        const events = Object.values(data[region]?.[league] ?? {});
-        for (const e of events) flat.push({ id: e[0], region, league });
-      }
-    }
-
-    const firstBatch = flat.slice(0, 10);
-    const eventIds = firstBatch.map((x) => x.id);
+    const firstBatch = flatList.slice(0, 10);
+    const eventIds = firstBatch;
 
     setLoadedCount(0);
     setSelectedMarkets([]);
     setSelectedMarketSlug("");
 
+    // No live events for the selected sport — turn off the loaders so the
+    // SportsList can render its tabs (and the panel its empty state) instead
+    // of staying stuck on a skeleton.
     if (eventIds.length === 0) {
       setLoadingMatches(false);
       setLoading(false);
@@ -169,15 +180,15 @@ export const LiveMatchesPanel: FunctionComponent = () => {
 
     (async () => {
       try {
-        const res = await apiGetMatches(eventIds, "InPlay", selectedSport);
+        const events = await apiGetMatches(eventIds);
         if (cancelled) return;
-        convertAndStoreEvent(
-          res.data.sort((a, b) => (b[9] ?? 0) - (a[9] ?? 0)),
+        const sorted = (events ?? []).sort(
+          (a, b) =>
+            new Date(b.eventInfo.startTime).getTime() -
+            new Date(a.eventInfo.startTime).getTime(),
         );
-        if (res.marketsMeta?.length) {
-          setSelectedMarkets(res.marketsMeta);
-        }
-        setLoadedCount(10);
+        sorted.forEach((event) => storeEvent(event));
+        setLoadedCount(eventIds.length);
         loadedAllMatches.value = true;
       } catch (err) {
         console.error("Error fetching live matches:", err);
@@ -196,23 +207,31 @@ export const LiveMatchesPanel: FunctionComponent = () => {
       });
       pendingDeleteRef.current = [];
     };
-  }, [selectedSport, pageName, loadedSidebarState.value]);
+  }, [
+    selectedSport,
+    pageName,
+    loadedSidebarState.value,
+    sportRegions,
+    flatList,
+  ]);
 
   useEffect(() => {
+    const data = summarySportsLive.value.data ?? [];
     setSportsData(
-      Object.keys(summarySportsLive.value.data).map((sport) => ({
-        count: Object.values(summarySportsLive.value.data[sport]).reduce(
-          (acc, region) =>
-            acc +
-            Object.values(region).reduce(
-              (acc, league) => acc + Object.keys(league).length,
+      data.map((sport) => {
+        const sportId = sport[0];
+        const sportName = sport[1];
+        const count = (sport[2] ?? []).reduce(
+          (sum, region) =>
+            sum +
+            (region[2] ?? []).reduce(
+              (lsum, league) => lsum + (league[2] ?? []).length,
               0,
             ),
           0,
-        ),
-        name: sport,
-        slug: sport,
-      })) || [],
+        );
+        return { count, name: sportName, id: sportId };
+      }),
     );
   }, [summarySportsLive.value]);
 
@@ -221,21 +240,22 @@ export const LiveMatchesPanel: FunctionComponent = () => {
       selectedMarketSlug || selectedMarkets[0] || "";
     if (!marketSlugForVisibility) return;
 
-    const loadedIds = flatList.slice(0, loadedCount).map((x) => x.id);
+    const loadedIds = flatList.slice(0, loadedCount);
     const firstVisibleId =
       loadedIds.find((id) =>
         liveMatchWouldRender(
           storeState.value[id]?.value,
           marketSlugForVisibility,
-          false,
+          true,
         ),
       ) ?? null;
 
     if (firstVisibleId != null) {
-      firstEventState.value = [selectedSport, firstVisibleId];
+      firstEventState.value = [selectedSportName, firstVisibleId];
     }
   }, [
     selectedSport,
+    selectedSportName,
     selectedMarketSlug,
     selectedMarkets,
     flatList,
@@ -246,13 +266,16 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     if (loadingMore || loadedCount >= flatList.length) return;
     const nextBatch = flatList.slice(loadedCount, loadedCount + 10);
     if (nextBatch.length === 0) return;
-    const eventIds = nextBatch.map((x) => x.id);
+    const eventIds = nextBatch;
     setLoadingMore(true);
-    apiGetMatches(eventIds, "InPlay", selectedSport)
-      .then((res) => {
-        convertAndStoreEvent(
-          res.data.sort((a, b) => (b[9] ?? 0) - (a[9] ?? 0)),
+    apiGetMatches(eventIds)
+      .then((events) => {
+        const sorted = (events ?? []).sort(
+          (a, b) =>
+            new Date(b.eventInfo.startTime).getTime() -
+            new Date(a.eventInfo.startTime).getTime(),
         );
+        sorted.forEach((event) => storeEvent(event));
         setLoadedCount((prev) => prev + nextBatch.length);
       })
       .catch((err) => console.error("Error fetching more live matches:", err))
@@ -285,15 +308,13 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                 className={`w-[24px] h-[24px] object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
               />
               <span className="text-[20px] font-bold">
-                {tCommon("liveMatches")}(
-                {summarySportsLive.value.liveTotalCount})
+                {tCommon("liveMatches")}({summarySportsLive.value.TotalCount})
               </span>
             </div>
             {pageName !== "live" && (
               <div className="flex items-center gap-2">
                 <span className="text-[12px] text-[var(--text-secondary-color)] font-bold rounded-full cursor-default bg-[var(--sub-element-secondary)] px-2 py-1">
-                  {summarySportsLive.value.liveTotalCount}{" "}
-                  {tCommon("liveMatches")}
+                  {summarySportsLive.value.TotalCount} {tCommon("liveMatches")}
                 </span>
                 <img
                   src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/arrow.png`}
@@ -311,7 +332,12 @@ export const LiveMatchesPanel: FunctionComponent = () => {
           <SportsList
             sportsData={sportsData}
             selectedSport={selectedSport}
-            onSelectSport={(sport) => setSelectedSport(sport)}
+            onSelectSport={(sportId) => {
+              const sport = summarySportsLive.value.data?.find(
+                (s) => s[0] === sportId,
+              );
+              if (sport != null) setSelectedSport(sport[0]);
+            }}
             loading={loadingMatches}
             isLive={true}
           />
@@ -334,26 +360,22 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                 {flatList.length === 0 ? (
                   <div className="px-2 py-2">{tCommon("noDataAvailable")}</div>
                 ) : (
-                  Object.keys(groupedLimited)
-                    .map((region) =>
-                      Object.keys(groupedLimited[region]).map((league) => {
-                        const eventIds = Object.values(
-                          groupedLimited[region][league],
-                        ).map((event) => event.id);
-                        const existEvents = Object.keys(
-                          storeState.value,
-                        ).filter((id) => eventIds.includes(parseInt(id, 10)));
-                        const visibleEvents = existEvents.filter((idStr) =>
-                          liveMatchWouldRender(
-                            storeState.value[parseInt(idStr, 10)]?.value,
-                            selectedMarketSlug,
-                            false,
-                          ),
+                  Object.entries(groupedLimited).flatMap(
+                    ([regionId, leagues]) =>
+                      Object.entries(leagues).map(([leagueId, eventIds]) => {
+                        const visibleEventIds = eventIds.filter(
+                          (id) =>
+                            storeState.value[id] &&
+                            liveMatchWouldRender(
+                              storeState.value[id]?.value,
+                              selectedMarketSlug,
+                              true,
+                            ),
                         );
-                        if (visibleEvents.length === 0) return null;
+                        if (visibleEventIds.length === 0) return null;
                         return (
                           <div
-                            key={`${region}-${league}`}
+                            key={`${regionId}-${leagueId}`}
                             className={`flex flex-col md:px-[5px]`}
                           >
                             <button
@@ -365,9 +387,20 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                                   className={`w-[16px] h-[16px] object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                                 />
                                 <span className="flex-1 text-left truncate min-w-0">
-                                  {getTranslatedText(region || "")}
+                                  {summarySportsLive.value.data
+                                    ?.find((s) => s[0] === selectedSport)?.[2]
+                                    ?.find(
+                                      (r) => r[0] === Number(regionId),
+                                    )?.[1] ?? regionId}
                                   {" - "}
-                                  {getTranslatedText(league || "")}
+                                  {summarySportsLive.value.data
+                                    ?.find((s) => s[0] === selectedSport)?.[2]
+                                    ?.find(
+                                      (r) => r[0] === Number(regionId),
+                                    )?.[2]
+                                    ?.find(
+                                      (l) => l[0] === Number(leagueId),
+                                    )?.[1] ?? leagueId}
                                 </span>
                               </div>
                             </button>
@@ -377,11 +410,11 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                                 <div
                                   className={`flex flex-col mt-[2px] rounded-[8px] overflow-hidden border-[1px] w-full border-[var(--border-color)] bg-[var(--sub-element-color)]`}
                                 >
-                                  {visibleEvents.map((event) => (
+                                  {visibleEventIds.map((eventId) => (
                                     <Match
-                                      key={event}
-                                      eventId={parseInt(event, 10)}
-                                      marketSlug={selectedMarketSlug}
+                                      key={eventId}
+                                      eventId={eventId}
+                                      allowAutoSelect={true}
                                     />
                                   ))}
                                 </div>
@@ -390,8 +423,7 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                           </div>
                         );
                       }),
-                    )
-                    .flat()
+                  )
                 )}
               </>
             </div>

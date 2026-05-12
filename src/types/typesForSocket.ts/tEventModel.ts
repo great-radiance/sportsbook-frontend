@@ -35,7 +35,7 @@ export type tEventModel = {
   id: number;
   name: string;
   status: number;
-  trandingStatus: number;
+  tradingStatus: number;
   statusDescription: string;
   sport: {
     id: number;
@@ -63,7 +63,7 @@ export type tEventModel = {
     id: string;
   }[];
   markets: Record<string, Signal<tMarketModel>>; //marketSlug to marketId (uuid)
-  live?: Live;
+  scoreboard?: any;
 };
 
 export type tBetOddsModel = {

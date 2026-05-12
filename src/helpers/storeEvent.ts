@@ -12,6 +12,7 @@ import { completeName } from "./completeName";
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
+  console.log("event for storeEvent", event);
   if (!storeState.value[event.eventInfo.id]) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,
@@ -79,7 +80,7 @@ export const storeEvent = (event: MatchDataResponse) => {
     id: event.eventInfo.id,
     name: event.eventInfo.name,
     status: event.eventInfo.status,
-    trandingStatus: event.eventInfo.trandingStatus,
+    tradingStatus: event.eventInfo.tradingStatus,
     statusDescription: event.eventInfo.statusDescription,
     sport: event.eventInfo.sport,
     region: event.eventInfo.country,
@@ -95,9 +96,10 @@ export const storeEvent = (event: MatchDataResponse) => {
       ...evSig.value.markets,
       ...marketsRecord,
     },
+    scoreboard: event.scoreboard,
     // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
-  console.log("storedEvent", storeState.value);
+  // console.log("storedEvent", storeState.value);
 };
 
 export const storeSelection = (
@@ -123,7 +125,7 @@ export const storeSelection = (
           : 1,
     }),
   };
-  console.log("storedEvent", selectionsStoreState.value);
+  // console.log("storedEvent", selectionsStoreState.value);
 };
 
 export const removeFromOddsStore = (ids: string[]) => {

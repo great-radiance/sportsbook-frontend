@@ -8,6 +8,7 @@ interface MarketProps {
   marketId: number;
   isHightFull?: boolean;
   eventId: number;
+  single?: boolean;
 }
 
 export const isSelected = (selectionId: number) => {
@@ -158,12 +159,13 @@ export const Market: FunctionComponent<MarketProps> = ({
   marketId,
   isHightFull = false,
   eventId,
+  single = false,
 }) => {
   const evSig = storeState.value[eventId];
   const event = evSig?.value;
 
   const market = event?.markets?.[marketId]?.value;
-  const trandingStatus = market?.tradingStatus;
+  const tradingStatus = market?.tradingStatus;
   const name = market?.name;
   const lowerName = name?.toLowerCase() || "";
   const column = market?.selections?.length ?? 0;
@@ -200,7 +202,7 @@ export const Market: FunctionComponent<MarketProps> = ({
           ? "handicap"
           : undefined;
 
-  if (trandingStatus === 2 || trandingStatus === 3) {
+  if (tradingStatus === 2 || tradingStatus === 3) {
     return (
       <div
         className={`flex w-full gap-[2px] ${isMobile.value ? "h-full" : "h-[34px]"}`}

@@ -35,12 +35,13 @@ export const SwitchMachesBoard: FunctionComponent = () => {
       if (sportName === "competitions") {
         return <MatchesBoard />;
       }
-    } else if (pageName === "sport") {
-      // return <SportPage />;
     } else if (eventId) return <MarketsBoard />;
     else if (leagueIdParam) return <MatchesBoard />;
     else if (regionIdParam) {
-      // return <RegionMatchesBoard />;
+      return <RegionMatchesBoard />;
+    } else if (sportIdParam) {
+      // return <SportPage />;
+      return null;
     }
     // return <HomePage />;
   }, [

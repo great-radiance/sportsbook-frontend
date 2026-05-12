@@ -9,6 +9,7 @@ import { isOpenedMyBet } from "@/state/betState";
 
 export const LiveEventView: FunctionComponent = () => {
   const { eventId } = useRouteParams();
+  console.log("rendering live event view ......");
   return (
     <div className="flex w-full relative p-2 md:px-0 bg-[var(--background-color)]">
       <div
@@ -26,7 +27,7 @@ export const LiveEventView: FunctionComponent = () => {
           display: isOpenedMyBet.value ? "flex" : "none",
         }}
       >
-        <RightSidebar />
+        {/* <RightSidebar /> */}
       </div>
     </div>
   );

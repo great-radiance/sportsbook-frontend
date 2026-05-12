@@ -3,23 +3,21 @@ import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { outRightSummarySports, summarySports } from "@/state/summarySports";
 import { getTranslatedText } from "@/helpers/getTranslate";
-import { Match } from "@/app/components/MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
-import { apiGetMatches, responseEvent } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { HorizontalTabs } from "@/app/components/HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MarketNavigation } from "@/app/components/marketNavigation";
-import { convertAndStoreEvent } from "@/helpers/convertAndStoreEvent";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
-import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { orderConfigState } from "@/state/orderConfigState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import HighlightRender from "@/app/components/SportPage/HighlightRender";
 import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
 import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
 import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
+import { storeEvent } from "@/helpers/storeEvent";
 
 import { sortLeagues } from "@/helpers/sortLeagues";
 
@@ -35,7 +33,14 @@ interface LeagueEntry {
 }
 
 export const SportPage: FunctionComponent = () => {
-  const { sportName, regionName, leagueName } = useRouteParams();
+  const {
+    sportName,
+    sportIdParam,
+    regionName,
+    regionIdParam,
+    leagueName,
+    leagueIdParam,
+  } = useRouteParams();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
   const [selectedMarketSlug, setSelectedMarketSlug] =
     useState<string>("Winner");
@@ -49,39 +54,59 @@ export const SportPage: FunctionComponent = () => {
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");
   const baseTheme = baseColorTheme.value;
   const sportRegions = useMemo(
-    () => summarySports.value?.data?.[sportName || ""] || {},
-    [sportName, summarySports.value],
+    () =>
+      summarySports.value?.data?.find(
+        (s) => s[0] === Number(sportIdParam),
+      )?.[2] ?? [],
+    [sportIdParam, summarySports.value],
+  );
+  const outrightSportRegions = useMemo(
+    () =>
+      outRightSummarySports.value?.data?.find(
+        (s) => s[0] === Number(sportIdParam),
+      )?.[2] ?? [],
+    [sportIdParam, outRightSummarySports.value],
   );
   const [activeTab, setActiveTab] = useState<
     "highlights" | "competitions" | "upcoming"
   >("highlights");
 
-  const leagueEntriesNotSorted = useMemo(() => {
-    return Object.entries(sportRegions)
-      .flatMap(([region, leagues]) =>
-        Object.entries(leagues || {}).map(([league, events]) => {
-          const eventIds = Object.values(events || {}).map((m) => m[0]);
-          const outrightIds = Object.values(
-            outRightSummarySports.value?.[sportName || ""]?.[region]?.[
-              league
-            ] || {},
-          ).map((m) => m[0]);
+  const leagueEntriesNotSorted = useMemo<LeagueEntry[]>(() => {
+    return sportRegions
+      .flatMap((region) => {
+        const regionId = region[0];
+        const regionName = region[1];
+        const leagues = region[2] ?? [];
+        const outrightLeaguesForRegion =
+          outrightSportRegions.find((r) => r[0] === regionId)?.[2] ?? [];
+
+        return leagues.map((league) => {
+          const leagueId = league[0];
+          const leagueName = league[1];
+          const events = league[2] ?? [];
+          const eventIds = events.map((e) => e[0]);
+
+          const outrightLeague = outrightLeaguesForRegion.find(
+            (l) => l[0] === leagueId,
+          );
+          const outrightIds = (outrightLeague?.[2] ?? []).map((e) => e[0]);
+
           return {
-            key: `${region}|||${league}`,
-            region,
-            league,
+            key: `${regionName}|||${leagueName}`,
+            region: regionName,
+            league: leagueName,
             eventIds,
             outrightIds,
             matchCount: eventIds.length + outrightIds.length,
           };
-        }),
-      )
+        });
+      })
       .filter((entry) => entry.matchCount > 0)
       .sort(
         (a, b) =>
           b.matchCount - a.matchCount || a.league.localeCompare(b.league),
       );
-  }, [sportRegions, sportName, outRightSummarySports.value]);
+  }, [sportRegions, outrightSportRegions]);
 
   const leagueEntries: LeagueEntry[] = useMemo(() => {
     return sortLeagues(leagueEntriesNotSorted, sportName);
@@ -126,35 +151,21 @@ export const SportPage: FunctionComponent = () => {
 
     setLoading(true);
     try {
-      const [matchRes, outrightRes] = await Promise.all([
-        selectedLeagueEntry.eventIds.length > 0
-          ? apiGetMatches(selectedLeagueEntry.eventIds, "PreMatch", sportName)
-          : Promise.resolve({ data: [], marketsMeta: [] } as Awaited<
-              ReturnType<typeof apiGetMatches>
-            >),
-        selectedLeagueEntry.outrightIds.length > 0
-          ? apiGetOutrightMatchs(selectedLeagueEntry.outrightIds)
-          : Promise.resolve({ data: [], marketsMeta: [] } as Awaited<
-              ReturnType<typeof apiGetOutrightMatchs>
-            >),
-      ]);
+      const eventIds = selectedLeagueEntry.eventIds ?? [];
+      if (eventIds.length > 0) {
+        const matches = await apiGetMatches(eventIds);
+        const sortedMatches = (matches ?? []).sort(
+          (a, b) =>
+            new Date(a.eventInfo.startTime).getTime() -
+            new Date(b.eventInfo.startTime).getTime(),
+        );
+        sortedMatches.forEach((event) => storeEvent(event));
+      }
 
-      const sortedMatches = matchRes.data.sort(
-        (a, b) => (a[9] ?? 0) - (b[9] ?? 0),
-      );
-      const sortedOutrights = outrightRes.data.sort(
-        (a, b) => (a[9] ?? 0) - (b[9] ?? 0),
-      );
-
-      convertAndStoreEvent(sortedMatches);
-      convertAndStoreEvent(sortedOutrights as unknown as responseEvent[]);
-
-      setSelectedMarkets({
-        [selectedLeagueEntry.key]: matchRes.marketsMeta,
-      });
-      setSelectedOutrightMarkets({
-        [selectedLeagueEntry.key]: outrightRes.marketsMeta,
-      });
+      // Outright fetching is not migrated to the new API/types yet; keep the
+      // state placeholders so child components stay typed correctly.
+      setSelectedMarkets({ [selectedLeagueEntry.key]: [] });
+      setSelectedOutrightMarkets({ [selectedLeagueEntry.key]: [] });
     } catch (error) {
       console.error("Error fetching sport league matches:", error);
     } finally {

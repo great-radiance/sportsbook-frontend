@@ -1,5 +1,6 @@
 import { summaryData } from "@/state/summarySports";
 import { instanceOdds88 } from "../instanceOdds88";
+import { getAppConfig } from "@/shared/config/appConfig";
 
 export type tSummaryEventResponse = [
   number, // eventId
@@ -23,18 +24,17 @@ export type tSportResponse = [
     [
       number, // leagueId
       string, // leagueName
-      [
-        number, // eventId
-        string, // eventName
-        number, // status
-        number, // tradingStatus
-        string, // season
-        [number, string][], // competitors
-        string, // startTime
-        boolean, // isOutright
-        boolean, // isBetBuilderSuported
-        any, // customDisplayData
-      ][],
+
+      number[], // eventId
+      // string, // eventName
+      // number, // status
+      // number, // tradingStatus
+      // string, // season
+      // [number, string][], // competitors
+      // string, // startTime
+      // boolean, // isOutright
+      // boolean, // isBetBuilderSuported
+      // any, // customDisplayData
     ][],
   ][],
 ][];
@@ -56,14 +56,30 @@ export type tCounts = {
   [sportId: number]: tCountTree;
 };
 
-export const apiGetSidebar = async (
-  status: string = "1",
-): Promise<summaryData> => {
-  const response = await instanceOdds88.get<{ data: tSportResponse }>(
-    `/events/array?tradingStatus=0&status=${status}`,
-  );
+type tProps = {
+  status: number[];
+  tradingStatus: number;
+  isOutright: boolean;
+  isBetBuilderSuported?: boolean;
+};
 
-  console.log("responsesidebar", response.data);
+export const apiGetSidebar = async ({
+  status = [1],
+  tradingStatus = 0,
+  isOutright = false,
+  isBetBuilderSuported,
+}: tProps): Promise<summaryData> => {
+  const params = new URLSearchParams();
+  params.append("status", status.join(","));
+  params.append("tradingStatus", tradingStatus.toString());
+  params.append("isOutright", isOutright.toString());
+  params.append("lang", getAppConfig().lang);
+  if (isBetBuilderSuported) {
+    params.append("isBetBuilderSuported", isBetBuilderSuported.toString());
+  }
+  const response = await instanceOdds88.get<{ data: tSportResponse }>(
+    `/events/array?${params.toString()}`,
+  );
 
   // const config = [...response.data.config].sort((a, b) => a.order - b.order);
   // for (const s of config) {

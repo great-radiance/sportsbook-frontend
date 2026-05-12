@@ -1,7 +1,7 @@
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import React, { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 
 type Node = {
   id: number;
@@ -20,7 +20,7 @@ interface League {
 }
 
 type Props = {
-  data: Node;
+  data?: Node | null;
   sportName?: string;
   leagueEntries?: League[];
 };
@@ -38,15 +38,19 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
 
   const toUnderscore = (value: string) => value.trim().replace(/\s+/g, "_");
 
-  useEffect(() => {
-    console.log(leagueEntries);
-  }, [leagueEntries]);
-
   const popularLeagues =
-    data.children?.filter((child) => child.type === "league") || [];
+    data?.children?.filter((child) => child.type === "league") ?? [];
 
   const continents =
-    data.children?.filter((child) => child.type === "custom") || [];
+    data?.children?.filter((child) => child.type === "custom") ?? [];
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center w-full py-6 text-[12px] text-[var(--text-sub-color)]">
+        No competitions available
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,7 +65,6 @@ const CompetitionsRender = ({ data, sportName, leagueEntries }: Props) => {
                 (entry) => entry.league === league.name,
               );
               const regionName = leagueEntry?.region || "International";
-              console.log(regionName);
               return (
                 <a
                   href={`/#sportsbook=/event-view/pre-match/${sportName}/${regionName}/${toUnderscore(league.name)}`}

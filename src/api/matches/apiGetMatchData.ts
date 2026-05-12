@@ -1,13 +1,14 @@
 import { Live } from "@/shared/utils/types";
 import { instance } from "../instance";
 import { tEvent } from "@/types/tEvent";
+import { getAppConfig } from "@/shared/config/appConfig";
 
 export type MatchDataResponse = {
   eventInfo: {
     id: number;
     name: string;
     status: number;
-    trandingStatus: number;
+    tradingStatus: number;
     statusDescription: string;
     country: {
       id: number;
@@ -84,7 +85,7 @@ export type MatchDataResponse = {
 
 export const apiGetMatchData = async (eventId: number) => {
   const response = await instance.get<{ data: MatchDataResponse }>(
-    `/events/${eventId}`,
+    `/events/${eventId}?lang=${getAppConfig().lang}`,
   );
   return response.data.data;
 };

@@ -86,16 +86,15 @@ export const MatchesBoard: FunctionComponent = () => {
   const eventIds: number[] =
     sportRegions
       ?.find((r) => r[0] === Number(regionIdParam))?.[2]
-      ?.find((l) => l[0] === Number(leagueIdParam))?.[2]
-      ?.map((m) => m[0]) || ([] as number[]);
+      ?.find((l) => l[0] === Number(leagueIdParam))?.[2] || ([] as number[]);
 
-  // const outrightEventIds =
-  //   Object.values(
-  //     outRightSummarySports.value?.[sportName || ""]?.[regionName || ""]?.[
-  //       leagueName || ""
-  //     ] || {},
-  //   )?.map((m) => m[0]) || ([] as number[]);
-  const outrightEventIds = [1];
+  const outrightEventIds =
+    outRightSummarySports.value?.data
+      ?.find((s) => s[0] === Number(sportIdParam))?.[2]
+      ?.find((r) => r[0] === Number(regionIdParam))?.[2]
+      ?.find((l) => l[0] === Number(leagueIdParam))?.[2] || [];
+
+  console.log("outrightEventIds", outrightEventIds);
 
   const selectValue =
     regionName || (regionIdParam && leagueName) || leagueIdParam
@@ -109,8 +108,8 @@ export const MatchesBoard: FunctionComponent = () => {
       !leagueIdParam ||
       !eventIds.length ||
       summarySports.value.data
-        .find((s) => s[0] === Number(sportIdParam))?.[2]
-        .find((r) => r[0] === Number(regionIdParam))?.[2]
+        ?.find((s) => s[0] === Number(sportIdParam))?.[2]
+        ?.find((r) => r[0] === Number(regionIdParam))?.[2]
         ?.find((l) => l[0] === Number(leagueIdParam))?.[2]?.length === 0
     )
       return;
@@ -119,27 +118,33 @@ export const MatchesBoard: FunctionComponent = () => {
         summarySports.value.data
           .find((s) => s[0] === Number(sportIdParam))?.[2]
           .find((r) => r[0] === Number(regionIdParam))?.[2]
-          ?.find((l) => l[0] === Number(leagueIdParam))?.[2]
-          ?.map((m) => m[0]) || ([] as number[]);
+          ?.find((l) => l[0] === Number(leagueIdParam))?.[2] ||
+        ([] as number[]);
       console.log("eventIds", eventIds);
       const [res, resOutright] = await Promise.all([
         apiGetMatches(eventIds),
         // apiGetMatchesAuto(eventIds),
-        apiGetOutrightMatchs(outrightEventIds),
+        // apiGetOutrightMatchs(outrightEventIds),
+        apiGetMatches(outrightEventIds),
       ]);
       const newEvents = res?.sort(
         (a, b) =>
           new Date(a.eventInfo.startTime).getTime() -
           new Date(b.eventInfo.startTime).getTime(),
       );
-      const newOutrightEvents = resOutright.data?.sort(
-        (a, b) => (a[9] ?? 0) - (b[9] ?? 0),
+      const newOutrightEvents = resOutright?.sort(
+        (a, b) =>
+          new Date(a.eventInfo.startTime).getTime() -
+          new Date(b.eventInfo.startTime).getTime(),
       );
       console.log("newEvents", newEvents);
       // const tempMarkets: Record<string, string[]> = {};
       // tempMarkets["Matches"] = res.marketsMeta;
       // tempMarkets["Outright"] = resOutright.marketsMeta;
       for (const event of newEvents) {
+        storeEvent(event);
+      }
+      for (const event of newOutrightEvents) {
         storeEvent(event);
       }
       // convertAndStoreEvent(newOutrightEvents as unknown as responseEvent[]);

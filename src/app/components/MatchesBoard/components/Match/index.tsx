@@ -14,7 +14,6 @@ import { getTranslatedText } from "@/helpers/getTranslate";
 import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
-import { normalizeScoreboardFast } from "@/helpers/normalizeScoreboard";
 import { MoneylineMatch } from "./MoneylineMatch";
 import { getRegionNameById } from "@/shared/utils/Resion";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
@@ -51,6 +50,25 @@ export const formatStartDate = (timestamp: number): string => {
   }
 };
 
+/**
+ * Read a competitor's score from the new scoreboard shape.
+ * Position 1 = home (competitor index 0), 2 = away (competitor index 1).
+ * Prefers `results[]` (explicit per-competitor) and falls back to the
+ * `homeGameScore` / `awayGameScore` shortcut fields.
+ */
+const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
+  if (!scoreboard) return 0;
+  const fromResults = scoreboard.results?.find(
+    (r: any) => r.competitorPosition === position,
+  )?.value;
+  const parsedResult = Number(fromResults);
+  if (Number.isFinite(parsedResult)) return parsedResult;
+  const fallback =
+    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
+  const parsedFallback = Number(fallback);
+  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
+};
+
 export const Match: FunctionComponent<MatchProps> = ({
   eventId,
   marketSlug,
@@ -61,17 +79,7 @@ export const Match: FunctionComponent<MatchProps> = ({
   allowRounded = false,
 }) => {
   const event = storeState.value[eventId]?.value;
-  console.log("storeState", storeState.value);
-  console.log(
-    "eventId",
-    eventId,
-    "marketSlug",
-    marketSlug,
-    "marketId",
-    marketId,
-    "event",
-    event,
-  );
+  console.log("event---------", event);
   if (!event) return null;
 
   const showLeague =
@@ -80,7 +88,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   const isLive = event?.status === 3;
 
   const [, setLocation] = useLocation();
-  const live = event?.live;
   const baseTheme = baseColorTheme.value;
   const clockRef = useRef<HTMLSpanElement>(null);
 
@@ -91,29 +98,13 @@ export const Match: FunctionComponent<MatchProps> = ({
   const markets = event?.markets
     ? Object.values(event.markets).map((sig) => sig.value)
     : [];
-  // const isLive = event?.status === "In progress";
-  const homeGoals =
-    live?.scoreBoard && "goals" in live.scoreBoard
-      ? (live.scoreBoard.goals as { h: number; g: number }).h || 0
-      : 0;
-  const awayGoals =
-    live?.scoreBoard && "goals" in live.scoreBoard
-      ? (live.scoreBoard.goals as { h: number; g: number }).g || 0
-      : 0;
 
-  const normalizeScoreboard = normalizeScoreboardFast(event?.live?.scoreBoard);
+  const scoreboard = event?.scoreboard;
+  const homeGoals = getCompetitorScore(scoreboard, 1);
+  const awayGoals = getCompetitorScore(scoreboard, 2);
 
-  const rawTime =
-    event?.live?.status?.time ||
-    event?.live?.clock?.clock_seconds ||
-    normalizeScoreboard?.clock?.seconds ||
-    null;
-
-  const showClock =
-    (event?.status === 1 || event?.status === 2 || event?.status === 3) &&
-    !!event &&
-    rawTime !== null &&
-    event?.live?.clock?.clock_status !== "stopped";
+  const rawTime = typeof scoreboard?.time === "number" ? scoreboard.time : null;
+  const showClock = isLive && rawTime !== null;
 
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
@@ -121,7 +112,6 @@ export const Match: FunctionComponent<MatchProps> = ({
     (marketSlug: string): number => {
       const marketId = markets.find((m) => m.name === marketSlug)?.id;
       if (marketId) return marketId;
-      console.log("selectedMarketId", markets[0]?.id ?? 1, markets[0]);
       if (allowAutoSelect) {
         return markets[0]?.id ?? 1;
       }
@@ -132,16 +122,10 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   // Get winner market (usually the first market)
   const selectedMarket = marketId ?? getSelectedMarket(marketSlug ?? "");
-  console.log("selectedMarket---------", selectedMarket);
 
   const [compact, setCompact] = useState<number>();
   const matchRef = useRef<HTMLDivElement>(null);
   const [rootWidthPx, setRootWidthPx] = useState<number>(0);
-
-  // Track live elapsed seconds and auto-increment every second while live
-  const [liveSeconds, setLiveSeconds] = useState<number | null>(null);
-
-  console.log("event---------", event, selectedMarket);
 
   // const parseLiveTime = (t: any): number | null => {
   //   if (t == null) return null;
@@ -225,7 +209,7 @@ export const Match: FunctionComponent<MatchProps> = ({
     }
   }, [rootWidthPx]);
 
-  const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event?.sport}/${event?.region}/${event?.league}/${event?.id}`;
+  const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event?.sport.name}/${event?.sport.id}/${event?.region.name}/${event?.region.id}/${event?.league.name}/${event?.league.id}/${event?.id}`;
 
   // const eventSig = storeState.value?.[match[0]];
   //                           const markets = eventSig?.value.markets;

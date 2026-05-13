@@ -55,15 +55,15 @@ export const HomePage: FunctionComponent = () => {
 
   return (
     <div className="flex md:p-2 w-full flex-col gap-2">
-      {/* {isMobile.value && <TopLeagueMenu />} */}
+      {isMobile.value && <TopLeagueMenu />}
       <PreMatchPanel />
 
-      {/* <HorizontalTabs>
+      <HorizontalTabs>
         <TrendingAccas />
-      </HorizontalTabs> */}
+      </HorizontalTabs>
       {/* {loadedPrematchState.value && <LiveMatchesPanel />} */}
       {/* <PopularMatches /> */}
-      {/* <StarPlayers /> */}
+      <StarPlayers />
       {/* <UpcomingMatches /> */}
     </div>
   );

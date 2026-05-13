@@ -1,4 +1,3 @@
-import { getLeagueLogoUrl } from "@/helpers/getLeagueLogoUrl";
 import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { storeState } from "@/state/storeState";
@@ -50,33 +49,35 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
       />
       <div className="flex flex-col z-2 absolute bottom-0 w-full h-[230px] overflow-hidden">
         <div className="flex items-center flex-col flex-1 justify-start">
-          <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] w-[60px] h-[26px] mx-auto">
-            <img
-              src={getTeamlogo(
-                storeState.value[data.eventId]?.value?.sport,
-                storeState.value[data.eventId]?.value?.participants?.[0]
-                  ?.name || "",
-              )}
-              onError={(e) => {
-                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
-              }}
-              alt="Star"
-              className="w-4 h-4"
-            />
-            <div className="w-[2px] h-full my-[4px] bg-black/30 mx-2" />
-            <img
-              src={getTeamlogo(
-                storeState.value[data.eventId]?.value?.sport,
-                storeState.value[data.eventId]?.value?.participants?.[1]
-                  ?.name || "",
-              )}
-              onError={(e) => {
-                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
-              }}
-              alt="Star"
-              className="w-4 h-4"
-            />
-          </div>
+          {(() => {
+            // The new `tEventModel` keeps `sport` as an object and team
+            // names live under `competitors[]` (was `participants[]`).
+            const event = storeState.value[data.eventId]?.value;
+            const sportName = event?.sport?.name ?? "";
+            const homeName = event?.competitors?.[0]?.name ?? "";
+            const awayName = event?.competitors?.[1]?.name ?? "";
+            return (
+              <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] w-[60px] h-[26px] mx-auto">
+                <img
+                  src={getTeamlogo(sportName, homeName)}
+                  onError={(e) => {
+                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
+                  }}
+                  alt="Home"
+                  className="w-4 h-4"
+                />
+                <div className="w-[2px] h-full my-[4px] bg-black/30 mx-2" />
+                <img
+                  src={getTeamlogo(sportName, awayName)}
+                  onError={(e) => {
+                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
+                  }}
+                  alt="Away"
+                  className="w-4 h-4"
+                />
+              </div>
+            );
+          })()}
         </div>
         <div className="flex flex-col w-full h-full justify-between items-center p-2">
           <div className="flex flex-col text-white w-full items-center justify-center">

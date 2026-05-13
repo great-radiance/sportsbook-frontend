@@ -171,15 +171,6 @@ export const Market: FunctionComponent<MarketProps> = ({
   const column = market?.selections?.length ?? 0;
   const selections = market?.selections ?? [];
 
-  console.log(
-    "=======market---------",
-    market,
-    "marketId",
-    marketId,
-    "eventId",
-    eventId,
-  );
-
   // const labels = {
   //   winner: ["1", "X", "2"],
   //   total: ["OVER", "UNDER"],

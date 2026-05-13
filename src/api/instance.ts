@@ -5,20 +5,20 @@ export const instance = axios.create({
 });
 
 export const setAxiosAuthToken = (
-  apiKey: string | null | undefined,
+  apiId: string | null | undefined,
   apiCode: string | null | undefined,
   apiUserId: string | null | undefined,
 ) => {
-  if (apiKey) {
-    instance.defaults.headers["x-api-key"] = apiKey;
+  if (apiId) {
+    instance.defaults.headers["X-API-ID"] = apiId;
   } else {
-    delete instance.defaults.headers["x-api-key"];
+    delete instance.defaults.headers["X-API-ID"];
   }
 
   if (apiCode) {
-    instance.defaults.headers["x-api-code"] = apiCode;
+    instance.defaults.headers["X-API-KEY"] = apiCode;
   } else {
-    delete instance.defaults.headers["x-api-code"];
+    delete instance.defaults.headers["X-API-KEY"];
   }
 
   if (apiUserId) {

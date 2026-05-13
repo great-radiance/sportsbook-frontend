@@ -1,5 +1,11 @@
 import { FunctionComponent } from "preact";
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "preact/hooks";
 
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
@@ -11,7 +17,7 @@ import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { storeEvent } from "@/helpers/storeEvent";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { summarySports } from "@/state/summarySports";
-import { tSportResponse } from "@/api/sidebar/apiGetSidebar";
+import { tSportResponse } from "@/api/sidebar/apiGetSummaryArray";
 import { Select, SelectItem } from "../Select";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader, UpcomingMatchSkeleton } from "../Loading";
@@ -170,7 +176,12 @@ export const UpcomingMatches: FunctionComponent = () => {
 
     (async () => {
       try {
-        const result = await fetchPage(0, selectedSportName, selectedTimeFilter, gen);
+        const result = await fetchPage(
+          0,
+          selectedSportName,
+          selectedTimeFilter,
+          gen,
+        );
         if (!result || gen !== fetchGenRef.current) return;
         setLoadedIds(result.ids);
         setTotal(result.total);

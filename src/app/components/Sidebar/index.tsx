@@ -11,17 +11,14 @@ import { SpecialNavigation } from "@/app/components/Sidebar/components/SpecialNa
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { PrematchLoader } from "../Loading/PrematchLoader";
-import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import { apiGetOrderConfigration } from "@/api/sidebar/apiGetOrderConfigration";
+import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { getTranslate } from "@/helpers/getTranslate";
 import { useOrderConfig } from "@/hooks/useOrderConfig";
 import { loadedSportsbookState } from "@/state/loadedSportsbookState";
-import { apiGetStoiximanSidebar } from "@/api/sidebar/apiGetStoiximanSidebar";
-import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 
 export const Sidebar: FunctionComponent = () => {
   const [loading, setLoading] = useState<boolean>(false);

@@ -31,7 +31,7 @@ export interface SportsbookInitOptions {
   cssUrl?: string;
   operatorCode?: string;
   xApiKey?: string;
-  xApiCode?: string;
+  xApiId?: string;
   xSportsbookToken?: string;
   xUserId?: string;
   xUserName?: string;
@@ -64,8 +64,8 @@ export function initSportsbookApp(
     customStyles,
     cssUrl,
     operatorCode,
-    xApiKey = import.meta.env.VITE_TEST_API_KEY,
-    xApiCode = import.meta.env.VITE_TEST_API_CODE,
+    xApiKey = import.meta.env.VITE_API_KEY,
+    xApiId = import.meta.env.VITE_API_ID,
     xSportsbookToken,
     xUserId,
     xUserName,
@@ -83,7 +83,7 @@ export function initSportsbookApp(
     disallowUrlChange,
     operatorCode,
     xApiKey,
-    xApiCode,
+    xApiId,
     xSportsbookToken,
     xUserId,
     xUserName,

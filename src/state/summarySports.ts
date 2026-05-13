@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import { tCounts, tSportResponse } from "@/api/sidebar/apiGetSidebar";
+import { tCounts, tSportResponse } from "@/api/sidebar/apiGetSummaryArray";
 
 // interface GroupedData {
 //   [sportId: number]: {

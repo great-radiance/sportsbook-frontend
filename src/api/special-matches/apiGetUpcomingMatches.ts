@@ -1,6 +1,6 @@
 import { instance } from "../instance";
 import { instanceOdds88 } from "../instanceOdds88";
-import { tSportResponse } from "../sidebar/apiGetSidebar";
+import { tSportResponse } from "../sidebar/apiGetSummaryArray";
 
 /**
  * Response shape of `/cybet/matches/upcoming-fixtures`.
@@ -42,7 +42,7 @@ export const apiGetUpcomingMatches = async ({
   offset,
 }: tParam): Promise<tGetUpcomingMatchesResponse> => {
   const response = await instanceOdds88.get<tGetUpcomingMatchesResponse>(
-    `events/upcoming/array`,
+    `odds88/events/upcoming/array`,
     {
       params: {
         from: from?.toString() || "",

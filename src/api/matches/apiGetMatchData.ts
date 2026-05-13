@@ -86,7 +86,7 @@ export type MatchDataResponse = {
 
 export const apiGetMatchData = async (eventId: number) => {
   const response = await instanceOdds88.get<{ data: MatchDataResponse }>(
-    `/events/${eventId}?lang=${getAppConfig().lang}`,
+    `/odds88/events/${eventId}?lang=${getAppConfig().lang}`,
   );
   return response.data.data;
 };

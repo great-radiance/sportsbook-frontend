@@ -10,8 +10,8 @@ export interface AppConfig {
   disallowUrlChange?: boolean;
   baseUrl?: string;
   operatorCode?: string;
+  xApiId?: string;
   xApiKey?: string;
-  xApiCode?: string;
   xSportsbookToken?: string;
   xUserId?: string;
   xUserName?: string;
@@ -26,7 +26,7 @@ let currentConfig: AppConfig | null = null;
 export function setAppConfig(cfg: AppConfig) {
   currentConfig = cfg;
   bottomLayoutHeight.value = cfg.bottomLayoutHeight ?? 64;
-  setAxiosAuthToken(cfg.xApiKey, cfg.xApiCode, cfg.xUserId);
+  setAxiosAuthToken(cfg.xApiId, cfg.xApiKey, cfg.xUserId);
   baseColorTheme.value = cfg.baseTheme === "light" ? "light" : "dark";
 }
 

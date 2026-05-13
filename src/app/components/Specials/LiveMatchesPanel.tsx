@@ -176,7 +176,7 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     let cancelled = false;
 
     setLoading(true);
-    setLoadingMatches(true);
+    // setLoadingMatches(true);
 
     (async () => {
       try {

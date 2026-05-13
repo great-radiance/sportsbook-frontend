@@ -12,7 +12,6 @@ import { completeName } from "./completeName";
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
-  console.log("event for storeEvent", event);
   if (!storeState.value[event.eventInfo.id]) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,
@@ -20,7 +19,6 @@ export const storeEvent = (event: MatchDataResponse) => {
   }
   const competitors = event.eventInfo.competitors ?? [];
   const marketsRecord: Record<string, Signal<tMarketModel>> = {};
-  console.log("event.markets", event.markets);
   for (const market of event.markets ?? []) {
     const selections: Signal<tSelectionValue>[] = [];
     for (const selection of market.selections ?? []) {
@@ -50,7 +48,6 @@ export const storeEvent = (event: MatchDataResponse) => {
     //     : (oddB?.value?.properties?.h ?? "0");
     //   return parseFloat(hA) - parseFloat(hB);
     // });
-    console.log("market", market);
     const marketData: tMarketModel = {
       id: market.id,
       name: completeName(
@@ -101,8 +98,6 @@ export const storeEvent = (event: MatchDataResponse) => {
     scoreboard: event.scoreboard,
     // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
-  console.log("event.marketrecord", marketsRecord);
-  console.log("storedEvent", storeState.value[event.eventInfo.id]);
 };
 
 export const storeSelection = (

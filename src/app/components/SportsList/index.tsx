@@ -6,7 +6,6 @@ import { useTranslate } from "@/shared/i18n/i18n";
 // import { SportsListLoader } from "@/app/components/Loading";
 import { summarySports, summarySportsLive } from "@/state/summarySports";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { SportsListLoader } from "../Loading";
 import { orderConfigState } from "@/state/orderConfigState";
@@ -254,7 +253,7 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
                 </div>
 
                 <span className="text-[12px] truncate w-full block text-center">
-                  {getTranslatedText(sport.name)}
+                  {sport.name}
                 </span>
               </div>
             );

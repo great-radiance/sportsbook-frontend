@@ -12,7 +12,7 @@ export type tSelectionValue = {
   settlement: number;
   deadHeatFactor: number;
   extraParameters: Record<string, string>;
-  isBetBuilderSuported: boolean;
+  isBetBuilderSupported: boolean;
   competitionId: number;
   startingPrice: number;
 };
@@ -27,7 +27,7 @@ export type tMarketModel = {
   isBestLine: boolean;
   parameters: Record<string, string>;
   extraParameters: Record<string, string>;
-  isBetBuilderSuported: boolean;
+  isBetBuilderSupported: boolean;
   selections: Signal<tSelectionValue>[]; // selection Array
 };
 
@@ -57,7 +57,7 @@ export type tEventModel = {
   startTime: string;
   isOutright: boolean;
   customdisplayData: any;
-  isBetBuilderSuported: boolean;
+  isBetBuilderSupported: boolean;
   mappingInfo: {
     feedId: number;
     id: string;

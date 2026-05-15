@@ -12,7 +12,8 @@ export const accessToken = signal<string>("");
 //open novi bet
 export const selectedBets = signal<BetSelection[]>([]);
 
-export const selectedselections = signal<SelectedselectionType[]>([]);
+/** Current bet slip lines (integration guide: each line is a selection with odds). */
+export const selectedOdds = signal<SelectedOddType[]>([]);
 export const selectedBetType = signal<betType>("single");
 export const multipleBetAmount = signal<number>(0);
 export const buildingBetAmount = signal<number>(0);

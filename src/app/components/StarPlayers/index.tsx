@@ -266,10 +266,7 @@ export const StarPlayers: FunctionComponent = () => {
             <HorizontalTabs>
               {players.map((player) => (
                 <TopPlayerCard
-                  key={
-                    player.picks?.[0]?.oddsId ||
-                    `${player.eventId}-${player.playerName}`
-                  }
+                  key={`${player.eventId}-${player.playerName}-${player.picks?.[0]?.marketId ?? "m"}-${player.picks?.[0]?.oddsId ?? "o"}`}
                   data={player}
                   onAddToBetSlip={handleAddPickToBetBuilder}
                 />

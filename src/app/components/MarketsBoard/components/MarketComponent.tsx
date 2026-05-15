@@ -4,15 +4,15 @@ import { useState, useEffect } from "preact/hooks";
 import { Market as MarketType, Odd } from "@/shared/utils/types";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import {
-  // handleClickOdd,
-  isSelected,
-} from "@/app/components/MatchesBoard/components/Match/Market";
+  isBetslipSelectionSelected,
+  toggleBetslipSelection,
+} from "@/helpers/betslipSelection";
+import { isBuilding } from "@/state/betState";
 import { isMobile } from "@/state/isMobile";
 
 import { storeState } from "@/state/storeState";
 import { tOdd } from "@/types/tEvent";
 import { Signal } from "@preact/signals";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
 
 // type MarketWithTick = MarketType & { __tick?: number };
@@ -53,7 +53,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   // tagging each entry with its origin marketId so React keys stay unique —
   // `tSelectionValue.id` is the canonical selection-type id (e.g. 19 = "Over")
   // and would otherwise collide across merged markets sharing the same name.
-  const selections =
+  const selectionsRaw =
     marketIds.length === 1
       ? primarySelections.map((sig) => ({ sig, mid: primaryId }))
       : marketIds.flatMap((mid) =>
@@ -62,9 +62,18 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
             mid,
           })),
         );
+  const selections = isBuilding.value
+    ? selectionsRaw.filter(({ sig }) => sig.value.isBetBuilderSupported)
+    : selectionsRaw;
   // Use the primary market's selection count for column layout so that
   // each "row" stays paired (e.g. Over | Under) when extras are appended.
-  const columns = Math.min(4, Math.max(1, primarySelections.length));
+  const columns = Math.min(
+    4,
+    Math.max(
+      1,
+      isBuilding.value ? selections.length || 1 : primarySelections.length,
+    ),
+  );
   // const odds = (oddsIdList as string[])
   //   .map((id) => market?.odds?.[id])
   //   .filter(
@@ -74,6 +83,10 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   //   .map((sig) => sig.value);
 
   if (tradingStatus === 2 || tradingStatus === 3) {
+    return null;
+  }
+
+  if (isBuilding.value && selections.length === 0) {
     return null;
   }
 
@@ -98,7 +111,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
           >
             <div className="flex items-center gap-2">
               {/* <img src={`${BASE_ASSET_PUBLIC_URL}/icons/png`} className="w-[14px] h-[14px]" alt="Favorite" /> */}
-              <span className="text-[12px]">{getTranslatedText(name)}</span>
+              <span className="text-[12px]">{name}</span>
             </div>
             <div className="flex items-center gap-2">
               <img
@@ -181,31 +194,35 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                 // </span>
               }
 
+              const apiMid =
+                event?.markets?.[String(mid)]?.value.id ?? Number(mid);
+              const selected = isBetslipSelectionSelected(
+                eventId,
+                String(mid),
+                selection.value.id,
+              );
+
               return (
                 <div
                   key={cellKey}
                   className={`relative flex items-center border border-[var(--border-color)] justify-between group/m cursor-pointer px-[10px] py-2 text-[12px] rounded-[8px] min-w-0 ${
-                    isSelected(selection?.value.id)
+                    selected
                       ? "bg-[var(--primary-color)] text-black"
                       : "bg-[var(--sub-element-secondary)]"
                   } ${isMobile.value ? "" : " hover:bg-[var(--primary-color)] hover:text-black"}`}
-                  // onClick={() => {
-                  //   handleClickOdd({
-                  //     eventId: eventId,
-                  //     marketId: marketId,
-                  //     marketName: market?.name || "",
-                  //     participants: event?.participants || [],
-                  //     oddId: odd.id,
-                  //     oddName: getOddName(odd.name) || "",
-                  //     startDate: event?.startDate || 0,
-                  //     sportSlug: event.sport || "",
-                  //   });
-                  //   console.log(odd);
-                  // }}
+                  onClick={() => {
+                    toggleBetslipSelection({
+                      eventId,
+                      marketKey: String(mid),
+                      marketName: name || "",
+                      selection: selection.value,
+                      apiMarketId: apiMid,
+                    });
+                  }}
                 >
                   <span
                     className={`truncate ${
-                      isSelected(selection?.value.id)
+                      selected
                         ? "text-black"
                         : "group-hover/m:text-black"
                     } mr-2`}
@@ -215,7 +232,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
 
                   <div
                     className={`flex items-center justify-center px-[10px] text-[12px] rounded-[8px] ${
-                      isSelected(selection?.value.id)
+                      selected
                         ? "text-[var(--text-basic-color)]"
                         : "text-[var(--text-primary-color)] group-hover/m:text-black"
                     } shrink-0`}

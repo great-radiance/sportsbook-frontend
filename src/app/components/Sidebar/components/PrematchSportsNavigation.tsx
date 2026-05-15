@@ -139,11 +139,11 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                   onClick={(e) => {
                     // click = expand/collapse sport (and also navigate to sport level)
                     toggleSport(sportId);
-                    // linkButtonOnClick(
-                    //   e,
-                    //   buildPrematchPath(sportName, sportId),
-                    //   setLocation,
-                    // );
+                    linkButtonOnClick(
+                      e,
+                      buildPrematchPath(sportName, sportId),
+                      setLocation,
+                    );
                   }}
                   className="flex justify-between gap-2 items-center pl-1 py-2 px-1 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                 >

@@ -40,8 +40,7 @@ export const SwitchMachesBoard: FunctionComponent = () => {
     else if (regionIdParam) {
       return <RegionMatchesBoard />;
     } else if (sportIdParam) {
-      // return <SportPage />;
-      return null;
+      return <SportPage />;
     }
     return <HomePage />;
   }, [

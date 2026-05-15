@@ -8,7 +8,6 @@ import { useTranslate } from "@/shared/i18n/i18n";
 import { getOddsValue } from "@/helpers/getOddsValue";
 import { computed } from "@preact/signals";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { baseColorTheme } from "@/state/baseColorTheme";
 
 interface SelectedOddComponentProps {
@@ -74,7 +73,7 @@ export const SelectedOddComponent: FunctionComponent<
               }}
               className={`w-5 h-5 ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
             />
-            {getTranslatedText(bet.name || "")}
+            {bet.name || ""}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -94,7 +93,7 @@ export const SelectedOddComponent: FunctionComponent<
         </div>
         {/* Market name */}
         <div className="flex justify-between text-[12px] font-normal">
-          {getTranslatedText(bet.marketName || "")}
+          {bet.marketName || ""}
           {!bet.isBuilding && selectedBetType === "system" && (
             <button
               className={`w-5 h-5 rounded-[2px] ${bet.selectedBank ? "bg-[var(--primary-color)] text-black" : "bg-[var(--background-element)] "}`}
@@ -123,8 +122,8 @@ export const SelectedOddComponent: FunctionComponent<
         </div>
         {/* Event name */}
         <div className="text-[12px] font-normal">
-          {getTranslatedText(bet.participants[0]?.name || "")} -{" "}
-          {getTranslatedText(bet.participants[1]?.name || "")}
+          {bet.participants[0]?.name || ""} -{" "}
+          {bet.participants[1]?.name || ""}
         </div>
         {/* Stake input - only show for single bets */}
         {selectedBetType === "single" && !bet.isBuilding && (

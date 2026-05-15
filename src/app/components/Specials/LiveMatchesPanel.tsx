@@ -21,7 +21,6 @@ import { storeState } from "@/state/storeState";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { loadedAllMatches } from "@/state/loadedAllMatches";
 import { Match } from "../MatchesBoard/components/Match";
-import { getTranslate, getTranslatedText } from "@/helpers/getTranslate";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { MarketNavigation } from "../marketNavigation";
 import { baseColorTheme } from "@/state/baseColorTheme";

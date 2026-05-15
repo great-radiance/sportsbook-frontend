@@ -20,7 +20,6 @@ import Loader from "../Loading/Loader";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { cashOutOfferState } from "@/state/betHistoryState";
 import { loadedAllMatches } from "@/state/loadedAllMatches";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import {
   cashoutDialogOnSuccess,
   isOpenedCashoutDialog,
@@ -361,7 +360,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
                   {formatTime(new Date(bet.placedAt).getTime())}
                 </span>
                 <span className="break-words text-[11px] leading-snug">
-                  {getTranslatedText(leg.league.name || "")}
+                  {leg.league.name || ""}
                 </span>
                 <div className="flex min-w-0 items-start gap-1">
                   <img
@@ -370,17 +369,13 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
                     className="mt-0.5 h-4 w-4 shrink-0 brightness-0 invert"
                   />
                   <span className="min-w-0 break-words text-[11px] leading-snug">
-                    {getTranslatedText(
-                      leg.participants[0]?.name ||
-                        leg.participants[0]?.providerName ||
-                        "",
-                    )}{" "}
+                    {leg.participants[0]?.name ||
+                      leg.participants[0]?.providerName ||
+                      ""}{" "}
                     -{" "}
-                    {getTranslatedText(
-                      leg.participants[1]?.name ||
-                        leg.participants[1]?.providerName ||
-                        "",
-                    )}
+                    {leg.participants[1]?.name ||
+                      leg.participants[1]?.providerName ||
+                      ""}
                   </span>
                 </div>
 
@@ -390,7 +385,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
               </div>
               <div className="flex min-w-0 flex-1 flex-col items-end gap-[4px] pl-1 text-right">
                 <span className="line-clamp-3 w-full max-w-full break-words text-right text-[11px] leading-snug">
-                  {getTranslatedText(leg.market.name || "")}
+                  {leg.market.name || ""}
                 </span>
                 <span className="line-clamp-3 w-full max-w-full break-words text-right text-[11px] leading-snug">
                   {selectedOddsByLeg[i]?.name}

@@ -1,7 +1,10 @@
 import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
-import { isSelected } from "./Market";
+import {
+  isBetslipSelectionSelected,
+  toggleBetslipSelection,
+} from "@/helpers/betslipSelection";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import {
   currentCompactState,
@@ -9,8 +12,6 @@ import {
 } from "@/state/panelCompactState";
 import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { getTranslatedText } from "@/helpers/getTranslate";
-import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
 import type {
@@ -20,6 +21,7 @@ import type {
 import { isMobile } from "@/state/isMobile";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
+import { isBuilding } from "@/state/betState";
 
 interface MoneylineMatchProps {
   eventId: number;
@@ -65,11 +67,15 @@ const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
   return Number.isFinite(parsedFallback) ? parsedFallback : 0;
 };
 
-/** Selections live as signal-wrapped values on the new market model. */
-const marketSelections = (market: tMarketModel | undefined): tSelectionValue[] =>
+/** Selections as plain values; optional bet-builder-only filter. */
+const marketSelections = (
+  market: tMarketModel | undefined,
+  betBuilderOnly: boolean,
+): tSelectionValue[] =>
   (market?.selections ?? [])
     .map((sig) => sig?.value)
-    .filter((s): s is tSelectionValue => !!s);
+    .filter((s): s is tSelectionValue => !!s)
+    .filter((s) => !betBuilderOnly || s.isBetBuilderSupported);
 
 function oddLabel(
   _market: tMarketModel | undefined,
@@ -118,9 +124,13 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     ? Object.values(event.markets).map((sig) => sig.value)
     : [];
 
+  const boardMarkets = isBuilding.value
+    ? markets.filter((m) => m.isBetBuilderSupported)
+    : markets;
+
   // Heuristic market pickers — `tMarketModel` no longer carries a `column`
   // field; the column count is implicit in `selections.length`.
-  const moneylineMarket = markets.find((m) => {
+  const moneylineMarket = boardMarkets.find((m) => {
     const n = m.name.toLowerCase();
     return (
       n.includes("match result") ||
@@ -128,11 +138,11 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
       n.includes("moneyline")
     );
   });
-  const spreadMarket = markets.find((m) => {
+  const spreadMarket = boardMarkets.find((m) => {
     const n = m.name.toLowerCase();
     return n.includes("handicap") && !n.includes("3-");
   });
-  const totalMarket = markets.find((m) => {
+  const totalMarket = boardMarkets.find((m) => {
     const n = m.name.toLowerCase();
     return (
       n.includes("total goals") || (n.includes("total") && n.includes("over"))
@@ -199,9 +209,9 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     ? `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`
     : "#";
 
-  const mlOdds = marketSelections(moneylineMarket);
-  const spOdds = marketSelections(spreadMarket);
-  const totOdds = marketSelections(totalMarket);
+  const mlOdds = marketSelections(moneylineMarket, isBuilding.value);
+  const spOdds = marketSelections(spreadMarket, isBuilding.value);
+  const totOdds = marketSelections(totalMarket, isBuilding.value);
 
   const renderOddButton = (
     odd: tSelectionValue | undefined,
@@ -222,7 +232,11 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     const suspended = odd.status === 1;
     const closed = odd.status === 2 || odd.status === 3;
     const lineText = oddLabel(market, odd, index, kind);
-    const selected = isSelected(odd.id);
+    const selected = isBetslipSelectionSelected(
+      eventId,
+      String(market.id),
+      odd.id,
+    );
 
     if (closed) {
       return (
@@ -258,9 +272,13 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         } ${selected ? "bg-[var(--primary-color)] text-white/90" : "text-[var(--text-basic-color)] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] group group-hover:text-white"}`}
         onClick={(e) => {
           e.stopPropagation();
-          // Bet-slip click handler is being rewired against the new selection
-          // model in `Market.tsx`; until that lands the button is a no-op so
-          // we don't crash on the old `handleClickOdd` contract.
+          toggleBetslipSelection({
+            eventId,
+            marketKey: String(market.id),
+            marketName: market.name,
+            selection: odd,
+            apiMarketId: market.id,
+          });
         }}
       >
         {kind !== "moneyline" && lineText ? (
@@ -321,7 +339,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
             />
           </div>
           <span>
-            {getTranslatedText(event.league?.name) || event.league?.name}
+            {event.league?.name}
           </span>
         </div>
         <div className="grid min-w-0 grid-cols-3 gap-1 text-center md:min-w-[50%] md:max-w-[50%]">
@@ -372,16 +390,19 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {/* Team logo omitted — names only. */}
+                    {/*
                     <img
                       src={
-                        getTeamlogo(event.sport?.name, homeTeam) ||
+                        cachedTeamLogoUrl(event.sport?.name, homeTeam) ||
                         `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                       }
                       className="h-3.5 w-3.5 shrink-0 object-contain"
                       alt=""
                     />
+                    */}
                     <span className="truncate text-[13px] font-bold">
-                      {getTranslatedText(homeTeam) || homeTeam}
+                      {homeTeam}
                     </span>
                   </div>
                   {isLive && (
@@ -394,9 +415,10 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
               <div className="h-[1px] bg-[var(--border-color)] w-full" />
               <div className="flex items-center justify-between gap-2 h-full">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {/*
                   <img
                     src={
-                      getTeamlogo(event.sport?.name, awayTeam) ||
+                      cachedTeamLogoUrl(event.sport?.name, awayTeam) ||
                       `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                     }
                     className="h-3.5 w-3.5 shrink-0 object-contain"
@@ -405,8 +427,9 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                       e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
                     }}
                   />
+                  */}
                   <span className="truncate text-[13px] font-bold">
-                    {getTranslatedText(awayTeam) || awayTeam}
+                    {awayTeam}
                   </span>
                 </div>
                 {isLive && (

@@ -8,35 +8,81 @@ import {
   isBonusInfoOpen,
   buildingBetAmount,
   systemBetSpecifier,
+  balance,
+  accessToken,
+  currency,
+  selectedBetslipTab,
 } from "@/state/betState";
 import "@shoelace-style/shoelace/dist/components/select/select.js";
 import "@shoelace-style/shoelace/dist/components/option/option.js";
 import "@shoelace-style/shoelace/dist/components/tooltip/tooltip.js";
 import "@shoelace-style/shoelace/dist/themes/dark.css"; // or light.css
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import {
-  betRequestType,
-  BetItemType,
-  SelectedOddType,
-} from "@/shared/utils/bet";
+import { SelectedOddType } from "@/shared/utils/bet";
 import { notify } from "@/shared/toast";
 import { isMobile } from "@/state/isMobile";
 import Loader from "../Loading/Loader";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { SelectedOddComponent } from "./SelectedOddComponent";
-import { selectedBetslipTab } from "@/state/betState";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { formatCurrency } from "@/shared/utils/formatters";
-import { sendBetRequestCybet } from "@/api/bet/sendBetRequest";
+import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
+import { apiGetSportsbookBalance } from "@/api/bet/apiSportsbookBalance";
 import { useEnableBetType } from "@/hooks/useEnableBetType";
 import { Switch } from "../Switch";
-import { oddsStoreState, storeState } from "@/state/storeState";
+import { storeState } from "@/state/storeState";
 import { getOddsValue } from "@/helpers/getOddsValue";
-import { getTranslate } from "@/helpers/getTranslate";
 import { computed } from "@preact/signals";
 import SystemBetLineComponent from "./SystembetSection";
 import { baseColorTheme } from "@/state/baseColorTheme";
+
+function extractAxiosMessage(err: unknown): string {
+  const e = err as {
+    response?: { data?: { message?: string } };
+    message?: string;
+  };
+  return (
+    e?.response?.data?.message || e?.message || "Bet request failed. Try again."
+  );
+}
+
+function rejectionReasonMessage(code: string | undefined): string {
+  if (!code) return "Bet was rejected.";
+  const map: Record<string, string> = {
+    USER_SUSPENDED: "Your account is currently suspended.",
+    SELECTION_CLOSED: "This market is no longer available.",
+    ODDS_CHANGED: "Odds have changed — please review and resubmit.",
+    STAKE_BELOW_MIN: "Stake is below the minimum allowed.",
+    STAKE_ABOVE_MAX: "Stake exceeds the maximum allowed.",
+    PAYOUT_ABOVE_MAX: "Potential payout exceeds the maximum.",
+    DAILY_STAKE_EXCEEDED: "Daily stake limit reached.",
+    DAILY_PAYOUT_EXCEEDED: "Daily payout limit reached.",
+    MAX_EXPOSURE_EXCEEDED: "Betting is temporarily unavailable.",
+    WALLET_RESERVE_FAILED: "Insufficient funds or wallet error.",
+    DUPLICATE_BET: "This bet was already submitted.",
+  };
+  return map[code] || code;
+}
+
+function slipSelectionsPayload(odds: SelectedOddType[]) {
+  return odds.map((odd) => ({
+    eventId: odd.eventId,
+    marketId: odd.apiMarketId ?? Number(odd.marketId),
+    selectionId: odd.apiSelectionId ?? Number(odd.oddsId),
+    odds: getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
+  }));
+}
+
+async function refreshSportsbookBalance() {
+  try {
+    const b = await apiGetSportsbookBalance();
+    if (typeof b?.balance === "number") balance.value = b.balance;
+    if (b?.currency) currency.value = b.currency;
+  } catch {
+    /* ignore */
+  }
+}
 
 export const BetSlip: FunctionComponent = () => {
   const { t } = useTranslate("betslip");
@@ -133,27 +179,13 @@ export const BetSlip: FunctionComponent = () => {
   }, [selectedOdds.value, settedMulti, multipleBetAmount.value]);
 
   useEffect(() => {
-    if (config.lang === "en") return;
-    const odds = selectedOdds.value;
-    if (!odds.length) return;
-    const sourceTexts = new Set<string>();
-    odds.forEach((bet) => {
-      if (bet.name) sourceTexts.add(bet.name);
-      if (bet.marketName) sourceTexts.add(bet.marketName);
-      bet.participants?.forEach((p) => {
-        if (p?.name) sourceTexts.add(p.name);
-      });
-    });
-    if (sourceTexts.size) getTranslate([...sourceTexts]);
-  }, [selectedOdds.value, config.lang]);
+    const haveUser = Boolean(accessToken.value || config.xUserId);
+    const funds =
+      (balance.value > 0 ? balance.value : 0) ||
+      (config.xUserBalance ?? 0) ||
+      0;
 
-  useEffect(() => {
-    // Check basic conditions
-    if (
-      selectedOdds.value.length === 0 ||
-      config.xUserBalance === 0 ||
-      config.xUserId === ""
-    ) {
+    if (selectedOdds.value.length === 0 || !haveUser || funds <= 0) {
       setBetable(false);
       return;
     }
@@ -191,6 +223,8 @@ export const BetSlip: FunctionComponent = () => {
     setBetable(true);
   }, [
     selectedOdds.value,
+    balance.value,
+    accessToken.value,
     config.xUserBalance,
     config.xUserId,
     selectedBetType.value,
@@ -238,16 +272,13 @@ export const BetSlip: FunctionComponent = () => {
 
   const RemoveAllBets = () => {
     selectedOdds.value = [];
-    oddsStoreState.value = {};
     selectedBetType.value = "single";
     multipleBetAmount.value = 0;
     window.localStorage.removeItem("selectedOdds");
   };
 
   const handleBetNow = async () => {
-    // Use for...of to properly await each bet sequentially
-    const successfulBets: BetItemType[] = [];
-    const failedBets: Set<SelectedOddType> = new Set();
+    const failedBets = new Set<SelectedOddType>();
     setIsLoading(true);
     try {
       if (!betable) {
@@ -260,135 +291,72 @@ export const BetSlip: FunctionComponent = () => {
         return;
       }
 
+      const cur = userCurrency || currency.value || "USD";
+
       if (buildingOdds.length > 0 && buildingBetAmount.value > 0) {
-        const placeBetRequest: betRequestType = {
-          selections: buildingOdds.map((odd) => ({
-            oddsId: odd.oddsId,
-            oddsValue: getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
-            marketId: odd.marketId,
-            eventId: odd.eventId,
-            sport: odd.sport,
-            region: odd.region,
-            league: odd.league,
-          })),
-          currency: userCurrency || "USD",
-          stakeAmount: buildingBetAmount.value,
-          betKind: "betbuilder",
-          acceptChangedOdds: false,
-        };
         try {
-          const response = await sendBetRequestCybet(placeBetRequest);
-          // Check if response has error property
-          if (response && (response as any).error) {
-            notify((response as any).message, "error", "x-circle", 2500);
-            buildingOdds.forEach((odd) => failedBets.add(odd));
-          } else if (response && (response as BetItemType).betId) {
-            // Add successful multi bet to myBetsState
-            const betItem = response as BetItemType;
-            selectedOdds.value = selectedOdds.value.filter(
-              (odd) => !odd.isBuilding,
+          const d = await apiPlaceBetWithRetry({
+            idempotencyKey: crypto.randomUUID(),
+            betType: "parlay",
+            stake: buildingBetAmount.value,
+            currency: cur,
+            selections: slipSelectionsPayload(buildingOdds),
+          });
+          if (d?.status === "rejected") {
+            notify(
+              rejectionReasonMessage(
+                (d as { rejectionReason?: string }).rejectionReason,
+              ),
+              "error",
+              "x-circle",
+              3500,
             );
+            buildingOdds.forEach((o) => failedBets.add(o));
+          } else if (d?.status === "accepted") {
+            selectedOdds.value = selectedOdds.value.filter((o) => !o.isBuilding);
             setBuildingOdds([]);
             buildingBetAmount.value = 0;
-            notify(
-              `Bet placed successfully! ${betItem.status}`,
-              "success",
-              "check2-circle",
-              2500,
-            );
+            notify("Bet accepted", "success", "check2-circle", 2500);
+            await refreshSportsbookBalance();
           } else {
-            console.error("Unexpected response structure:", response);
-            notify((response as any).error.message, "error", "x-circle", 2500);
-            buildingOdds.forEach((odd) => failedBets.add(odd));
+            notify("Unexpected bet response", "error", "x-circle", 2500);
+            buildingOdds.forEach((o) => failedBets.add(o));
           }
         } catch (error) {
-          const Error = error as any;
-          console.log("Error--------", Error.response.data);
-          if (Error.response.data.code === 4) {
-            const misMatchingOddsNames =
-              Error.response.data.data.mismatchingOdds
-                ?.map((odd: any) => odd.odd.name)
-                .join(", ");
-            console.log("misMatchingOddsNames--------", misMatchingOddsNames);
-            notify(
-              Error.response.data.message + " " + misMatchingOddsNames,
-              "error",
-              "x-circle",
-              2500,
-            );
-          } else {
-            notify(
-              (error as any).response.data.message,
-              "error",
-              "x-circle",
-              2500,
-            );
-          }
-          buildingOdds.forEach((odd) => failedBets.add(odd));
+          notify(extractAxiosMessage(error), "error", "x-circle", 3500);
+          buildingOdds.forEach((o) => failedBets.add(o));
         }
       }
 
       if (nonBuildingOdds.length > 0 && selectedBetType.value === "single") {
         for (const odd of nonBuildingOdds) {
-          odd.amount = odd.amount;
-          const placeBetRequest: betRequestType = {
-            selections: [
-              {
-                oddsId: odd.oddsId,
-                oddsValue: getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
-                marketId: odd.marketId,
-                eventId: odd.eventId,
-                sport: odd.sport,
-                region: odd.region,
-                league: odd.league,
-              },
-            ],
-            currency: userCurrency || "USD",
-            stakeAmount: odd.amount,
-            betKind: "single",
-            acceptChangedOdds: anyOddsChange,
-          };
-
           try {
-            const response = await sendBetRequestCybet(placeBetRequest);
-            if (response && (response as BetItemType).betId) {
-              successfulBets.push(response as BetItemType);
+            const d = await apiPlaceBetWithRetry({
+              idempotencyKey: crypto.randomUUID(),
+              betType: "single",
+              stake: odd.amount,
+              currency: cur,
+              selections: slipSelectionsPayload([odd]),
+            });
+            if (d?.status === "rejected") {
               notify(
-                `Bet placed successfully! ${response.status}`,
-                "success",
-                "check2-circle",
-                2500,
+                rejectionReasonMessage(
+                  (d as { rejectionReason?: string }).rejectionReason,
+                ),
+                "error",
+                "x-circle",
+                3500,
               );
+              failedBets.add(odd);
+            } else if (d?.status === "accepted") {
+              notify("Bet accepted", "success", "check2-circle", 2500);
+              await refreshSportsbookBalance();
             } else {
-              console.error("Unexpected response structure:", response);
-              notify((response as any).data.message, "error", "x-circle", 2500);
+              notify("Unexpected bet response", "error", "x-circle", 2500);
               failedBets.add(odd);
             }
           } catch (error) {
-            console.error("Error sending", error);
-            const Error = error as any;
-            console.log("Error--------", Error.response.data);
-            if (Error.response.data.code === 4) {
-              const misMatchingOddsNames =
-                Error.response.data.data.mismatchingOdds
-                  ?.map((odd: any) => odd.odd.name)
-                  .join(", ");
-              console.log("misMatchingOddsNames--------", misMatchingOddsNames);
-              notify(
-                Error.response.data.message + " " + misMatchingOddsNames,
-                "error",
-                "x-circle",
-                2500,
-              );
-            } else {
-              notify(
-                // "Error sending bet request: " +
-                (error as any).response.data.message,
-                "error",
-                "x-circle",
-                2500,
-              );
-            }
+            notify(extractAxiosMessage(error), "error", "x-circle", 3500);
             failedBets.add(odd);
           }
         }
@@ -396,161 +364,85 @@ export const BetSlip: FunctionComponent = () => {
         nonBuildingOdds.length > 0 &&
         selectedBetType.value === "multi"
       ) {
-        const placeBetRequest: betRequestType = {
-          selections: nonBuildingOdds.map((odd) => ({
-            oddsId: odd.oddsId,
-            oddsValue: getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
-            marketId: odd.marketId,
-            eventId: odd.eventId,
-            sport: odd.sport,
-            region: odd.region,
-            league: odd.league,
-          })),
-          currency: userCurrency || "USD",
-          stakeAmount: multipleBetAmount.value,
-          betKind: "multi",
-          acceptChangedOdds: anyOddsChange,
-        };
-
         try {
-          const response = await sendBetRequestCybet(placeBetRequest);
-          // Check if response has error property
-          if (response && (response as any).error) {
-            notify((response as any).data.message, "error", "x-circle", 2500);
-            nonBuildingOdds.forEach((odd) => failedBets.add(odd));
-          } else if (response && (response as BetItemType).betId) {
-            // Add successful multi bet to myBetsState
-            const betItem = response as BetItemType;
+          const d = await apiPlaceBetWithRetry({
+            idempotencyKey: crypto.randomUUID(),
+            betType: "parlay",
+            stake: multipleBetAmount.value,
+            currency: cur,
+            selections: slipSelectionsPayload(nonBuildingOdds),
+          });
+          if (d?.status === "rejected") {
+            notify(
+              rejectionReasonMessage(
+                (d as { rejectionReason?: string }).rejectionReason,
+              ),
+              "error",
+              "x-circle",
+              3500,
+            );
+            nonBuildingOdds.forEach((o) => failedBets.add(o));
+          } else if (d?.status === "accepted") {
             selectedOdds.value = [];
             window.localStorage.removeItem("selectedOdds");
-            notify(
-              `Bet placed successfully! ${betItem.status}`,
-              "success",
-              "check2-circle",
-              2500,
-            );
+            notify("Bet accepted", "success", "check2-circle", 2500);
+            await refreshSportsbookBalance();
           } else {
-            console.error("Unexpected response structure:", response);
-            notify((response as any).data.message, "error", "x-circle", 2500);
-            nonBuildingOdds.forEach((odd) => failedBets.add(odd));
+            notify("Unexpected bet response", "error", "x-circle", 2500);
+            nonBuildingOdds.forEach((o) => failedBets.add(o));
           }
         } catch (error) {
-          const Error = error as any;
-          if (Error.response.data.code === 4) {
-            const misMatchingOddsNames =
-              Error.response.data.data.mismatchingOdds
-                ?.map((odd: any) => odd.odd.name)
-                .join(", ");
-            notify(
-              Error.response.data.message + " " + misMatchingOddsNames,
-              "error",
-              "x-circle",
-              2500,
-            );
-          } else {
-            notify(
-              (error as any).response.data.message,
-              "error",
-              "x-circle",
-              2500,
-            );
-          }
-          nonBuildingOdds.forEach((odd) => failedBets.add(odd));
+          notify(extractAxiosMessage(error), "error", "x-circle", 3500);
+          nonBuildingOdds.forEach((o) => failedBets.add(o));
         }
       } else if (selectedBetType.value === "system") {
-        const results = await Promise.all(
+        await Promise.all(
           [...Array(Math.min(nonBuildingOdds.length, 5))].map((_, index) => {
-            const placebet = async () => {
-              if (systemBetSpecifier.value[index + 1] !== 0) {
-                const placeBetRequest: betRequestType = {
-                  selections: nonBuildingOdds.map((odd) => ({
-                    oddsId: odd.oddsId,
-                    oddsValue: getOddsValue(
-                      odd.eventId,
-                      odd.marketId,
-                      odd.oddsId,
+            const stake = systemBetSpecifier.value[index + 1] || 0;
+            if (stake === 0) return Promise.resolve();
+            return (async () => {
+              try {
+                const d = await apiPlaceBetWithRetry({
+                  idempotencyKey: crypto.randomUUID(),
+                  betType: "parlay",
+                  stake,
+                  currency: cur,
+                  selections: slipSelectionsPayload(nonBuildingOdds),
+                });
+                if (d?.status === "rejected") {
+                  notify(
+                    rejectionReasonMessage(
+                      (d as { rejectionReason?: string }).rejectionReason,
                     ),
-                    marketId: odd.marketId,
-                    eventId: odd.eventId,
-                    sport: odd.sport,
-                    region: odd.region,
-                    league: odd.league,
-                  })),
-                  currency: userCurrency || "USD",
-                  stakeAmount: systemBetSpecifier.value[index + 1] || 0,
-                  betKind: "system",
-                  acceptChangedOdds: anyOddsChange,
-                  systemSpecifier: `${index + 1}`, // System 2, System 3, ..., System 6
-                };
-                try {
-                  const response = await sendBetRequestCybet(placeBetRequest);
-
-                  // Check if response has error property
-                  if (response && (response as any).error) {
-                    notify(
-                      (response as any).data.message,
-                      "error",
-                      "x-circle",
-                      2500,
-                    );
-                    // failedBets.push(...selectedOdds.value);
-                  } else if (response && (response as BetItemType).betId) {
-                    // Add successful multi bet to myBetsState
-                    const betItem = response as BetItemType;
-                    selectedOdds.value = [];
-                    window.localStorage.removeItem("selectedOdds");
-                    notify(
-                      `Bet placed successfully! ${betItem.status}`,
-                      "success",
-                      "check2-circle",
-                      2500,
-                    );
-                  } else {
-                    console.error("Unexpected response structure:", response);
-                    notify(
-                      (response as any).data.message,
-                      "error",
-                      "x-circle",
-                      2500,
-                    );
-
-                    // failedBets.push(...selectedOdds.value);
-                  }
-                } catch (error) {
-                  console.error("Error sending bet request: ", error);
-                  const Error = error as any;
-                  if (Error.response.data.code === 4) {
-                    const misMatchingOddsNames =
-                      Error.response.data.data.mismatchingOdds
-                        ?.map((odd: any) => odd.odd.name)
-                        .join(", ");
-                    notify(
-                      Error.response.data.message + " " + misMatchingOddsNames,
-                      "error",
-                      "x-circle",
-                      2500,
-                    );
-                  } else {
-                    notify(
-                      (error as any).response.data.message,
-                      "error",
-                      "x-circle",
-                      2500,
-                    );
-                  }
-                  nonBuildingOdds.forEach((odd) => failedBets.add(odd));
+                    "error",
+                    "x-circle",
+                    3500,
+                  );
+                  nonBuildingOdds.forEach((o) => failedBets.add(o));
+                } else if (d?.status === "accepted") {
+                  selectedOdds.value = [];
+                  window.localStorage.removeItem("selectedOdds");
+                  notify("Bet accepted", "success", "check2-circle", 2500);
+                  await refreshSportsbookBalance();
+                } else {
+                  notify("Unexpected bet response", "error", "x-circle", 2500);
+                  nonBuildingOdds.forEach((o) => failedBets.add(o));
                 }
+              } catch (error) {
+                notify(extractAxiosMessage(error), "error", "x-circle", 3500);
+                nonBuildingOdds.forEach((o) => failedBets.add(o));
               }
-            };
-            return placebet();
+            })();
           }),
         );
       }
-      // Only clear successful bets from selectedOdds
-      // selectedOdds.value = failedBets;
+
       if (failedBets.size > 0) {
         selectedOdds.value = Array.from(failedBets);
-        window.localStorage.setItem("selectedOdds", JSON.stringify(failedBets));
+        window.localStorage.setItem(
+          "selectedOdds",
+          JSON.stringify(Array.from(failedBets)),
+        );
       } else {
         selectedOdds.value = [];
         window.localStorage.removeItem("selectedOdds");

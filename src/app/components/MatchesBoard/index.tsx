@@ -13,12 +13,10 @@ import {
   // responseEvent
 } from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MatchesGroup } from "./components/MatchesGroup";
-import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { Breadcrumbs } from "../Breadcrumbs";
 import { storeEvent } from "@/helpers/storeEvent";
 
@@ -202,26 +200,23 @@ export const MatchesBoard: FunctionComponent = () => {
         items={[
           { label: "Home", href: "/event-view" },
           {
-            label: getTranslatedText(
+            label:
               summarySports.value.data.find(
                 (s) => s[0] === Number(sportIdParam),
               )?.[1] || "",
-            ),
           },
           {
-            label: getTranslatedText(
+            label:
               summarySports.value.data
                 .find((s) => s[0] === Number(sportIdParam))?.[2]
                 .find((r) => r[0] === Number(regionIdParam))?.[1] || "",
-            ),
           },
           {
-            label: getTranslatedText(
+            label:
               summarySports.value.data
                 .find((s) => s[0] === Number(sportIdParam))?.[2]
                 .find((r) => r[0] === Number(regionIdParam))?.[2]
                 ?.find((l) => l[0] === Number(leagueIdParam))?.[1] || "",
-            ),
           },
         ]}
       />
@@ -276,7 +271,7 @@ export const MatchesBoard: FunctionComponent = () => {
                       alt={region[1] || ""}
                       className="w-5 h-5 rounded-full"
                     />
-                    {getTranslatedText(region[1] || "")}
+                    {region[1] || ""}
                   </SelectItem>
                   {region[2]?.map((l) => (
                     <SelectItem
@@ -284,7 +279,7 @@ export const MatchesBoard: FunctionComponent = () => {
                       value={`${region[1]}/${region[0]}/${l[1]}/${l[0]}`}
                       className="pl-6 text-[12px] text-[var(--text-basic-color)] hover:bg-black/20 rounded-[4px]"
                     >
-                      {getTranslatedText(l[1] || "")}
+                      {l[1] || ""}
                     </SelectItem>
                   ))}
                 </Fragment>

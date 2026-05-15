@@ -17,6 +17,10 @@ export type SelectedOddType = {
   isBuilding: boolean;
   selectedBank: boolean;
   amount: number;
+  /** Numeric market id for `POST /bets/place` (same as backend `marketId`). */
+  apiMarketId: number;
+  /** Numeric selection id for `POST /bets/place` (same as backend `selectionId`). */
+  apiSelectionId: number;
 };
 
 export type betType = "single" | "multi" | "system" | "betbuilder";

@@ -1,4 +1,3 @@
-import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { storeState } from "@/state/storeState";
 import { FunctionComponent } from "preact";
@@ -53,13 +52,17 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
             // The new `tEventModel` keeps `sport` as an object and team
             // names live under `competitors[]` (was `participants[]`).
             const event = storeState.value[data.eventId]?.value;
-            const sportName = event?.sport?.name ?? "";
             const homeName = event?.competitors?.[0]?.name ?? "";
             const awayName = event?.competitors?.[1]?.name ?? "";
             return (
               <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] w-[60px] h-[26px] mx-auto">
+                {/* Team logos omitted — show fixture by name only. */}
+                {/*
                 <img
-                  src={getTeamlogo(sportName, homeName)}
+                  src={
+                    cachedTeamLogoUrl(sportName, homeName) ??
+                    `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
+                  }
                   onError={(e) => {
                     e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
                   }}
@@ -68,13 +71,22 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
                 />
                 <div className="w-[2px] h-full my-[4px] bg-black/30 mx-2" />
                 <img
-                  src={getTeamlogo(sportName, awayName)}
+                  src={
+                    cachedTeamLogoUrl(sportName, awayName) ??
+                    `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
+                  }
                   onError={(e) => {
                     e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
                   }}
                   alt="Away"
                   className="w-4 h-4"
                 />
+                */}
+                <span className="text-[9px] leading-tight text-center text-white/90 px-0.5 line-clamp-2">
+                  {homeName}
+                  {homeName && awayName ? " · " : ""}
+                  {awayName}
+                </span>
               </div>
             );
           })()}
@@ -89,8 +101,11 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
             </span>
           </div>
           <div className="flex flex-col w-full">
-            {data.picks.map((pick) => (
-              <div key={pick.oddsId} className="flex w-full flex-col gap-2">
+            {data.picks.map((pick, idx) => (
+              <div
+                key={`${data.eventId}-${pick.marketId}-${pick.oddsId}-${idx}`}
+                className="flex w-full flex-col gap-2"
+              >
                 <div className="flex flex-col px-[6px] py-[6px]">
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col justify-between items-center gap-[2px]">

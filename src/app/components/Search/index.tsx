@@ -19,7 +19,6 @@ import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./style.css";
 import { isOpenedMyBet } from "@/state/betState";
-import { getTranslate, getTranslatedText } from "@/helpers/getTranslate";
 import { PopularMatches } from "../Specials/PopularMatches";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { apiSearchEvents } from "@/api/apiSearchEvents";
@@ -325,26 +324,6 @@ export const Search: FunctionComponent = () => {
     };
   }, [showSearchState.value]);
 
-  useEffect(() => {
-    if (getAppConfig().lang === "en") return;
-    if (!listMatches.length) return;
-    const sourceTexts = new Set<string>();
-    listMatches.forEach((m) => {
-      const sport = m?.[1] ?? "";
-      const league = m?.[3] ?? "";
-      if (sport) sourceTexts.add(sport);
-      if (league) sourceTexts.add(league);
-      for (const [name] of m?.[4] ?? []) {
-        if (name) sourceTexts.add(name);
-      }
-      for (const market of m?.[7] ?? []) {
-        const marketName = (market?.[1] ?? "") as string;
-        if (marketName) sourceTexts.add(marketName);
-      }
-    });
-    if (sourceTexts.size) getTranslate([...sourceTexts]);
-  }, [listMatches, getAppConfig().lang]);
-
   return (
     <>
       <sl-dialog
@@ -389,15 +368,14 @@ export const Search: FunctionComponent = () => {
                       : "bg-[var(--sub-element-color)] text-[var(--text-basic-color)] hover:bg-[var(--highlight-background)]"
                   }`}
                 >
-                  {getTranslatedText(sport)}
+                  {sport}
                 </button>
               ))}
             </div>
           )}
 
           <div className="flex-1 overflow-y-auto min-h-0 scrollbar-none">
-            {!isQueryActive ? // <PopularMatches />
-            null : loading ? (
+            {!isQueryActive ? null : loading ? ( // <PopularMatches />
               <div className="flex justify-center py-8 text-[14px] text-[var(--text-sub-color)]">
                 Searching…
               </div>
@@ -466,10 +444,10 @@ export const Search: FunctionComponent = () => {
                           />
                           <div className="flex flex-col min-w-0 flex-1">
                             <span className="text-[12px] text-[var(--text-sub-color)] truncate">
-                              {highlightText(getTranslatedText(league || ""))}
+                              {highlightText(league || "")}
                             </span>
                             <span className="text-[14px] font-medium text-[var(--text-basic-color)] truncate mt-0.5">
-                              {highlightText(getTranslatedText(title || ""))}
+                              {highlightText(title || "")}
                             </span>
                             <span className="text-[12px] text-[var(--text-sub-color)] mt-0.5">
                               {formatDate(m?.[9] ?? 0)},{" "}
@@ -572,10 +550,8 @@ export const Search: FunctionComponent = () => {
                               />
                               <div className="flex flex-col min-w-0 flex-1">
                                 <span className="text-[12px] text-[var(--text-sub-color)] truncate">
-                                  {highlightText(
-                                    getTranslatedText(mm.marketName),
-                                  )}{" "}
-                                  | {highlightText(getTranslatedText(title))}
+                                  {highlightText(mm.marketName)} |{" "}
+                                  {highlightText(title)}
                                 </span>
                                 <span className="text-[12px] text-[var(--text-sub-color)] mt-0.5">
                                   {formatDate(mm.startDate)},{" "}

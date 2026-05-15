@@ -1,9 +1,5 @@
 import { tMarket, tOdd, tParticipant } from "@/types/tEvent";
 import { storeEvent } from "./storeEvent";
-// import { MatchesResponse, responseEvent } from "@/api/matches/apiGetMatches";
-import { getTeamlogosByArray } from "./getTeamlogos";
-import { getAppConfig } from "@/shared/config/appConfig";
-import { getTranslate } from "./getTranslate";
 import {
   Clock,
   LiveStatus,

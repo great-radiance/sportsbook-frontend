@@ -10,7 +10,19 @@ import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { Match } from "../MatchesBoard/components/Match";
 
-const MATCH_BATCH_SIZE = 10;
+/** `apiGetMatches` sends all ids in one URL; chunk to avoid very long query strings. */
+const MAX_EVENT_IDS_PER_REQUEST = 80;
+
+async function fetchMatchesInChunks(eventIds: number[]): Promise<void> {
+  const unique = [...new Set(eventIds)].filter(
+    (id) => Number.isFinite(id) && id > 0,
+  );
+  for (let i = 0; i < unique.length; i += MAX_EVENT_IDS_PER_REQUEST) {
+    const slice = unique.slice(i, i + MAX_EVENT_IDS_PER_REQUEST);
+    const events = await apiGetMatches(slice);
+    (events ?? []).forEach((event) => storeEvent(event));
+  }
+}
 
 export const OutrightMatches: FunctionComponent = () => {
   // Default to Soccer (sportId 1); the SportsList will let the user pick
@@ -18,6 +30,12 @@ export const OutrightMatches: FunctionComponent = () => {
   const [selectedSport, setSelectedSport] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const { t } = useTranslate("sidebar");
+  const { t: tLiveCal } = useTranslate("liveCalendar");
+
+  const popularEventIds = useMemo(
+    () => outRightSummarySports.value.featuredMatches?.[1] ?? [],
+    [outRightSummarySports.value],
+  );
 
   const sportsWithCount = useMemo<
     { count: number; name: string; id: number }[]
@@ -76,23 +94,17 @@ export const OutrightMatches: FunctionComponent = () => {
             }
           }
         }
-        if (eventIds.length === 0) {
+        const merged = [
+          ...popularEventIds,
+          ...eventIds.filter((id) => !popularEventIds.includes(id)),
+        ];
+        if (merged.length === 0) {
           if (!cancelled) setLoading(false);
           return;
         }
 
-        const batches: number[][] = [];
-        for (let i = 0; i < eventIds.length; i += MATCH_BATCH_SIZE) {
-          batches.push(eventIds.slice(i, i + MATCH_BATCH_SIZE));
-        }
-
-        const results = await Promise.all(
-          batches.map((batch) => apiGetMatches(batch)),
-        );
+        await fetchMatchesInChunks(merged);
         if (cancelled) return;
-        for (const event of results.flat()) {
-          storeEvent(event);
-        }
       } catch (error) {
         console.error("Error fetching outright matches:", error);
       } finally {
@@ -102,7 +114,7 @@ export const OutrightMatches: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [outRightSummarySports.value, selectedSport]);
+  }, [outRightSummarySports.value, selectedSport, popularEventIds, regions]);
 
   return (
     <div
@@ -130,6 +142,25 @@ export const OutrightMatches: FunctionComponent = () => {
         <UpcomingMatchesLoader matchesCount={4} />
       ) : (
         <div className="flex flex-col w-full">
+          {popularEventIds.length > 0 && (
+            <div className="flex flex-col w-full gap-2 pb-4 border-b border-[var(--primary-border-color)] mb-2">
+              <div className="flex flex-1 items-center gap-2 px-1">
+                <img
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/top.png`}
+                  className="w-[24px] h-[24px] object-contain invert"
+                  alt=""
+                />
+                <span className="text-[16px] font-bold">
+                  {tLiveCal("TopMatches")}
+                </span>
+              </div>
+              <div className="flex flex-col w-full gap-1">
+                {popularEventIds.map((eId) => (
+                  <Match key={`popular-${eId}`} eventId={eId} />
+                ))}
+              </div>
+            </div>
+          )}
           {regions.map((region) => {
             const regionId = region[0];
             const regionName = region[1];

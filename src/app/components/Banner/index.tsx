@@ -12,9 +12,7 @@ import { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useLocation } from "wouter-preact";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { getTeamlogo } from "@/helpers/getTeamlogos";
 
 const slides = [
   {
@@ -175,7 +173,7 @@ export const EmblaBanner = () => {
 
             return (
               <div key={slide.id} className="embla__slide ">
-                <img src={slide.image} alt={slide.title || "Banner"} />
+                <img src={`aaa${slide.image}`} alt={slide.title || "Banner"} />
                 <div className="banner-overlay-image"></div>
                 {event && (
                   <div className="banner-overlay cursor-pointer h-full">
@@ -209,26 +207,37 @@ export const EmblaBanner = () => {
                       }}
                     >
                       <div class="banner-team flex items-center">
+                        {/* Team logos omitted — product choice: show names only (no club badge URLs). */}
+                        {/*
                         <img
                           src={
-                            getTeamlogo(event?.value?.sport?.name, homeTeam) ||
+                            cachedTeamLogoUrl(
+                              event?.value?.sport?.name,
+                              homeTeam,
+                            ) ||
                             `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                           }
                           alt={homeTeam}
                           className="max-w-[20px] max-h-[20px] object-contain shrink-0"
                         />
-                        {getTranslatedText(homeTeam)}
+                        */}
+                        {homeTeam}
                       </div>
                       <div class="banner-team flex items-center gap-2">
+                        {/*
                         <img
                           src={
-                            getTeamlogo(event?.value?.sport?.name, awayTeam) ||
+                            cachedTeamLogoUrl(
+                              event?.value?.sport?.name,
+                              awayTeam,
+                            ) ||
                             `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                           }
                           alt={awayTeam}
                           className="max-w-[20px] max-h-[20px] object-contain shrink-0"
                         />
-                        {getTranslatedText(awayTeam)}
+                        */}
+                        {awayTeam}
                       </div>
                     </div>
 

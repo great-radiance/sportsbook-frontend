@@ -24,7 +24,6 @@ import {
 import { notify } from "@/shared/toast";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import type { BetItemType, BetLegType } from "@/shared/utils/bet";
 
 /** Clear global cashout dialog state only (never call `hide()` here). */
@@ -44,8 +43,8 @@ function participantLine(leg: BetLegType): string {
     leg.participants[0]?.name || leg.participants[0]?.providerName || "";
   const b =
     leg.participants[1]?.name || leg.participants[1]?.providerName || "";
-  if (a && b) return `${getTranslatedText(a)} — ${getTranslatedText(b)}`;
-  return getTranslatedText(a || b || "—");
+  if (a && b) return `${a} — ${b}`;
+  return a || b || "—";
 }
 
 const MAX_LEGS_IN_DIALOG = 6;
@@ -272,13 +271,13 @@ export const CashoutDialog: FunctionComponent = () => {
                       ) : null}
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] text-[var(--text-sub-color)]">
-                          {getTranslatedText(leg.league?.name || "")}
+                          {leg.league?.name || ""}
                         </p>
                         <p className="text-[13px] font-medium leading-snug text-[var(--text-basic-color)]">
                           {participantLine(leg)}
                         </p>
                         <p className="mt-1 text-[12px] text-[var(--text-basic-color)]">
-                          {getTranslatedText(leg.market?.name || "")}
+                          {leg.market?.name || ""}
                           {odd?.name ? (
                             <span className="text-[var(--primary-color)]">
                               {" "}

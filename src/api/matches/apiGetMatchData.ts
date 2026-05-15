@@ -2,7 +2,6 @@ import { Live } from "@/shared/utils/types";
 import { instance } from "../instance";
 import { tEvent } from "@/types/tEvent";
 import { getAppConfig } from "@/shared/config/appConfig";
-import { instanceOdds88 } from "../instanceOdds88";
 
 export type MatchDataResponse = {
   eventInfo: {
@@ -33,7 +32,7 @@ export type MatchDataResponse = {
     }[];
     startTime: string;
     isOutright: boolean;
-    isBetBuilderSuported: boolean;
+    isBetBuilderSupported: boolean;
     customDisplayData: any;
     mappingInfo: {
       feedId: number;
@@ -56,7 +55,7 @@ export type MatchDataResponse = {
       extraParameters: {
         [key: string]: string;
       };
-      isBetBuilderSuported: boolean;
+      isBetBuilderSupported: boolean;
       competitionId: number;
       startingPrice: number;
     }[];
@@ -68,7 +67,7 @@ export type MatchDataResponse = {
     extraParameters: {
       [key: string]: string;
     };
-    isBetBuilderSuported: boolean;
+    isBetBuilderSupported: boolean;
   }[];
   scoreboard: any;
   betCancellations: any[];
@@ -85,7 +84,7 @@ export type MatchDataResponse = {
 };
 
 export const apiGetMatchData = async (eventId: number) => {
-  const response = await instanceOdds88.get<{ data: MatchDataResponse }>(
+  const response = await instance.get<{ data: MatchDataResponse }>(
     `/odds88/events/${eventId}?lang=${getAppConfig().lang}`,
   );
   return response.data.data;

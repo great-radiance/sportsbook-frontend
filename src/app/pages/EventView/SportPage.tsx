@@ -1,8 +1,7 @@
 import { FunctionComponent } from "preact";
-import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
+import { useEffect, useState, useCallback, useMemo, useRef } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { outRightSummarySports, summarySports } from "@/state/summarySports";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
@@ -16,12 +15,21 @@ import { baseColorTheme } from "@/state/baseColorTheme";
 import HighlightRender from "@/app/components/SportPage/HighlightRender";
 import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
 import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
-import { stoiximanSidebarState } from "@/state/stoiximanSidebarState";
 import { storeEvent } from "@/helpers/storeEvent";
+import { storeState } from "@/state/storeState";
 
 import { sortLeagues } from "@/helpers/sortLeagues";
 
-const CATEGORIES = ["Matches", "Outright"] as const;
+/** Keep batches small so `/events/selected?eventIds=...` URLs stay within limits. */
+const UPCOMING_MATCH_IDS_CHUNK = 80;
+
+/** Tree shape expected by `CompetitionsRender` (popular leagues + region groups). */
+type CompetitionNode = {
+  id: number;
+  name: string;
+  type: "sport" | "league" | "region" | "custom";
+  children?: CompetitionNode[];
+};
 
 interface LeagueEntry {
   key: string;
@@ -70,6 +78,8 @@ export const SportPage: FunctionComponent = () => {
   const [activeTab, setActiveTab] = useState<
     "highlights" | "competitions" | "upcoming"
   >("highlights");
+  const [upcomingHydrateLoading, setUpcomingHydrateLoading] = useState(false);
+  const upcomingHydrateRunRef = useRef(0);
 
   const leagueEntriesNotSorted = useMemo<LeagueEntry[]>(() => {
     return sportRegions
@@ -83,13 +93,14 @@ export const SportPage: FunctionComponent = () => {
         return leagues.map((league) => {
           const leagueId = league[0];
           const leagueName = league[1];
-          const events = league[2] ?? [];
-          const eventIds = events.map((e) => e[0]);
+          const eventIds = (league[2] ?? []).map((id) => Number(id)).filter(Number.isFinite);
 
           const outrightLeague = outrightLeaguesForRegion.find(
             (l) => l[0] === leagueId,
           );
-          const outrightIds = (outrightLeague?.[2] ?? []).map((e) => e[0]);
+          const outrightIds = (outrightLeague?.[2] ?? [])
+            .map((id) => Number(id))
+            .filter(Number.isFinite);
 
           return {
             key: `${regionName}|||${leagueName}`,
@@ -110,7 +121,40 @@ export const SportPage: FunctionComponent = () => {
 
   const leagueEntries: LeagueEntry[] = useMemo(() => {
     return sortLeagues(leagueEntriesNotSorted, sportName);
-  }, [leagueEntriesNotSorted]);
+  }, [leagueEntriesNotSorted, sportName]);
+
+  /** Built from `summarySports` / `outRightSummarySports` — replaces Stoiximan sidebar for Competitions tab. */
+  const competitionsTree = useMemo((): CompetitionNode | null => {
+    if (!sportName || sportRegions.length === 0) return null;
+    const popular: CompetitionNode[] = leagueEntriesNotSorted
+      .slice(0, 12)
+      .map((e, idx) => ({
+        id: 1_000_000 + idx,
+        name: e.league,
+        type: "league" as const,
+      }));
+    const regionsNode: CompetitionNode = {
+      id: -1,
+      name: "Regions",
+      type: "custom",
+      children: sportRegions.map((reg) => ({
+        id: reg[0] as number,
+        name: String(reg[1] ?? ""),
+        type: "region" as const,
+        children: (reg[2] ?? []).map((lg) => ({
+          id: lg[0] as number,
+          name: String(lg[1] ?? ""),
+          type: "league" as const,
+        })),
+      })),
+    };
+    return {
+      id: Number(sportIdParam) || 0,
+      name: sportName,
+      type: "sport",
+      children: [...popular, regionsNode],
+    };
+  }, [sportName, sportIdParam, sportRegions, leagueEntriesNotSorted]);
 
   const selectedLeagueEntry = useMemo(() => {
     if (regionName && leagueName) {
@@ -173,6 +217,57 @@ export const SportPage: FunctionComponent = () => {
     }
   }, [selectedLeagueEntry, sportName]);
 
+  /**
+   * `UpcomingRender` filters every league by `storeState` start times, but
+   * `fetchLeagueMatches` only hydrates the selected league — load the rest when
+   * the Upcoming tab is open so time windows and grouping work.
+   */
+  const hydrateStoreForUpcomingTab = useCallback(async () => {
+    const allIds = leagueEntries.flatMap((e) => e.eventIds);
+    const unique = [...new Set(allIds)]
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    const missing = unique.filter((id) => {
+      const st = storeState.value[id]?.value?.startTime;
+      return !st;
+    });
+    for (let i = 0; i < missing.length; i += UPCOMING_MATCH_IDS_CHUNK) {
+      const slice = missing.slice(i, i + UPCOMING_MATCH_IDS_CHUNK);
+      const matches = await apiGetMatches(slice);
+      (matches ?? []).forEach((event) => storeEvent(event));
+    }
+  }, [leagueEntries]);
+
+  useEffect(() => {
+    if (activeTab !== "upcoming") {
+      upcomingHydrateRunRef.current += 1;
+      setUpcomingHydrateLoading(false);
+      return;
+    }
+    if (!loadedSidebarState.value || !sportName) return;
+    if (leagueEntries.length === 0) return;
+
+    const runId = ++upcomingHydrateRunRef.current;
+    setUpcomingHydrateLoading(true);
+    (async () => {
+      try {
+        await hydrateStoreForUpcomingTab();
+      } catch (e) {
+        console.error("SportPage upcoming hydrate:", e);
+      } finally {
+        if (runId === upcomingHydrateRunRef.current) {
+          setUpcomingHydrateLoading(false);
+        }
+      }
+    })();
+  }, [
+    activeTab,
+    sportName,
+    loadedSidebarState.value,
+    leagueEntries,
+    hydrateStoreForUpcomingTab,
+  ]);
+
   const tabStyle = (tab: string) =>
     `flex-1 py-2 text-center text-[10px] font-medium transition ${
       activeTab === tab
@@ -213,18 +308,13 @@ export const SportPage: FunctionComponent = () => {
             loading={loading}
             BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
             getFlagIconFromregionName={getFlagIconFromregionName}
-            getTranslatedText={getTranslatedText}
           />
         );
 
       case "competitions":
         return (
           <CompetitionsRender
-            data={
-              stoiximanSidebarState.value.find(
-                (s) => s.name === sportName,
-              ) as any
-            }
+            data={competitionsTree}
             sportName={sportName}
             leagueEntries={leagueEntries}
           />
@@ -244,10 +334,9 @@ export const SportPage: FunctionComponent = () => {
             selectedMarketSlug={selectedMarketSlug}
             setSelectedMarketSlug={setSelectedMarketSlug}
             selectedLeagueEntry={selectedLeagueEntry}
-            loading={loading}
+            loading={loading || upcomingHydrateLoading}
             BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
             getFlagIconFromregionName={getFlagIconFromregionName}
-            getTranslatedText={getTranslatedText}
           />
         );
     }
@@ -261,13 +350,13 @@ export const SportPage: FunctionComponent = () => {
         <Breadcrumbs
           items={[
             { label: "Home", href: "/event-view" },
-            { label: getTranslatedText(sportName) },
+            { label: sportName },
           ]}
         />
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="text-[12px] uppercase tracking-[0.28em] text-[var(--text-sub-color)] font-semibold">
-              {getTranslatedText(sportName)} sport page
+              {sportName} sport page
             </span>
             <div className={`flex gap-[4px] flex-1 min-w-0 items-center`}>
               <div className="w-[24px] h-full shrink-0">
@@ -283,7 +372,7 @@ export const SportPage: FunctionComponent = () => {
               <span
                 className={`text-left text-[19px] font-bold uppercase break-words whitespace-normal`}
               >
-                {getTranslatedText(sportName)}
+                {sportName}
               </span>
             </div>
           </div>

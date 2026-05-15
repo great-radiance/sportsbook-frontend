@@ -36,7 +36,6 @@ type Props = {
 
   BASE_ASSET_PUBLIC_URL: string;
   getFlagIconFromregionName: (region: string) => string;
-  getTranslatedText: (text: string) => string;
 };
 
 const HighlightRender = ({
@@ -54,7 +53,6 @@ const HighlightRender = ({
   loading,
   BASE_ASSET_PUBLIC_URL,
   getFlagIconFromregionName,
-  getTranslatedText,
 }: Props) => {
   const sortedEventIds = sortEventIdsByStartDate(
     selectedLeagueEntry?.eventIds || [],
@@ -112,7 +110,7 @@ const HighlightRender = ({
                     />
                   </div>
 
-                  {getTranslatedText(league.league)}
+                  {league.league}
                 </button>
               );
             })}

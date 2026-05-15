@@ -12,7 +12,7 @@ import {
   totalPagesState,
 } from "@/state/betHistoryState";
 import { loadedAllMatches } from "@/state/loadedAllMatches";
-import { getTranslate } from "@/helpers/getTranslate";
+import { accessToken } from "@/state/betState";
 
 export const OpenBets: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
@@ -26,14 +26,20 @@ export const OpenBets: FunctionComponent = () => {
   const lastRequestKeyRef = useRef<string>("");
 
   const fetchPendingBets = useCallback(async () => {
-    if (!xUserId || !page || !selectedTab || !loadedAllMatches.value) return;
+    if (
+      (!accessToken.value && !xUserId) ||
+      !page ||
+      !selectedTab ||
+      !loadedAllMatches.value
+    )
+      return;
 
     const status =
       selectedTab === "open"
-        ? ["pending", "partially_cashed_out"].join(",")
-        : ["cashed_out"].join(",");
+        ? "accepted,pending"
+        : "won,lost,voided,cashed_out,cancelled";
 
-    const requestKey = `${xUserId}|${page}|${status}`;
+    const requestKey = `${accessToken.value || xUserId}|${page}|${status}`;
 
     // prevents duplicate fetches (including StrictMode double-invoke)
     if (lastRequestKeyRef.current === requestKey) return;
@@ -47,7 +53,6 @@ export const OpenBets: FunctionComponent = () => {
         page,
         limit: 10,
         status,
-        userId: xUserId,
       });
 
       betHistoryState.value = response?.bets || [];
@@ -59,15 +64,21 @@ export const OpenBets: FunctionComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [xUserId, selectedTab, page, loadedAllMatches.value]);
+  }, [xUserId, accessToken.value, selectedTab, page, loadedAllMatches.value]);
 
   const fetchAfterCashout = useCallback(async () => {
-    if (!xUserId || !page || !selectedTab || !loadedAllMatches.value) return;
+    if (
+      (!accessToken.value && !xUserId) ||
+      !page ||
+      !selectedTab ||
+      !loadedAllMatches.value
+    )
+      return;
 
     const status =
       selectedTab === "open"
-        ? ["pending", "partially_cashed_out"].join(",")
-        : ["cashed_out"].join(",");
+        ? "accepted,pending"
+        : "won,lost,voided,cashed_out,cancelled";
 
     try {
       setLoading(true);
@@ -77,7 +88,6 @@ export const OpenBets: FunctionComponent = () => {
         page,
         limit: 10,
         status,
-        userId: xUserId,
       });
 
       betHistoryState.value = response?.bets || [];
@@ -90,29 +100,7 @@ export const OpenBets: FunctionComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [xUserId, selectedTab, page]);
-
-  useEffect(() => {
-    if (getAppConfig().lang !== "en") {
-      const sourceTexts = new Set<string>();
-      for (const bet of betHistoryState.value) {
-        if (bet.legs?.length) {
-          for (const leg of bet.legs) {
-            if (leg.league?.name) sourceTexts.add(leg.league.name);
-            if (leg.market?.name) sourceTexts.add(leg.market.name);
-
-            leg.participants?.forEach((p) => {
-              if (p?.name) sourceTexts.add(p.name);
-            });
-            leg.odds?.forEach((o) => {
-              if (o?.name) sourceTexts.add(o.name);
-            });
-          }
-        }
-      }
-      if (sourceTexts.size) getTranslate([...sourceTexts]);
-    }
-  }, [betHistoryState.value]);
+  }, [xUserId, accessToken.value, selectedTab, page, loadedAllMatches.value]);
 
   useEffect(() => {
     fetchPendingBets();

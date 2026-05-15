@@ -10,8 +10,6 @@ import {
 import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { popularMatchesState } from "@/state/popularMatchesState";
-import { getTranslatedText } from "@/helpers/getTranslate";
-import { getTeamlogo } from "@/helpers/getTeamlogos";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { MoneylineMatch } from "./MoneylineMatch";
@@ -19,6 +17,7 @@ import { getRegionNameById } from "@/shared/utils/Resion";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
 import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
+import { isBuilding } from "@/state/betState";
 
 interface MatchProps {
   eventId: number;
@@ -122,6 +121,14 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   // Get winner market (usually the first market)
   const selectedMarket = marketId ?? getSelectedMarket(marketSlug ?? "");
+  console.log(
+    "event",
+    event.competitors[0].name,
+    event.competitors[1].name,
+    markets,
+    markets[0]?.id,
+    selectedMarket,
+  );
 
   const [compact, setCompact] = useState<number>();
   const matchRef = useRef<HTMLDivElement>(null);
@@ -228,7 +235,7 @@ export const Match: FunctionComponent<MatchProps> = ({
       >
         <summary className="flex w-full items-center gap-2 cursor-pointer justify-between">
           <span className="text-[14px]">
-            {getTranslatedText(event?.competitors?.[0]?.name || "")}
+            {event?.competitors?.[0]?.name || ""}
           </span>
           <sl-icon
             name="chevron-down"
@@ -236,7 +243,11 @@ export const Match: FunctionComponent<MatchProps> = ({
           />
         </summary>
         <div className="flex flex-col w-full rounded-[8px] gap-2 p-2">
-          {groupMarketsByNameAndType(markets ?? []).map((group) => (
+          {groupMarketsByNameAndType(
+            isBuilding.value
+              ? (markets ?? []).filter((m) => m.isBetBuilderSupported)
+              : (markets ?? []),
+          ).map((group) => (
             <MarketComponent
               key={group.key}
               marketId={group.ids.length === 1 ? group.ids[0] : group.ids}
@@ -304,25 +315,26 @@ export const Match: FunctionComponent<MatchProps> = ({
           ) : (
             <div className="flex flex-col min-w-0 h-full flex-1">
               <div className="flex gap-2 h-full items-center justify-start truncate text-ellipsis overflow-hidden">
+                {/* Team logo omitted — names only. */}
+                {/*
                 <img
                   key={`${event?.sport}-${homeTeam}`}
                   src={
-                    getTeamlogo(event?.sport.name, homeTeam) ||
+                    cachedTeamLogoUrl(event?.sport.name, homeTeam) ||
                     `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                   }
-                  // onError={(e) => {
-                  //   e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
-                  // }}
                   className="w-[14px] h-[14px] object-contain shrink-0"
                   alt=""
                 />
-                {getTranslatedText(homeTeam) || homeTeam}
+                */}
+                {homeTeam}
               </div>
               <div className="flex gap-2 h-full items-center justify-start truncate text-ellipsis overflow-hidden">
+                {/*
                 <img
                   key={`${event?.sport}-${awayTeam}`}
                   src={
-                    getTeamlogo(event?.sport.name, awayTeam) ||
+                    cachedTeamLogoUrl(event?.sport.name, awayTeam) ||
                     `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                   }
                   onError={(e) => {
@@ -331,7 +343,8 @@ export const Match: FunctionComponent<MatchProps> = ({
                   className="w-[14px] h-[14px] object-contain shrink-0"
                   alt=""
                 />
-                {getTranslatedText(awayTeam) || awayTeam}
+                */}
+                {awayTeam}
               </div>
               {showLeague && (
                 <div className="flex gap-[2px] h-full text-[11px] items-center justify-start truncate text-ellipsis overflow-hidden">
@@ -362,8 +375,7 @@ export const Match: FunctionComponent<MatchProps> = ({
                     event.league ||
                     ""} */}
                     {/* {JSON.stringify(event.sport)} */}
-                    {getTranslatedText(event?.league.name) ||
-                      event?.league.name}
+                    {event?.league.name}
                   </span>
                 </div>
               )}

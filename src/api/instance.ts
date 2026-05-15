@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL_NEW,
+  baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
 export const setAxiosAuthToken = (
@@ -25,5 +25,14 @@ export const setAxiosAuthToken = (
     instance.defaults.headers["x-user-id"] = apiUserId;
   } else {
     delete instance.defaults.headers["x-user-id"];
+  }
+};
+
+/** Player JWT — attach only for routes that require `Authorization: Bearer` (see integration guide). */
+export const setSportsbookUserJwt = (token: string | null | undefined) => {
+  if (token) {
+    instance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete instance.defaults.headers.common["Authorization"];
   }
 };

@@ -1,6 +1,5 @@
 import { FunctionComponent } from "preact";
 import { HorizontalTabs } from "./HorizontalTabs";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { isMobile } from "@/state/isMobile";
 import { MARKET_NAMES } from "@/shared/utils/marketNames";
 import { useEffect } from "preact/hooks";
@@ -18,7 +17,6 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = ({
   onSelect,
   className,
 }) => {
-  // getTranslate(options.map((option) => option.label));
   options = options?.length > 0 ? options : MARKET_NAMES;
   useEffect(() => {
     onSelect(options[0]);
@@ -46,7 +44,7 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = ({
               } focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
               onClick={() => onSelect(option)}
             >
-              <span>{getTranslatedText(option)}</span>
+              <span>{option}</span>
             </button>
           );
         })}

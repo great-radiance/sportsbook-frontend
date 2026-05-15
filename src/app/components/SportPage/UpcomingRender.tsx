@@ -46,7 +46,6 @@ type Props = {
 
   BASE_ASSET_PUBLIC_URL: string;
   getFlagIconFromregionName: (region: string) => string;
-  getTranslatedText: (text: string) => string;
 };
 
 const UpcomingRender = ({
@@ -64,7 +63,6 @@ const UpcomingRender = ({
   loading,
   BASE_ASSET_PUBLIC_URL,
   getFlagIconFromregionName,
-  getTranslatedText,
 }: Props) => {
   const [filterStartTime, setFilterStartTime] = useState<number>(24); // default to 3 hours
   const [sortBy, setSortBy] = useState<"competition" | "start-time">(
@@ -211,7 +209,7 @@ const UpcomingRender = ({
                       alt={league.league}
                     />
                     <p className="text-sm font-semibold text-[var(--text-basic-color)]">
-                      {getTranslatedText(league.league)}
+                      {league.league}
                     </p>
                   </div>
                   <span className="text-[12px] text-[var(--text-sub-color)]">

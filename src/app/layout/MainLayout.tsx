@@ -7,17 +7,21 @@ import { MyBet } from "@/app/components/BetSlip/MyBet";
 import { useMediaQuery } from "usehooks-ts";
 import {
   accessToken,
-  selectedselections,
+  selectedOdds,
   selectedBetType,
   multipleBetAmount,
   myBetsState,
   buildingBetAmount,
   isOpenedMyBet,
+  balance,
+  currency,
 } from "@/state/betState";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 // import { RepeatConfirmDialog } from "@/app/components/BetSlip/RepeatConfirmDialog";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
-import { apiGetAccessToken } from "@/api/apiGetAccessToken";
+import { apiOperatorsAuthLogin } from "@/api/auth/apiOperatorsAuthLogin";
+import { apiGetSportsbookBalance } from "@/api/bet/apiSportsbookBalance";
+import { setSportsbookUserJwt } from "@/api/instance";
 import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import useSocketEvent from "@/hooks/useSocketEvent";
@@ -46,30 +50,30 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   const socketConnected = useSocketStatus();
   const [, setLocation] = useLocation();
   const mainLayoutRef = useRef<HTMLDivElement>(null);
-  const getAccessToken = async () => {
-    const response = await apiGetAccessToken();
-    accessToken.value = response?.data.access_token || "";
-  };
-
   const { baseTheme } = getAppConfig();
 
   useEffect(() => {
-    if (selectedselections.value.length === 0) {
+    if (selectedOdds.value.length === 0) {
+      window.localStorage.removeItem("selectedOdds");
       window.localStorage.removeItem("selectedBets");
       return;
     }
     const selectedBetsData = {
-      selectedselections: selectedselections.value,
+      selectedOdds: selectedOdds.value,
       selectedBetType: selectedBetType.value,
       multipleBetAmount: multipleBetAmount.value,
       buildingBetAmount: buildingBetAmount.value,
     };
     window.localStorage.setItem(
+      "selectedOdds",
+      JSON.stringify(selectedOdds.value),
+    );
+    window.localStorage.setItem(
       "selectedBets",
       JSON.stringify(selectedBetsData),
     );
   }, [
-    selectedselections.value,
+    selectedOdds.value,
     selectedBetType.value,
     multipleBetAmount.value,
     buildingBetAmount.value,
@@ -80,21 +84,80 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   }, [pageName]);
 
   const getSBetsData = () => {
-    const selectedBetsData = window.localStorage.getItem("selectedBets");
+    const slipRaw =
+      window.localStorage.getItem("selectedOdds") ||
+      window.localStorage.getItem("selectedBets");
     const myBetsData = window.localStorage.getItem("my_bets");
-    if (selectedBetsData) {
-      const selectedBetsDataObj = JSON.parse(selectedBetsData);
-      selectedselections.value = selectedBetsDataObj.selectedselections;
-      selectedBetType.value = selectedBetsDataObj.selectedBetType;
-      multipleBetAmount.value = selectedBetsDataObj.multipleBetAmount;
-      buildingBetAmount.value = selectedBetsDataObj.buildingBetAmount;
+    if (slipRaw) {
+      try {
+        const parsed = JSON.parse(slipRaw);
+        if (Array.isArray(parsed)) {
+          selectedOdds.value = parsed;
+        } else if (parsed?.selectedOdds && Array.isArray(parsed.selectedOdds)) {
+          selectedOdds.value = parsed.selectedOdds;
+          selectedBetType.value = parsed.selectedBetType ?? "single";
+          multipleBetAmount.value = parsed.multipleBetAmount ?? 0;
+          buildingBetAmount.value = parsed.buildingBetAmount ?? 0;
+        } else if (
+          parsed?.selectedselections &&
+          Array.isArray(parsed.selectedselections)
+        ) {
+          /* legacy key — ignore */
+        } else if (parsed?.selectedBetType) {
+          selectedBetType.value = parsed.selectedBetType;
+          multipleBetAmount.value = parsed.multipleBetAmount ?? 0;
+          buildingBetAmount.value = parsed.buildingBetAmount ?? 0;
+        }
+      } catch {
+        /* ignore corrupt slip */
+      }
     }
     const myBetsDataObj = JSON.parse(myBetsData || "[]");
     myBetsState.value = myBetsDataObj;
   };
 
   useEffect(() => {
-    getAccessToken();
+    (async () => {
+      const cfg = getAppConfig();
+      balance.value = cfg.xUserBalance ?? balance.value;
+      currency.value = cfg.currency ?? currency.value;
+
+      let deviceId = window.localStorage.getItem("sb_device_id");
+      if (!deviceId) {
+        deviceId =
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `dev_${Date.now()}`;
+        window.localStorage.setItem("sb_device_id", deviceId);
+      }
+
+      try {
+        setSportsbookUserJwt(null);
+        accessToken.value = "";
+
+        const login = await apiOperatorsAuthLogin({
+          playerId: cfg.xUserId || "guest",
+          deviceId,
+          ip: "0.0.0.0",
+          languageId: cfg.lang || "en",
+        });
+        const token = login?.token;
+        if (token) {
+          window.localStorage.setItem("sb_token", token);
+          setSportsbookUserJwt(token);
+          accessToken.value = token;
+        }
+        // try {
+        //   const bal = await apiGetSportsbookBalance();
+        //   if (typeof bal?.balance === "number") balance.value = bal.balance;
+        //   if (bal?.currency) currency.value = bal.currency;
+        // } catch {
+        //   /* balance optional on some envs */
+        // }
+      } catch (e) {
+        console.warn("Sportsbook operator login failed:", e);
+      }
+    })();
     getSBetsData();
     const favoriteMatchesData = window.localStorage.getItem("favoriteMatches");
     if (favoriteMatchesData) {

@@ -1,5 +1,5 @@
 import { summaryData } from "@/state/summarySports";
-import { instanceOdds88 } from "../instanceOdds88";
+import { instance } from "../instance";
 import { getAppConfig } from "@/shared/config/appConfig";
 
 export type tSummaryEventResponse = [
@@ -11,7 +11,7 @@ export type tSummaryEventResponse = [
   [number, string][], // competitors
   string, // startTime
   boolean, // isOutright
-  boolean, // isBetBuilderSuported
+  boolean, // isBetBuilderSupported
   any, // customDisplayData
 ];
 
@@ -33,7 +33,7 @@ export type tSportResponse = [
       // [number, string][], // competitors
       // string, // startTime
       // boolean, // isOutright
-      // boolean, // isBetBuilderSuported
+      // boolean, // isBetBuilderSupported
       // any, // customDisplayData
     ][],
   ][],
@@ -60,24 +60,24 @@ type tProps = {
   status: number[];
   tradingStatus: number;
   isOutright: boolean;
-  isBetBuilderSuported?: boolean;
+  isBetBuilderSupported?: boolean;
 };
 
 export const apiGetSummaryArray = async ({
   status = [1],
   tradingStatus = 0,
   isOutright = false,
-  isBetBuilderSuported,
+  isBetBuilderSupported,
 }: tProps): Promise<summaryData> => {
   const params = new URLSearchParams();
   params.append("status", status.join(","));
   params.append("tradingStatus", tradingStatus.toString());
   params.append("isOutright", isOutright.toString());
   params.append("lang", getAppConfig().lang);
-  if (isBetBuilderSuported) {
-    params.append("isBetBuilderSuported", isBetBuilderSuported.toString());
+  if (isBetBuilderSupported) {
+    params.append("isBetBuilderSupported", isBetBuilderSupported.toString());
   }
-  const response = await instanceOdds88.get<{ data: tSportResponse }>(
+  const response = await instance.get<{ data: tSportResponse }>(
     `/odds88/events/array?${params.toString()}`,
   );
 

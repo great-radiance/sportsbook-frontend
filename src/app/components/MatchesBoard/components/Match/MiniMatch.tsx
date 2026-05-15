@@ -13,8 +13,6 @@ import {
 } from "@/types/typesForSocket.ts/tEventModel";
 import { MiniMatchLoader } from "@/app/components/Loading";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
-import { getTeamlogo } from "@/helpers/getTeamlogos";
-import { getTranslatedText } from "@/helpers/getTranslate";
 
 interface MiniMatchProps {
   selectedEventId: number;
@@ -127,26 +125,31 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
               00:00
             </span>
             <div className="flex items-center gap-2 text-[12px] min-w-0 truncate text-ellipsis overflow-hidden">
+              {/* Team logo omitted — names only. */}
+              {/*
               <img
                 src={
-                  getTeamlogo(match.sport?.name, homeTeam) ||
+                  cachedTeamLogoUrl(match.sport?.name, homeTeam) ||
                   `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                 }
                 className="w-[14px] h-[14px] object-contain shrink-0"
                 alt=""
               />
-              {getTranslatedText(homeTeam) || homeTeam}
+              */}
+              {homeTeam}
             </div>
             <div className="flex items-center gap-2 text-[12px] min-w-0 truncate text-ellipsis overflow-hidden">
+              {/*
               <img
                 src={
-                  getTeamlogo(match.sport?.name, awayTeam) ||
+                  cachedTeamLogoUrl(match.sport?.name, awayTeam) ||
                   `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                 }
                 className="w-[14px] h-[14px] object-contain shrink-0"
                 alt=""
               />
-              {getTranslatedText(awayTeam) || awayTeam}
+              */}
+              {awayTeam}
             </div>
           </div>
 

@@ -1,5 +1,4 @@
 import { instance } from "../instance";
-import { instanceOdds88 } from "../instanceOdds88";
 import { tSportResponse } from "../sidebar/apiGetSummaryArray";
 
 /**
@@ -41,7 +40,7 @@ export const apiGetUpcomingMatches = async ({
   limit,
   offset,
 }: tParam): Promise<tGetUpcomingMatchesResponse> => {
-  const response = await instanceOdds88.get<tGetUpcomingMatchesResponse>(
+  const response = await instance.get<tGetUpcomingMatchesResponse>(
     `odds88/events/upcoming/array`,
     {
       params: {

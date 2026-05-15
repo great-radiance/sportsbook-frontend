@@ -9,10 +9,8 @@ import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { getTranslatedText } from "@/helpers/getTranslate";
 import { MarketNavigation } from "../marketNavigation";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
-import { apiGetOutrightMatchs } from "@/api/matches/apiGetOutrightMatchs";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 import { sortLeagueNames } from "@/helpers/sortLeagues";
 import { storeEvent } from "@/helpers/storeEvent";
@@ -254,8 +252,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
           ))
         ) : outrightEventIdsForSelectedLeague.length === 0 ? (
           <span className="flex items-center justify-center w-full py-4 text-[12px] text-[var(--text-sub-color)]">
-            {getTranslatedText("There is no outright for this competition") ||
-              "There is no outright for this competition"}
+            There is no outright for this competition
           </span>
         ) : (
           outrightEventIdsForSelectedLeague.map((eventId: number) => (

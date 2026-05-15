@@ -1,73 +1,58 @@
-import { apiGetFeaturedLeagues } from "@/api/special-matches/apiGetFeaturedLeagues";
 import { isMobile } from "@/state/isMobile";
 import { popularLeaguesState } from "@/state/popularLeaguesState";
 import { summarySports } from "@/state/summarySports";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
-import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
-import { getTranslate, getTranslatedText } from "@/helpers/getTranslate";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { buildFeaturedLeaguesFromSummary } from "@/helpers/featuredLeaguesFromSummary";
 
 type LeagueItem = { sport: string; region: string; league: string };
 
 export const TopLeagueMenu = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [, setLocation] = useLocation();
-  const baseTheme = baseColorTheme.value;
 
   useEffect(() => {
-    const fetchPopularCompetitions = async () => {
-      if (
-        Object.keys(popularLeaguesState.value).length !== 0 ||
-        !isMobile.value
-      ) {
-        setLoading(false);
-        return;
-      }
-      if (Object.keys(summarySports.value).length === 0) return;
-      try {
-        setLoading(true);
-        const response = await apiGetFeaturedLeagues();
-        popularLeaguesState.value = response;
-        if (getAppConfig().lang !== "en") {
-          const sourceTexts: string[] = [];
-          for (const sport of Object.keys(response)) {
-            sourceTexts.push(sport);
-            for (const region of Object.keys(response[sport] ?? {})) {
-              sourceTexts.push(region);
-              for (const league of response[sport][region] ?? []) {
-                sourceTexts.push(league);
-              }
-            }
-          }
-          getTranslate([...new Set(sourceTexts)]);
-        }
-      } catch (error) {
-        console.error("Error fetching popular competitions:", error);
-        popularLeaguesState.value = {};
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPopularCompetitions();
-  }, [summarySports.value.counts, isMobile.value, popularLeaguesState.value]);
+    if (!isMobile.value) {
+      setLoading(false);
+      return;
+    }
+    if (Object.keys(popularLeaguesState.value).length > 0) {
+      setLoading(false);
+      return;
+    }
+    const summary = summarySports.value;
+    if (!summary?.data?.length || summary.TotalCount <= 0) {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      popularLeaguesState.value = buildFeaturedLeaguesFromSummary(summary);
+    } catch (error) {
+      console.error("Error building featured leagues:", error);
+      popularLeaguesState.value = {};
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    summarySports.value.data,
+    summarySports.value.TotalCount,
+    isMobile.value,
+  ]);
 
   const leagueItems = useMemo((): LeagueItem[] => {
     const items: LeagueItem[] = [];
     const state = popularLeaguesState.value;
     for (const sport of Object.keys(state)) {
       for (const region of Object.keys(state[sport] ?? {})) {
-        const count =
-          summarySports.value.counts[sport]?.regions?.[region]?.leagues;
         for (const league of state[sport][region] ?? []) {
-          if ((count?.[league] ?? 0) > 0) {
-            items.push({ sport, region, league });
-          }
+          items.push({ sport, region, league });
         }
       }
     }
     return items;
-  }, [popularLeaguesState.value, summarySports.value.counts]);
+  }, [popularLeaguesState.value]);
 
   const onLeagueClick = (e: MouseEvent, path: string) => {
     e.stopPropagation();
@@ -146,10 +131,10 @@ export const TopLeagueMenu = () => {
             </div>
             <div className="min-w-0 flex-1 truncate">
               <span className="block text-[var(--text-primary-color)]">
-                {getTranslatedText(league)}
+                {league}
               </span>
               <span className="text-[var(--text-basic-color)]">
-                {getTranslatedText(region)}
+                {region}
               </span>
             </div>
           </button>

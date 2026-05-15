@@ -14,9 +14,7 @@ import { PrematchLoader } from "../Loading/PrematchLoader";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
-import { getAppConfig } from "@/shared/config/appConfig";
-import { getTranslate } from "@/helpers/getTranslate";
+import { apiGetSidebar, withPrematchSidebarFeatured } from "@/api/sidebar/apiGetSidebar";
 import { useOrderConfig } from "@/hooks/useOrderConfig";
 import { loadedSportsbookState } from "@/state/loadedSportsbookState";
 
@@ -56,14 +54,9 @@ export const Sidebar: FunctionComponent = () => {
           // apiGetOrderConfigration(),
         ]);
         // stoiximanSidebarState.value = res;
-        console.log("sidebar data", res2);
         summarySports.value = res1;
-        summarySportsLive.value = res2;
-        // summarySports.value = { ...summarySports.value };
-        // summarySportsLive.value = { ...summarySportsLive.value };
-        outRightSummarySports.value = res3;
-        console.log("res3", res3);
-        // outRightSummarySports.value = { ...outRightSummarySports.value };
+        summarySportsLive.value = withPrematchSidebarFeatured(res1, res2);
+        outRightSummarySports.value = withPrematchSidebarFeatured(res1, res3);
         // orderConfigState.value = configRes;
         setLoading(false);
         useOrderConfig({
@@ -79,23 +72,6 @@ export const Sidebar: FunctionComponent = () => {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    (async () => {
-      const lang = getAppConfig().lang;
-      if (lang === "en") return;
-      const sourceTexts = [
-        ...Object.keys(summarySports.value.data),
-        ...Object.values(summarySports.value.data).flatMap((sport) =>
-          Object.keys(sport),
-        ),
-        ...Object.values(summarySports.value.data).flatMap((sport) =>
-          Object.values(sport).flatMap((region) => Object.keys(region)),
-        ),
-      ];
-      await getTranslate(sourceTexts);
-    })();
-  }, [summarySports.value]);
 
   const fetchSidebar = useCallback(async () => {
     if (loading) return;
@@ -114,9 +90,7 @@ export const Sidebar: FunctionComponent = () => {
         }),
       ]);
       summarySports.value = res;
-      // summarySports.value = { ...summarySports.value };
-      summarySportsLive.value = res2;
-      // summarySportsLive.value = { ...summarySportsLive.value };
+      summarySportsLive.value = withPrematchSidebarFeatured(res, res2);
     } catch (error) {
       console.error("Error fetching summary or oders:", error);
     } finally {

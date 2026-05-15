@@ -70,14 +70,19 @@ export const MarketsBoard: FunctionComponent = () => {
   const markets =
     Object.values(eventData?.markets ?? {}).map((sig) => sig.value) || [];
 
-  const mergedMarkets = useMemo(
-    () => groupMarketsByNameAndType(markets),
-    [markets],
-  );
-  const mergedSearchResults = useMemo(
-    () => groupMarketsByNameAndType(searchResultMarkets),
-    [searchResultMarkets],
-  );
+  const mergedMarkets = useMemo(() => {
+    const list = isBuilding.value
+      ? markets.filter((m) => m.isBetBuilderSupported)
+      : markets;
+    return groupMarketsByNameAndType(list);
+  }, [markets, isBuilding.value]);
+
+  const mergedSearchResults = useMemo(() => {
+    const list = isBuilding.value
+      ? searchResultMarkets.filter((m) => m.isBetBuilderSupported)
+      : searchResultMarkets;
+    return groupMarketsByNameAndType(list);
+  }, [searchResultMarkets, isBuilding.value]);
 
   const scoreboard = eventData?.scoreboard;
   const homeGoals = getCompetitorScore(scoreboard, 1);

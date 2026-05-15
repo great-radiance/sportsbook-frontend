@@ -10,8 +10,19 @@ import { signal, Signal } from "@preact/signals";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import { completeName } from "./completeName";
 
+/** API payloads may use legacy typo `isBetBuilderSuported` or correct `isBetBuilderSupported`. */
+type BetBuilderSupportIn = {
+  isBetBuilderSupported?: boolean;
+  isBetBuilderSuported?: boolean;
+};
+
+function readIsBetBuilderSupported(source: BetBuilderSupportIn): boolean {
+  return Boolean(source.isBetBuilderSupported ?? source.isBetBuilderSuported);
+}
+
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
+  console.log("storeEvent", event);
   if (!storeState.value[event.eventInfo.id]) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,
@@ -34,6 +45,9 @@ export const storeEvent = (event: MatchDataResponse) => {
           market.parameters,
           selectionExtra,
         ),
+        isBetBuilderSupported: readIsBetBuilderSupported(
+          selection as BetBuilderSupportIn,
+        ),
       };
       selections.push(signal<tSelectionValue>(completedSelection));
     }
@@ -50,18 +64,21 @@ export const storeEvent = (event: MatchDataResponse) => {
     // });
     const marketData: tMarketModel = {
       id: market.id,
-      name: completeName(
-        market.name,
-        competitors,
-        market.parameters,
-        market.extraParameters,
-      ),
+      name: market.name,
+      // completeName(
+      //   market.name,
+      //   competitors,
+      //   market.parameters,
+      //   market.extraParameters,
+      // ),
       tradingStatus: market.tradingStatus,
       type: market.type,
       isBestLine: market.isBestLine,
       parameters: market.parameters,
       extraParameters: market.extraParameters,
-      isBetBuilderSuported: market.isBetBuilderSuported,
+      isBetBuilderSupported: readIsBetBuilderSupported(
+        market as BetBuilderSupportIn,
+      ),
       selections: selections.sort((a, b) => a.value.id - b.value.id),
     };
     if (
@@ -89,7 +106,9 @@ export const storeEvent = (event: MatchDataResponse) => {
     startTime: event.eventInfo.startTime,
     isOutright: event.eventInfo.isOutright,
     customdisplayData: event.eventInfo.customDisplayData,
-    isBetBuilderSuported: event.eventInfo.isBetBuilderSuported,
+    isBetBuilderSupported: readIsBetBuilderSupported(
+      event.eventInfo as BetBuilderSupportIn,
+    ),
     mappingInfo: event.eventInfo.mappingInfo,
     markets: {
       ...evSig.value.markets,
@@ -98,6 +117,7 @@ export const storeEvent = (event: MatchDataResponse) => {
     scoreboard: event.scoreboard,
     // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
+  console.log("storedEvent", evSig.value);
 };
 
 export const storeSelection = (

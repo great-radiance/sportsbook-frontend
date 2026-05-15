@@ -1,8 +1,12 @@
 import { FunctionComponent } from "preact";
-import { selectedBetType, selectedselections } from "@/state/betState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { isMobile } from "@/state/isMobile";
 import { storeState } from "@/state/storeState";
+import {
+  isBetslipSelectionSelected,
+  toggleBetslipSelection,
+} from "@/helpers/betslipSelection";
+import { isBuilding } from "@/state/betState";
 
 interface MarketProps {
   marketId: number;
@@ -10,12 +14,6 @@ interface MarketProps {
   eventId: number;
   single?: boolean;
 }
-
-export const isSelected = (selectionId: number) => {
-  return selectedselections.value.some(
-    (selection) => selection.selectionId === selectionId,
-  );
-};
 
 // export const handleClickOdd = ({
 //   selectionId,
@@ -163,13 +161,27 @@ export const Market: FunctionComponent<MarketProps> = ({
 }) => {
   const evSig = storeState.value[eventId];
   const event = evSig?.value;
+  const marketKey = String(marketId);
 
-  const market = event?.markets?.[marketId]?.value;
+  const market = event?.markets?.[marketKey]?.value;
   const tradingStatus = market?.tradingStatus;
   const name = market?.name;
   const lowerName = name?.toLowerCase() || "";
-  const column = market?.selections?.length ?? 0;
-  const selections = market?.selections ?? [];
+
+  if (isBuilding.value && !market?.isBetBuilderSupported) {
+    return null;
+  }
+
+  const selectionsAll = market?.selections ?? [];
+  const selections = isBuilding.value
+    ? selectionsAll.filter((s) => s.value.isBetBuilderSupported)
+    : selectionsAll;
+
+  if (isBuilding.value && selections.length === 0) {
+    return null;
+  }
+
+  const column = selections.length;
 
   // const labels = {
   //   winner: ["1", "X", "2"],
@@ -216,7 +228,8 @@ export const Market: FunctionComponent<MarketProps> = ({
         {selections.map((selection, index) => {
           const selectionName = selection?.value.name;
           const selectionId = selection?.value.id;
-          const isSuspended = selection?.value.status === 1;
+          const isSuspended =
+            selection?.value.status === 1 || tradingStatus === 1;
           const isClosed =
             selection?.value.status === 2 || selection?.value.status === 3;
 
@@ -246,6 +259,12 @@ export const Market: FunctionComponent<MarketProps> = ({
             );
           }
 
+          const selected = isBetslipSelectionSelected(
+            eventId,
+            marketKey,
+            selectionId as number,
+          );
+
           return (
             <div
               key={selectionId}
@@ -254,34 +273,31 @@ export const Market: FunctionComponent<MarketProps> = ({
                   ? ""
                   : "hover:bg-[var(--primary-color)] hover:text-white"
               } ${index > 0 ? "transition-colors" : ""} ${
-                isSelected(1)
+                selected
                   ? "bg-[var(--primary-color)] text-white/90"
                   : "text-[var(--text-basic-color)] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] group-hover:text-white"
               }`}
-              // onClick={() =>
-              //   odd &&
-              //   handleClickOdd({
-              //     eventId: eventId || 0,
-              //     marketId: marketId || "",
-              //     marketName: name,
-              //     participants: event?.participants,
-              //     startDate: event?.startDate,
-              //     oddId: odd.id || "",
-              //     oddName: oddName || "",
-              //     sportSlug: event?.sport || "",
-              //   })
-              // }
+              onClick={() => {
+                if (selectionId == null || !selection?.value) return;
+                toggleBetslipSelection({
+                  eventId,
+                  marketKey,
+                  marketName: name ?? "",
+                  selection: selection.value,
+                  apiMarketId: market?.id ?? Number(marketId),
+                });
+              }}
             >
               <span
                 className={`min-w-0 truncate text-ellipsis overflow-hidden  ${
-                  isSelected(1) ? "text-white" : "  group-hover:text-white"
+                  selected ? "text-white" : "  group-hover:text-white"
                 }`}
               >
                 {selectionName}
               </span>
               <span
                 className={`flex ${
-                  isSelected(1)
+                  selected
                     ? ""
                     : "group-hover:text-white text-[var(--text-primary-color)] "
                 }`}

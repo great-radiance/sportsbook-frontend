@@ -27,7 +27,7 @@ export const LiveEventView: FunctionComponent = () => {
           display: isOpenedMyBet.value ? "flex" : "none",
         }}
       >
-        {/* <RightSidebar /> */}
+        <RightSidebar />
       </div>
     </div>
   );

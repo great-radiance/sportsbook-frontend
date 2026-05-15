@@ -13,8 +13,13 @@ import {
 import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
-import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
+import {
+  extractHandicapFigure,
+  getOddName,
+  getOnlyNumber,
+} from "@/helpers/getOnlyNumber";
 import type {
+  competitor,
   tMarketModel,
   tSelectionValue,
 } from "@/types/typesForSocket.ts/tEventModel";
@@ -77,6 +82,86 @@ const marketSelections = (
     .filter((s): s is tSelectionValue => !!s)
     .filter((s) => !betBuilderOnly || s.isBetBuilderSupported);
 
+function pairSelectionsForTeams(
+  selections: tSelectionValue[],
+  competitors: competitor[],
+): [tSelectionValue | undefined, tSelectionValue | undefined] {
+  const c0 = competitors[0];
+  const c1 = competitors[1];
+  if (selections.length < 2 || !c0?.id || !c1?.id) {
+    return [selections[0], selections[1]];
+  }
+  const forId = (id: number) => selections.find((s) => s.competitionId === id);
+  const a = forId(c0.id);
+  const b = forId(c1.id);
+  if (a && b && a.id !== b.id) return [a, b];
+  return [selections[0], selections[1]];
+}
+
+function spreadSortKey(odd: tSelectionValue | undefined): number | null {
+  if (!odd) return null;
+  const name = getOddName(odd.name as Parameters<typeof getOddName>[0]);
+  if (!name || typeof name !== "string") return null;
+  const fig = extractHandicapFigure(name);
+  if (!fig) return null;
+  const n = parseFloat(fig.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Put favorite (negative / lower handicap line) first to match board convention. */
+function favoriteFirstPermutation(
+  pairedMl: [tSelectionValue | undefined, tSelectionValue | undefined],
+  pairedSp: [tSelectionValue | undefined, tSelectionValue | undefined],
+): readonly [number, number] {
+  const s0 = spreadSortKey(pairedSp[0]);
+  const s1 = spreadSortKey(pairedSp[1]);
+  if (s0 != null && s1 != null && s0 !== s1) {
+    return s0 < s1 ? [0, 1] : [1, 0];
+  }
+  const p0 = pairedMl[0]?.price;
+  const p1 = pairedMl[1]?.price;
+  if (
+    p0 != null &&
+    p1 != null &&
+    Number.isFinite(p0) &&
+    Number.isFinite(p1) &&
+    p0 !== p1
+  ) {
+    return p0 < p1 ? [0, 1] : [1, 0];
+  }
+  return [0, 1];
+}
+
+function pickSpreadMarket(
+  boardMarkets: tMarketModel[],
+  competitors: competitor[],
+  betBuilderOnly: boolean,
+): tMarketModel | undefined {
+  const candidates = boardMarkets.filter((m) => {
+    const n = m.name.toLowerCase();
+    return n.includes("handicap") && !n.includes("3-");
+  });
+  if (candidates.length === 0) return undefined;
+  const pool = candidates.filter(
+    (m) => marketSelections(m, betBuilderOnly).length === 2,
+  );
+  const scan = pool.length > 0 ? pool : candidates;
+  let best = scan[0];
+  let bestScore = -1;
+  for (const m of scan) {
+    const sels = marketSelections(m, betBuilderOnly);
+    if (sels.length !== 2) continue;
+    const [a, b] = pairSelectionsForTeams(sels, competitors);
+    const aligned = !!(a && b && a.id !== b.id);
+    const score = aligned ? 2 : 1;
+    if (score > bestScore) {
+      bestScore = score;
+      best = m;
+    }
+  }
+  return best;
+}
+
 function oddLabel(
   _market: tMarketModel | undefined,
   odd: tSelectionValue | undefined,
@@ -88,11 +173,9 @@ function oddLabel(
   if (kind === "moneyline") return "";
   const num = getOnlyNumber(name as string);
   if (kind === "spread") {
-    return num
-      ? num.startsWith("-") || num.startsWith("+")
-        ? num
-        : `+${num}`
-      : name || "—";
+    const fig = typeof name === "string" ? extractHandicapFigure(name) : null;
+    if (!fig) return "—";
+    return fig.startsWith("-") || fig.startsWith("+") ? fig : `+${fig}`;
   }
   if (kind === "total") {
     const lower = (name || "").toLowerCase();
@@ -117,8 +200,6 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
   const isLive = event?.status === 3;
 
   const competitors = event?.competitors || [];
-  const homeTeam = competitors[0]?.name || "Team 1";
-  const awayTeam = competitors[1]?.name || "Team 2";
 
   const markets = event?.markets
     ? Object.values(event.markets).map((sig) => sig.value)
@@ -130,18 +211,21 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
 
   // Heuristic market pickers — `tMarketModel` no longer carries a `column`
   // field; the column count is implicit in `selections.length`.
-  const moneylineMarket = boardMarkets.find((m) => {
-    const n = m.name.toLowerCase();
-    return (
-      n.includes("match result") ||
-      n.includes("winner") ||
-      n.includes("moneyline")
-    );
-  });
-  const spreadMarket = boardMarkets.find((m) => {
-    const n = m.name.toLowerCase();
-    return n.includes("handicap") && !n.includes("3-");
-  });
+  const moneylineMarket = boardMarkets
+    .filter((m) => {
+      const n = m.name.toLowerCase();
+      return (
+        n.includes("match result") ||
+        n.includes("winner") ||
+        n.includes("moneyline")
+      );
+    })
+    .find((m) => m.isBestLine);
+  const spreadMarket = pickSpreadMarket(
+    boardMarkets,
+    competitors,
+    isBuilding.value,
+  );
   const totalMarket = boardMarkets.find((m) => {
     const n = m.name.toLowerCase();
     return (
@@ -209,9 +293,26 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     ? `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`
     : "#";
 
-  const mlOdds = marketSelections(moneylineMarket, isBuilding.value);
-  const spOdds = marketSelections(spreadMarket, isBuilding.value);
-  const totOdds = marketSelections(totalMarket, isBuilding.value);
+  const mlOddsRaw = marketSelections(moneylineMarket, isBuilding.value);
+  const spOddsRaw = marketSelections(spreadMarket, isBuilding.value);
+  const totOddsRaw = marketSelections(totalMarket, isBuilding.value);
+
+  const mlPair = pairSelectionsForTeams(mlOddsRaw, competitors);
+  const spPair = pairSelectionsForTeams(spOddsRaw, competitors);
+  const totPair = pairSelectionsForTeams(totOddsRaw, competitors);
+
+  const rowOrder = favoriteFirstPermutation(mlPair, spPair);
+  const mlOdds = rowOrder.map((i) => mlPair[i]);
+  const spOdds = rowOrder.map((i) => spPair[i]);
+  const totOdds = rowOrder.map((i) => totPair[i]);
+
+  const teamFirst =
+    competitors[rowOrder[0]]?.name || competitors[0]?.name || "Team 1";
+  const teamSecond =
+    competitors[rowOrder[1]]?.name || competitors[1]?.name || "Team 2";
+
+  const scoreFirst = rowOrder[0] === 0 ? homeGoals : awayGoals;
+  const scoreSecond = rowOrder[1] === 0 ? homeGoals : awayGoals;
 
   const renderOddButton = (
     odd: tSelectionValue | undefined,
@@ -338,9 +439,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
               alt=""
             />
           </div>
-          <span>
-            {event.league?.name}
-          </span>
+          <span>{event.league?.name}</span>
         </div>
         <div className="grid min-w-0 grid-cols-3 gap-1 text-center md:min-w-[50%] md:max-w-[50%]">
           <span className="text-[11px] font-medium text-[var(--text-basic-color)]">
@@ -355,7 +454,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         </div>
       </div>
 
-      <div className="flex gap-2 p-2 md:items-stretch md:gap-3 md:p-3 h-full">
+      <div className="flex gap-2 p-2 justify-between md:items-stretch md:gap-3 md:p-3 h-full">
         <div
           className="flex min-w-0 md:flex-1 flex-col gap-2 md:max-w-[48%] h-full"
           onClick={(e) => {
@@ -402,12 +501,12 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                     />
                     */}
                     <span className="truncate text-[13px] font-bold">
-                      {homeTeam}
+                      {teamFirst}
                     </span>
                   </div>
                   {isLive && (
                     <span className="shrink-0 text-[13px] font-bold tabular-nums">
-                      {homeGoals}
+                      {scoreFirst}
                     </span>
                   )}
                 </div>
@@ -429,12 +528,12 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                   />
                   */}
                   <span className="truncate text-[13px] font-bold">
-                    {awayTeam}
+                    {teamSecond}
                   </span>
                 </div>
                 {isLive && (
                   <span className="shrink-0 text-[13px] font-bold tabular-nums">
-                    {awayGoals}
+                    {scoreSecond}
                   </span>
                 )}
               </div>
@@ -443,7 +542,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         </div>
 
         <div
-          className="grid min-w-0 flex-1 grid-cols-3 gap-1.5 md:max-w-[52%]"
+          className="grid min-w-0 flex-1 grid-cols-3 gap-1.5 max-w-[52%]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col gap-1.5">

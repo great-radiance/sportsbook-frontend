@@ -12,6 +12,14 @@ export const getOnlyNumber = (str: string | object | null) => {
   }
 };
 
+/** Handicap figure from labels like "-4.5", "Team (+6.5)", "Name (-1.5)". */
+export function extractHandicapFigure(str: string | null | undefined): string | null {
+  if (!str || typeof str !== "string") return null;
+  const inParens = [...str.matchAll(/\(([+-]?\d+(?:\.\d+)?)\)/g)];
+  if (inParens.length > 0) return inParens[inParens.length - 1][1];
+  return getOnlyNumber(str) ?? null;
+}
+
 export const getOddName = (
   str: string | { h: string | null; e: string | null; o: string | null } | null,
 ) => {

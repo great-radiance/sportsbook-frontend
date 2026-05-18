@@ -8,7 +8,6 @@ import { summarySports, summarySportsLive } from "@/state/summarySports";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { SportsListLoader } from "../Loading";
-import { orderConfigState } from "@/state/orderConfigState";
 
 interface SportsListProps {
   sportsData: { count: number; name: string; id: number }[];
@@ -217,10 +216,7 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
                 } rounded-full px-2 py-1 gap-1 items-center justify-center cursor-pointer`}
                 style={{
                   order: sport.id || 999,
-                  display:
-                    orderConfigState.value[sport.id]?.enabled === false
-                      ? "none"
-                      : "flex", // (summarySportsLive.value.config.find(
+                  display: "flex", // (summarySportsLive.value.config.find(
                   //     (s) =>
                   //       s.sportSlug ===
                   //       slugify(sport.name, {

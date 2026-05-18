@@ -24,7 +24,7 @@ if (import.meta.env.DEV && typeof document !== "undefined") {
         import.meta.env.VITE_API_ID ||
         "a57f61c93d95b624",
       xSportsbookToken: import.meta.env.VITE_USER_JWT as string | undefined,
-      xUserId: import.meta.env.VITE_USER_ID || "00002659",
+      xUserId: "00005abb",
       xUserName: "test1",
       xUserBalance: 15293700,
       currency: "TRY",

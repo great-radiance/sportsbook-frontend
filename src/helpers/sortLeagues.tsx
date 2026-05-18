@@ -1,7 +1,13 @@
+import { isSoccerSport, sortSoccerLeagues } from "./soccerLeagueTiers";
+
 type LeagueItem = {
   key: string;
-  region: string;
-  league: string;
+  sportId: number;
+  regionId: number;
+  leagueId: number;
+  /** Display only — resolved from summary; not used for sorting. */
+  region?: string;
+  league?: string;
   eventIds: number[];
   outrightIds: number[];
   matchCount: number;
@@ -136,13 +142,19 @@ const topLeaguesMap: TopLeaguesMap = {
 export function sortLeagues(
   leagues: LeagueItem[],
   sportName?: string,
+  sportId?: number,
 ): LeagueItem[] {
+  if (isSoccerSport(sportName, sportId)) {
+    return sortSoccerLeagues(leagues);
+  }
+
   const key = sportName?.toLowerCase() ?? "global";
   const priorityList = topLeaguesMap[key] ?? [];
 
   const getPriority = (item: LeagueItem) => {
-    const leagueName = item.league.toLowerCase();
+    const leagueName = item.league?.toLowerCase() ?? "";
     const regionName = item.region?.toLowerCase() ?? "";
+    if (!leagueName || !regionName) return Infinity;
 
     const index = priorityList.findIndex(
       (top) =>

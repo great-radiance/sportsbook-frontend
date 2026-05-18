@@ -19,22 +19,18 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { storeEvent } from "@/helpers/storeEvent";
 import { MarketNavigation } from "../marketNavigation";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+import { isSoccerSport, sortSoccerFlatMatches } from "@/helpers/soccerLeagueTiers";
+import {
+  POPULAR_SPORT_ID,
+  SOCCER_SPORT_ID,
+  type SummaryEventRef,
+} from "@/helpers/summaryIds";
 
 const PAGE_SIZE = 10;
-const DEFAULT_SPORT_ID = 1; // Soccer
-const POPULAR_SPORT_ID = 0;
+const DEFAULT_SPORT_ID = SOCCER_SPORT_ID;
 const FALLBACK_MARKET_OPTIONS = ["Match Result", "Total", "Handicap"];
-const MONEYLINE_SPORT_NAMES = new Set(["Basketball", "Ice Hockey"]);
-
-type FlatItem = {
-  id: number;
-  regionId: number;
-  regionName: string;
-  leagueId: number;
-  leagueName: string;
-  sportId: number;
-  sportName: string;
-};
+/** Sport ids that render the moneyline layout (names come from event payload). */
+const MONEYLINE_SPORT_IDS = new Set([8]); // Basketball
 
 /**
  * Heuristic: does the event carry a market we can render in the requested
@@ -79,48 +75,42 @@ export const PreMatchPanel: FunctionComponent = () => {
 
   /**
    * Flatten the tuple-tree summary for the active sport into one ordered list
-   * of `FlatItem`s. `summarySports` (prematch) and `summarySportsLive` share
+   * of `SummaryEventRef`s. `summarySports` (prematch) and `summarySportsLive` share
    * the same tuple shape — only the source changes by `matchView`.
    */
-  const flatList: FlatItem[] = useMemo(() => {
+  const flatList: SummaryEventRef[] = useMemo(() => {
     const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
 
     if (selectedSport === POPULAR_SPORT_ID) {
       const ids = summary.featuredMatches?.[1] ?? [];
-      return ids.map((id) => ({
-        id,
-        regionId: 0,
-        regionName: "",
-        leagueId: 0,
-        leagueName: "",
+      return ids.map((eventId) => ({
+        eventId,
         sportId: POPULAR_SPORT_ID,
-        // Label only; keep stable — do not depend on `t` in this memo or it
-        // invalidates every render and retriggers `apiGetMatches` constantly.
-        sportName: "Popular",
+        regionId: 0,
+        leagueId: 0,
       }));
     }
 
     const sportTuple = summary.data?.find((s) => s[0] === selectedSport);
     if (!sportTuple) return [];
-    const sportName = sportTuple[1];
 
-    const list: FlatItem[] = [];
+    const list: SummaryEventRef[] = [];
     for (const region of sportTuple[2] ?? []) {
-      const [regionId, regionName, leagues] = region;
+      const [regionId, , leagues] = region;
       for (const league of leagues ?? []) {
-        const [leagueId, leagueName, eventIds] = league;
+        const [leagueId, , eventIds] = league;
         for (const eventId of eventIds ?? []) {
           list.push({
-            id: eventId,
-            regionId,
-            regionName,
-            leagueId,
-            leagueName,
+            eventId,
             sportId: selectedSport,
-            sportName,
+            regionId,
+            leagueId,
           });
         }
       }
+    }
+    if (isSoccerSport(null, selectedSport)) {
+      return sortSoccerFlatMatches(list);
     }
     return list;
   }, [selectedSport, isLiveMode, summarySports.value, summarySportsLive.value]);
@@ -135,7 +125,7 @@ export const PreMatchPanel: FunctionComponent = () => {
     const loaded = loadedCount[selectedSport] ?? 0;
     const candidates = flatList.slice(0, loaded);
     return candidates.filter((item) => {
-      const storedEvent = storeState.value[item.id]?.value;
+      const storedEvent = storeState.value[item.eventId]?.value;
       return !!storedEvent && isEventValidForDisplay(storedEvent);
     });
   }, [flatList, loadedCount, selectedSport, storeState.value]);
@@ -179,7 +169,7 @@ export const PreMatchPanel: FunctionComponent = () => {
       try {
         if (pageName) return; // Don't fetch a panel-wide page when a specific event is open.
 
-        const ids = firstBatch.map((x) => x.id);
+        const ids = firstBatch.map((x) => x.eventId);
         const events = await apiGetMatches(ids);
         if (cancelled) return;
 
@@ -213,7 +203,7 @@ export const PreMatchPanel: FunctionComponent = () => {
 
       setLoadingMore(true);
       try {
-        const ids = nextBatch.map((x) => x.id);
+        const ids = nextBatch.map((x) => x.eventId);
         const events = await apiGetMatches(ids);
         (events ?? []).forEach((event) => storeEvent(event));
         setLoadedCount((prev) => ({
@@ -386,17 +376,17 @@ export const PreMatchPanel: FunctionComponent = () => {
       ) : (
         <>
           <div className="flex flex-col mt-1 rounded-[4px]">
-            {displayedEvents.map((event) => {
-              const storedEvent = storeState.value[event.id]?.value;
+            {displayedEvents.map((item) => {
+              const storedEvent = storeState.value[item.eventId]?.value;
               if (
                 !storedEvent ||
                 (!isLiveMode && !isEventValidForDisplay(storedEvent))
               )
                 return null;
 
-              const isMoneyline = MONEYLINE_SPORT_NAMES.has(
-                storedEvent.sport?.name ?? "",
-              );
+              const isMoneyline =
+                MONEYLINE_SPORT_IDS.has(storedEvent.sport?.id ?? 0) ||
+                /hockey/i.test(storedEvent.sport?.name ?? "");
               const marketSlug = selectedMarketName;
               const canRenderLiveMatch =
                 !isLiveMode ||
@@ -406,14 +396,14 @@ export const PreMatchPanel: FunctionComponent = () => {
 
               return (
                 <div
-                  key={event.id}
+                  key={item.eventId}
                   className="flex rounded-[8px] overflow-hidden mb-2"
                 >
                   {isMoneyline ? (
-                    <MoneylineMatch eventId={event.id} />
+                    <MoneylineMatch eventId={item.eventId} />
                   ) : (
                     <Match
-                      eventId={event.id}
+                      eventId={item.eventId}
                       marketSlug={marketSlug}
                       showLeagueLogo={true}
                       allowAutoSelect={true}

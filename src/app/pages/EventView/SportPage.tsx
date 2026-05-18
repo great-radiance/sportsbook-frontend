@@ -10,7 +10,6 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MarketNavigation } from "@/app/components/marketNavigation";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
-import { orderConfigState } from "@/state/orderConfigState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import HighlightRender from "@/app/components/SportPage/HighlightRender";
 import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
@@ -19,6 +18,8 @@ import { storeEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
 
 import { sortLeagues } from "@/helpers/sortLeagues";
+import { buildLeagueLabelMap } from "@/helpers/resolveSummaryLabels";
+import { leagueBucketKey } from "@/helpers/summaryIds";
 
 /** Keep batches small so `/events/selected?eventIds=...` URLs stay within limits. */
 const UPCOMING_MATCH_IDS_CHUNK = 80;
@@ -33,8 +34,9 @@ type CompetitionNode = {
 
 interface LeagueEntry {
   key: string;
-  region: string;
-  league: string;
+  sportId: number;
+  regionId: number;
+  leagueId: number;
   eventIds: number[];
   outrightIds: number[];
   matchCount: number;
@@ -81,18 +83,26 @@ export const SportPage: FunctionComponent = () => {
   const [upcomingHydrateLoading, setUpcomingHydrateLoading] = useState(false);
   const upcomingHydrateRunRef = useRef(0);
 
+  const sportIdNum = Number(sportIdParam) || 0;
+
+  const leagueLabelMap = useMemo(
+    () =>
+      buildLeagueLabelMap(
+        sportRegions as unknown as Parameters<typeof buildLeagueLabelMap>[0],
+      ),
+    [sportRegions],
+  );
+
   const leagueEntriesNotSorted = useMemo<LeagueEntry[]>(() => {
     return sportRegions
       .flatMap((region) => {
         const regionId = region[0];
-        const regionName = region[1];
         const leagues = region[2] ?? [];
         const outrightLeaguesForRegion =
           outrightSportRegions.find((r) => r[0] === regionId)?.[2] ?? [];
 
         return leagues.map((league) => {
           const leagueId = league[0];
-          const leagueName = league[1];
           const eventIds = (league[2] ?? []).map((id) => Number(id)).filter(Number.isFinite);
 
           const outrightLeague = outrightLeaguesForRegion.find(
@@ -102,51 +112,64 @@ export const SportPage: FunctionComponent = () => {
             .map((id) => Number(id))
             .filter(Number.isFinite);
 
+          const ids = {
+            sportId: sportIdNum,
+            regionId,
+            leagueId,
+          };
+
           return {
-            key: `${regionName}|||${leagueName}`,
-            region: regionName,
-            league: leagueName,
+            key: leagueBucketKey(ids),
+            ...ids,
             eventIds,
             outrightIds,
             matchCount: eventIds.length + outrightIds.length,
           };
         });
       })
-      .filter((entry) => entry.matchCount > 0)
-      .sort(
-        (a, b) =>
-          b.matchCount - a.matchCount || a.league.localeCompare(b.league),
-      );
-  }, [sportRegions, outrightSportRegions]);
+      .filter((entry) => entry.matchCount > 0);
+  }, [sportRegions, outrightSportRegions, sportIdNum]);
 
   const leagueEntries: LeagueEntry[] = useMemo(() => {
-    return sortLeagues(leagueEntriesNotSorted, sportName);
-  }, [leagueEntriesNotSorted, sportName]);
+    return sortLeagues(leagueEntriesNotSorted, sportName, sportIdNum);
+  }, [leagueEntriesNotSorted, sportName, sportIdNum]);
 
   /** Built from `summarySports` / `outRightSummarySports` — replaces Stoiximan sidebar for Competitions tab. */
   const competitionsTree = useMemo((): CompetitionNode | null => {
     if (!sportName || sportRegions.length === 0) return null;
-    const popular: CompetitionNode[] = leagueEntriesNotSorted
+    const popular: CompetitionNode[] = leagueEntries
       .slice(0, 12)
       .map((e, idx) => ({
         id: 1_000_000 + idx,
-        name: e.league,
+        name:
+          leagueLabelMap.get(`${e.regionId}:${e.leagueId}`)?.leagueName ??
+          String(e.leagueId),
         type: "league" as const,
       }));
+    const leagueIdsWithEvents = new Set(leagueEntries.map((e) => e.leagueId));
+    const regionNodes: CompetitionNode[] = [];
+    for (const reg of sportRegions) {
+      const regionId = reg[0] as number;
+      const leaguesWithEvents = (reg[2] ?? []).filter((lg) =>
+        leagueIdsWithEvents.has(lg[0] as number),
+      );
+      if (leaguesWithEvents.length === 0) continue;
+      regionNodes.push({
+        id: regionId,
+        name: String(reg[1] ?? ""),
+        type: "region",
+        children: leaguesWithEvents.map((lg) => ({
+          id: lg[0] as number,
+          name: String(lg[1] ?? ""),
+          type: "league",
+        })),
+      });
+    }
     const regionsNode: CompetitionNode = {
       id: -1,
       name: "Regions",
       type: "custom",
-      children: sportRegions.map((reg) => ({
-        id: reg[0] as number,
-        name: String(reg[1] ?? ""),
-        type: "region" as const,
-        children: (reg[2] ?? []).map((lg) => ({
-          id: lg[0] as number,
-          name: String(lg[1] ?? ""),
-          type: "league" as const,
-        })),
-      })),
+      children: regionNodes,
     };
     return {
       id: Number(sportIdParam) || 0,
@@ -154,16 +177,34 @@ export const SportPage: FunctionComponent = () => {
       type: "sport",
       children: [...popular, regionsNode],
     };
-  }, [sportName, sportIdParam, sportRegions, leagueEntriesNotSorted]);
+  }, [sportName, sportIdParam, sportRegions, leagueEntries, leagueLabelMap]);
 
   const selectedLeagueEntry = useMemo(() => {
-    if (regionName && leagueName) {
+    const regionId = Number(regionIdParam);
+    const leagueId = Number(leagueIdParam);
+    if (Number.isFinite(regionId) && Number.isFinite(leagueId) && leagueId > 0) {
       return leagueEntries.find(
-        (entry) => entry.region === regionName && entry.league === leagueName,
+        (entry) => entry.regionId === regionId && entry.leagueId === leagueId,
       );
     }
+    if (regionName && leagueName) {
+      return leagueEntries.find((entry) => {
+        const label = leagueLabelMap.get(`${entry.regionId}:${entry.leagueId}`);
+        return (
+          label?.regionName === regionName && label?.leagueName === leagueName
+        );
+      });
+    }
     return leagueEntries.find((entry) => entry.key === selectedLeagueKey);
-  }, [leagueEntries, regionName, leagueName, selectedLeagueKey]);
+  }, [
+    leagueEntries,
+    regionIdParam,
+    leagueIdParam,
+    regionName,
+    leagueName,
+    selectedLeagueKey,
+    leagueLabelMap,
+  ]);
 
   useEffect(() => {
     if (leagueEntries.length === 0) {
@@ -171,10 +212,28 @@ export const SportPage: FunctionComponent = () => {
       return;
     }
 
-    if (regionName && leagueName) {
-      const targetKey = `${regionName}|||${leagueName}`;
+    const regionId = Number(regionIdParam);
+    const leagueId = Number(leagueIdParam);
+    if (Number.isFinite(regionId) && Number.isFinite(leagueId) && leagueId > 0) {
+      const targetKey = leagueBucketKey({
+        sportId: sportIdNum,
+        regionId,
+        leagueId,
+      });
       if (leagueEntries.some((entry) => entry.key === targetKey)) {
         setSelectedLeagueKey(targetKey);
+        return;
+      }
+    }
+    if (regionName && leagueName) {
+      const match = leagueEntries.find((entry) => {
+        const label = leagueLabelMap.get(`${entry.regionId}:${entry.leagueId}`);
+        return (
+          label?.regionName === regionName && label?.leagueName === leagueName
+        );
+      });
+      if (match) {
+        setSelectedLeagueKey(match.key);
         return;
       }
     }
@@ -185,7 +244,16 @@ export const SportPage: FunctionComponent = () => {
     ) {
       setSelectedLeagueKey(leagueEntries[0].key);
     }
-  }, [leagueEntries, regionName, leagueName, selectedLeagueKey]);
+  }, [
+    leagueEntries,
+    regionIdParam,
+    leagueIdParam,
+    regionName,
+    leagueName,
+    selectedLeagueKey,
+    sportIdNum,
+    leagueLabelMap,
+  ]);
 
   const fetchLeagueMatches = useCallback(async () => {
     if (!sportName || !selectedLeagueEntry) {
@@ -295,9 +363,9 @@ export const SportPage: FunctionComponent = () => {
         return (
           <HighlightRender
             leagueEntries={leagueEntries}
+            leagueLabelMap={leagueLabelMap}
             selectedLeagueKey={selectedLeagueKey}
             setSelectedLeagueKey={setSelectedLeagueKey}
-            orderConfigState={orderConfigState}
             sportName={sportName}
             selectedCategory={selectedCategory}
             selectedMarkets={selectedMarkets}
@@ -316,7 +384,9 @@ export const SportPage: FunctionComponent = () => {
           <CompetitionsRender
             data={competitionsTree}
             sportName={sportName}
+            sportId={sportIdNum}
             leagueEntries={leagueEntries}
+            leagueLabelMap={leagueLabelMap}
           />
         );
 
@@ -324,9 +394,9 @@ export const SportPage: FunctionComponent = () => {
         return (
           <UpcomingRender
             leagueEntries={leagueEntries}
+            leagueLabelMap={leagueLabelMap}
             selectedLeagueKey={selectedLeagueKey}
             setSelectedLeagueKey={setSelectedLeagueKey}
-            orderConfigState={orderConfigState}
             sportName={sportName}
             selectedCategory={selectedCategory}
             selectedMarkets={selectedMarkets}

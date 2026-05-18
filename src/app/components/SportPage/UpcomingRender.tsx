@@ -4,6 +4,7 @@ import { MarketNavigation } from "../marketNavigation";
 import { storeState } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useEffect, useMemo, useState } from "preact/hooks";
+import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
 
 const eventStartMs = (eventId: number): number => {
   const startTime = storeState.value[eventId]?.value?.startTime;
@@ -14,8 +15,8 @@ const eventStartMs = (eventId: number): number => {
 
 interface League {
   key: string;
-  region: string;
-  league: string;
+  regionId: number;
+  leagueId: number;
   eventIds: number[];
   outrightIds: number[];
   matchCount: number;
@@ -23,10 +24,10 @@ interface League {
 
 type Props = {
   leagueEntries: League[];
+  leagueLabelMap: Map<string, LeagueLabel>;
   selectedLeagueKey: string;
   setSelectedLeagueKey: (key: string) => void;
 
-  orderConfigState: any;
   sportName?: string;
 
   selectedCategory: "Matches" | string;
@@ -50,9 +51,9 @@ type Props = {
 
 const UpcomingRender = ({
   leagueEntries,
+  leagueLabelMap,
   selectedLeagueKey,
   setSelectedLeagueKey,
-  orderConfigState,
   sportName,
   selectedCategory,
   selectedMarkets,
@@ -90,24 +91,8 @@ const UpcomingRender = ({
           visibleEventIds,
         };
       })
-      .filter((league) => league.visibleEventIds.length > 0)
-      .sort((a, b) => {
-        const aOrder =
-          orderConfigState.value[sportName || ""]?.regions?.[a.region]
-            ?.leagues?.[a.league]?.order ?? 999;
-        const bOrder =
-          orderConfigState.value[sportName || ""]?.regions?.[b.region]
-            ?.leagues?.[b.league]?.order ?? 999;
-        if (aOrder !== bOrder) return aOrder - bOrder;
-        return a.league.localeCompare(b.league);
-      });
-  }, [
-    leagueEntries,
-    selectedCategory,
-    filterStartTime,
-    orderConfigState,
-    sportName,
-  ]);
+      .filter((league) => league.visibleEventIds.length > 0);
+  }, [leagueEntries, selectedCategory, filterStartTime]);
 
   useEffect(() => {
     if (openedLeagueKeys.size === 0 && visibleLeagueGroups.length > 0) {
@@ -174,8 +159,18 @@ const UpcomingRender = ({
             ))}
           </div>
         ) : sortBy === "competition" ? (
+          visibleLeagueGroups.length === 0 ? (
+            <p className="py-4 text-center text-[12px] text-[var(--text-sub-color)]">
+              No matches in this time window
+            </p>
+          ) : (
           visibleLeagueGroups.map((league) => {
             const isOpen = openedLeagueKeys.has(league.key);
+            const label =
+              leagueLabelMap.get(`${league.regionId}:${league.leagueId}`) ??
+              null;
+            const leagueName = label?.leagueName ?? String(league.leagueId);
+            const regionName = label?.regionName ?? "";
             return (
               <div key={league.key} className="flex flex-col gap-2">
                 <div
@@ -196,20 +191,20 @@ const UpcomingRender = ({
                     <img
                       src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(
                         sportName || "",
-                      )}/${encodeURIComponent(
-                        league.region || "",
-                      )}/${encodeURIComponent(league.league || "")}.webp`}
+                      )}/${encodeURIComponent(regionName)}/${encodeURIComponent(
+                        leagueName,
+                      )}.webp`}
                       className={`w-5 h-5 object-contain`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(
-                          league.region || "",
+                          regionName,
                         )}`;
                         e.currentTarget.className = "rounded-full w-4 h-4";
                       }}
-                      alt={league.league}
+                      alt={leagueName}
                     />
                     <p className="text-sm font-semibold text-[var(--text-basic-color)]">
-                      {league.league}
+                      {leagueName}
                     </p>
                   </div>
                   <span className="text-[12px] text-[var(--text-sub-color)]">
@@ -234,6 +229,7 @@ const UpcomingRender = ({
               </div>
             );
           })
+          )
         ) : (
           leagueEntries
             .flatMap((league) =>

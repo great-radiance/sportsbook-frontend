@@ -2,7 +2,6 @@ import { FunctionComponent } from "preact";
 import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { outRightSummarySports, summarySports } from "@/state/summarySports";
-import { orderConfigState } from "@/state/orderConfigState";
 import { Match } from "./components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { apiGetMatches } from "@/api/matches/apiGetMatches";

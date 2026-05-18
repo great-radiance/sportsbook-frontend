@@ -2,21 +2,21 @@ import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { storeState } from "@/state/storeState";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
+import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
 
 type League = {
   key: string;
-  league: string;
-  region?: string;
+  regionId: number;
+  leagueId: number;
 };
 
 type Props = {
   leagueEntries: League[];
+  leagueLabelMap: Map<string, LeagueLabel>;
   selectedLeagueKey: string;
   setSelectedLeagueKey: (key: string) => void;
 
-  orderConfigState: any;
   sportName?: string;
 
   selectedCategory: "Matches" | string;
@@ -40,9 +40,9 @@ type Props = {
 
 const HighlightRender = ({
   leagueEntries,
+  leagueLabelMap,
   selectedLeagueKey,
   setSelectedLeagueKey,
-  orderConfigState,
   sportName,
   selectedCategory,
   selectedMarkets,
@@ -64,11 +64,15 @@ const HighlightRender = ({
   return (
     <>
       <div className="flex sticky top-0 mb-4 z-[200] bg-[var(--background-element)] flex-col w-full p-2 gap-2 rounded-b-[16px]">
-        {/* League tab list */}
         <nav role="tablist" aria-label="Leagues" className="w-full">
           <HorizontalTabs scrollerClassName="py-1">
             {leagueEntries.map((league) => {
               const isSelected = selectedLeagueKey === league.key;
+              const label =
+                leagueLabelMap.get(`${league.regionId}:${league.leagueId}`) ??
+                null;
+              const leagueName = label?.leagueName ?? String(league.leagueId);
+              const regionName = label?.regionName ?? "";
 
               return (
                 <button
@@ -76,7 +80,7 @@ const HighlightRender = ({
                   role="tab"
                   aria-selected={isSelected}
                   tabIndex={isSelected ? 0 : -1}
-                  title={league.league}
+                  title={leagueName}
                   className={[
                     "flex shrink-0 px-4 py-2 gap-2 items-center rounded-lg text-[12px] transition-colors",
                     "whitespace-nowrap",
@@ -85,32 +89,26 @@ const HighlightRender = ({
                       : "bg-[var(--sub-element-secondary)] hover:bg-[var(--highlight-background)]",
                   ].join(" ")}
                   onClick={() => setSelectedLeagueKey(league.key)}
-                  style={{
-                    order:
-                      orderConfigState.value[sportName || ""]?.regions?.[
-                        league.region || ""
-                      ]?.leagues?.[league.league || ""]?.order || 999,
-                  }}
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img
                       src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(
                         sportName || "",
-                      )}/${encodeURIComponent(
-                        league.region || "",
-                      )}/${encodeURIComponent(league.league || "")}.webp`}
-                      className={`w-5 h-5 object-contain`}
+                      )}/${encodeURIComponent(regionName)}/${encodeURIComponent(
+                        leagueName,
+                      )}.webp`}
+                      className="w-5 h-5 object-contain"
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(
-                          league.region || "",
+                          regionName,
                         )}`;
                         e.currentTarget.className = "rounded-full w-4 h-4";
                       }}
-                      alt={league.league}
+                      alt={leagueName}
                     />
                   </div>
 
-                  {league.league}
+                  {leagueName}
                 </button>
               );
             })}

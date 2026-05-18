@@ -19,9 +19,17 @@ import {
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 // import { RepeatConfirmDialog } from "@/app/components/BetSlip/RepeatConfirmDialog";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
-import { apiOperatorsAuthLogin } from "@/api/auth/apiOperatorsAuthLogin";
-import { apiGetSportsbookBalance } from "@/api/bet/apiSportsbookBalance";
-import { setSportsbookUserJwt } from "@/api/instance";
+import {
+  apiGetUsersMe,
+  apiGetUsersMeLimits,
+  canPlayerPlaceBets,
+} from "@/api/user/apiUsersMe";
+import { setOptionalFeedAuth } from "@/api/instance";
+import {
+  playerLimits,
+  playerProfile,
+  playerSessionReady,
+} from "@/state/betState";
 import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import useSocketEvent from "@/hooks/useSocketEvent";
@@ -131,31 +139,31 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         window.localStorage.setItem("sb_device_id", deviceId);
       }
 
-      try {
-        setSportsbookUserJwt(null);
+      const feedToken = cfg.xSportsbookToken;
+      if (feedToken) {
+        setOptionalFeedAuth(feedToken);
+        accessToken.value = feedToken;
+      } else {
+        setOptionalFeedAuth(null);
         accessToken.value = "";
+      }
 
-        const login = await apiOperatorsAuthLogin({
-          playerId: cfg.xUserId || "guest",
-          deviceId,
-          ip: "0.0.0.0",
-          languageId: cfg.lang || "en",
-        });
-        const token = login?.token;
-        if (token) {
-          window.localStorage.setItem("sb_token", token);
-          setSportsbookUserJwt(token);
-          accessToken.value = token;
+      try {
+        const [me, limits] = await Promise.all([
+          apiGetUsersMe(),
+          apiGetUsersMeLimits().catch(() => null),
+        ]);
+        playerProfile.value = me;
+        playerLimits.value = limits;
+        if (me.currency) currency.value = me.currency;
+        if (!canPlayerPlaceBets(me.status)) {
+          console.warn("Player cannot bet — status:", me.status);
         }
-        // try {
-        //   const bal = await apiGetSportsbookBalance();
-        //   if (typeof bal?.balance === "number") balance.value = bal.balance;
-        //   if (bal?.currency) currency.value = bal.currency;
-        // } catch {
-        //   /* balance optional on some envs */
-        // }
       } catch (e) {
-        console.warn("Sportsbook operator login failed:", e);
+        console.warn("GET /users/me failed:", e);
+        playerProfile.value = null;
+      } finally {
+        playerSessionReady.value = true;
       }
     })();
     getSBetsData();

@@ -79,7 +79,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
     try {
       let response;
       if (cashoutType === "full") {
-        response = await fullCashout(betId);
+        response = await fullCashout(betId, cashoutOffer.availableCashout);
       } else {
         // Calculate percentage from amount
         const percentage =

@@ -1,4 +1,4 @@
-import { setAxiosAuthToken } from "@/api/instance";
+import { setPlayerSessionHeaders } from "@/api/instance";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
 import { baseColorTheme } from "@/state/baseColorTheme";
 
@@ -10,6 +10,9 @@ export interface AppConfig {
   disallowUrlChange?: boolean;
   baseUrl?: string;
   operatorCode?: string;
+  /** Platform operator id — sent as `x-operator-id` (integration guide). */
+  xOperatorId?: string;
+  /** @deprecated Use `xOperatorId` */
   xApiId?: string;
   xApiKey?: string;
   xSportsbookToken?: string;
@@ -26,7 +29,8 @@ let currentConfig: AppConfig | null = null;
 export function setAppConfig(cfg: AppConfig) {
   currentConfig = cfg;
   bottomLayoutHeight.value = cfg.bottomLayoutHeight ?? 64;
-  setAxiosAuthToken(cfg.xApiId, cfg.xApiKey, cfg.xUserId);
+  const operatorId = cfg.xOperatorId ?? cfg.xApiId;
+  setPlayerSessionHeaders(cfg.xUserId, operatorId, cfg.currency);
   baseColorTheme.value = cfg.baseTheme === "light" ? "light" : "dark";
 }
 

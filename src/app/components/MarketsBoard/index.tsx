@@ -12,7 +12,13 @@ import { MarketBoardLoader } from "@/app/components/Loading/MarketBoardLoader";
 import { stateScoreBoardId } from "@/state/summarySports";
 import { isMobile } from "@/state/isMobile";
 import { StateScoreBoard } from "../StateScoreBoard";
-import { isBuilding } from "@/state/betState";
+import {
+  betBuilderCombinable,
+  betBuilderPrice,
+  betBuilderRejectMessage,
+  isBuilding,
+  selectedOdds,
+} from "@/state/betState";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { apiGetMatchData } from "@/api/matches/apiGetMatchData";
@@ -299,9 +305,17 @@ export const MarketsBoard: FunctionComponent = () => {
                   </span>
                   <Switch
                     checked={isBuilding.value}
-                    onChange={(checked: boolean) =>
-                      (isBuilding.value = checked)
-                    }
+                    onChange={(checked: boolean) => {
+                      isBuilding.value = checked;
+                      if (!checked) {
+                        selectedOdds.value = selectedOdds.value.filter(
+                          (o) => !o.isBuilding,
+                        );
+                        betBuilderPrice.value = null;
+                        betBuilderCombinable.value = false;
+                        betBuilderRejectMessage.value = null;
+                      }
+                    }}
                     className="bg-[#C2CEE5]"
                   />
                 </div>

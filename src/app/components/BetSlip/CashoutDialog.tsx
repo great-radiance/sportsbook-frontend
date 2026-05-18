@@ -113,7 +113,7 @@ export const CashoutDialog: FunctionComponent = () => {
 
     setProcessing(true);
     try {
-      const response = await fullCashout(betId);
+      const response = await fullCashout(betId, available);
       if (response) {
         notify(
           `Cashout successful! Amount: ${formatCurrency(response.cashoutAmount)}`,

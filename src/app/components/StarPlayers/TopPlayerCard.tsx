@@ -1,29 +1,38 @@
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { storeState } from "@/state/storeState";
+import type { StarPlayerCardResponse } from "@/api/home/homeWidgets";
 import { FunctionComponent } from "preact";
-
-export type StarPlayerCardData = {
-  eventId: number;
-  playerName: string;
-  matchName: string;
-  picks: Array<{
-    oddsId: string;
-    marketId: string;
-    marketName: string;
-    outcomeName: string;
-    odds: number;
-  }>;
-};
+import {
+  addSingleWidgetPickToSlip,
+  type WidgetSelectionInput,
+} from "@/helpers/homeWidgetBetslip";
 
 type TopPlayerCardProps = {
-  data: StarPlayerCardData;
-  onAddToBetSlip: (picks: { oddsId: string; marketId: string }[]) => void;
+  data: StarPlayerCardResponse;
+  onAddToBetSlip: () => void;
 };
+
+function pickToInput(
+  pick: StarPlayerCardResponse["picks"][0],
+): WidgetSelectionInput {
+  return {
+    eventId: pick.eventId,
+    marketId: pick.marketId,
+    selectionId: pick.selectionId,
+    marketName: pick.marketName,
+    outcomeName: pick.outcomeName,
+    odds: pick.odds,
+  };
+}
 
 export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
   data,
   onAddToBetSlip,
 }) => {
+  const combined =
+    typeof data.combinedOdds === "number" && data.combinedOdds > 0
+      ? data.combinedOdds
+      : data.picks.reduce((acc, pick) => acc * pick.odds, 1);
+
   return (
     <div className="relative flex flex-col items-center justify-end gap-2 w-[238px] h-[290px]">
       <div className="flex flex-col relative w-full h-[270px] rounded-[12px] overflow-hidden bg-[#840E2E]">
@@ -47,66 +56,33 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
         className="absolute z-1 top-0 mx-auto object-cover"
       />
       <div className="flex flex-col z-2 absolute bottom-0 w-full h-[230px] overflow-hidden">
-        <div className="flex items-center flex-col flex-1 justify-start">
-          {(() => {
-            // The new `tEventModel` keeps `sport` as an object and team
-            // names live under `competitors[]` (was `participants[]`).
-            const event = storeState.value[data.eventId]?.value;
-            const homeName = event?.competitors?.[0]?.name ?? "";
-            const awayName = event?.competitors?.[1]?.name ?? "";
-            return (
-              <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] w-[60px] h-[26px] mx-auto">
-                {/* Team logos omitted — show fixture by name only. */}
-                {/*
-                <img
-                  src={
-                    cachedTeamLogoUrl(sportName, homeName) ??
-                    `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
-                  }
-                  onError={(e) => {
-                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
-                  }}
-                  alt="Home"
-                  className="w-4 h-4"
-                />
-                <div className="w-[2px] h-full my-[4px] bg-black/30 mx-2" />
-                <img
-                  src={
-                    cachedTeamLogoUrl(sportName, awayName) ??
-                    `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
-                  }
-                  onError={(e) => {
-                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
-                  }}
-                  alt="Away"
-                  className="w-4 h-4"
-                />
-                */}
-                <span className="text-[9px] leading-tight text-center text-white/90 px-0.5 line-clamp-2">
-                  {homeName}
-                  {homeName && awayName ? " · " : ""}
-                  {awayName}
-                </span>
-              </div>
-            );
-          })()}
+        <div className="flex items-center flex-col flex-1 justify-start pt-1">
+          <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] min-h-[26px] mx-auto px-2">
+            <span className="text-[9px] leading-tight text-center text-white/90 line-clamp-2">
+              {data.matchName}
+            </span>
+          </div>
         </div>
         <div className="flex flex-col w-full h-full justify-between items-center p-2">
           <div className="flex flex-col text-white w-full items-center justify-center">
             <span className="text-[14px] font-bold text-center px-2">
               {data.playerName}
             </span>
-            <span className="text-[12px] text-center px-2">
-              {data.matchName}
+            <span className="text-[11px] text-center px-2 text-white/70">
+              {data.league.name}
             </span>
           </div>
           <div className="flex flex-col w-full">
             {data.picks.map((pick, idx) => (
               <div
-                key={`${data.eventId}-${pick.marketId}-${pick.oddsId}-${idx}`}
+                key={`${data.cardId}-${pick.role}-${pick.selectionId}-${idx}`}
                 className="flex w-full flex-col gap-2"
               >
-                <div className="flex flex-col px-[6px] py-[6px]">
+                <button
+                  type="button"
+                  className="flex flex-col px-[6px] py-[6px] text-left w-full rounded hover:bg-white/5"
+                  onClick={() => void addSingleWidgetPickToSlip(pickToInput(pick))}
+                >
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col justify-between items-center gap-[2px]">
                       <div className="w-2 h-2 rounded-full border-[2px] border-white" />
@@ -114,26 +90,23 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
                     </div>
                     <div className="flex-1 items-center justify-center">
                       <span className="text-[12px] text-white starplayers-two-line-clamp">
-                        {pick.marketName} -{" "}
+                        {pick.marketName} —{" "}
                         <span className="font-bold">{pick.outcomeName}</span>
+                        <span className="ml-1 opacity-80">
+                          {pick.odds.toFixed(2)}
+                        </span>
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
             ))}
             <button
+              type="button"
               className="flex w-full text-[14px] bg-[var(--sub-element-secondary)] items-center justify-center rounded-[8px] text-[var(--text-primary-color)] font-bold h-[36px]"
-              onClick={() =>
-                onAddToBetSlip(
-                  data.picks.map((p) => ({
-                    oddsId: p.oddsId,
-                    marketId: p.marketId,
-                  })),
-                )
-              }
+              onClick={onAddToBetSlip}
             >
-              {data.picks.reduce((acc, pick) => acc * pick.odds, 1).toFixed(2)}
+              {combined.toFixed(2)}
             </button>
           </div>
         </div>

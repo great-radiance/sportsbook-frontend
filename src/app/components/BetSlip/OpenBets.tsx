@@ -12,7 +12,7 @@ import {
   totalPagesState,
 } from "@/state/betHistoryState";
 import { loadedAllMatches } from "@/state/loadedAllMatches";
-import { accessToken } from "@/state/betState";
+import { playerSessionReady } from "@/state/betState";
 
 export const OpenBets: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
@@ -27,7 +27,8 @@ export const OpenBets: FunctionComponent = () => {
 
   const fetchPendingBets = useCallback(async () => {
     if (
-      (!accessToken.value && !xUserId) ||
+      !xUserId ||
+      !playerSessionReady.value ||
       !page ||
       !selectedTab ||
       !loadedAllMatches.value
@@ -39,7 +40,7 @@ export const OpenBets: FunctionComponent = () => {
         ? "accepted,pending"
         : "won,lost,voided,cashed_out,cancelled";
 
-    const requestKey = `${accessToken.value || xUserId}|${page}|${status}`;
+    const requestKey = `${xUserId}|${page}|${status}`;
 
     // prevents duplicate fetches (including StrictMode double-invoke)
     if (lastRequestKeyRef.current === requestKey) return;
@@ -64,11 +65,12 @@ export const OpenBets: FunctionComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [xUserId, accessToken.value, selectedTab, page, loadedAllMatches.value]);
+  }, [xUserId, playerSessionReady.value, selectedTab, page, loadedAllMatches.value]);
 
   const fetchAfterCashout = useCallback(async () => {
     if (
-      (!accessToken.value && !xUserId) ||
+      !xUserId ||
+      !playerSessionReady.value ||
       !page ||
       !selectedTab ||
       !loadedAllMatches.value
@@ -100,7 +102,7 @@ export const OpenBets: FunctionComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [xUserId, accessToken.value, selectedTab, page, loadedAllMatches.value]);
+  }, [xUserId, playerSessionReady.value, selectedTab, page, loadedAllMatches.value]);
 
   useEffect(() => {
     fetchPendingBets();

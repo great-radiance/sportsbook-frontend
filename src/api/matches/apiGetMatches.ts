@@ -17,10 +17,7 @@ export const apiGetMatches = async (eventIds: number[]) => {
   const response = await instance.get<{ data: any[] }>(
     `/odds88/events/selected?tradingStatus=0&lang=${getAppConfig().lang}&eventIds=${ids.join(",")}`,
   );
-  const newEvents = response.data.data.map(
+  return response.data.data.map(
     (event) => convertFromArrayToSnapshot(event) as MatchDataResponse,
   );
-  console.log("converted newEvents", newEvents);
-
-  return newEvents;
 };

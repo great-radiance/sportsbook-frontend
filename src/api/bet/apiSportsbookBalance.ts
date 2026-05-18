@@ -8,8 +8,7 @@ export type SportsbookBalanceResponse = {
 };
 
 export async function apiGetSportsbookBalance(): Promise<SportsbookBalanceResponse> {
-  const { data } = await instance.get<SportsbookBalanceResponse>(
-    "/users/me/balance",
-  );
+  const { data } =
+    await instance.get<SportsbookBalanceResponse>("/users/me/balance");
   return data;
 }

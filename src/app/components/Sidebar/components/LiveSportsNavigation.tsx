@@ -1,5 +1,4 @@
 import { summarySportsLive } from "@/state/summarySports";
-import { orderConfigState } from "@/state/orderConfigState";
 import { FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { isMobile } from "@/state/isMobile";
@@ -50,25 +49,12 @@ export const LiveSportsNavigation: FunctionComponent<
       {(summarySportsLive.value.data ?? []).map((sportTuple) => {
         const sportId = sportTuple[0];
         const sportName = sportTuple[1];
-        // `counts` is keyed by numeric sport id; `orderConfigState` and the
-        // `expandedSports` Set stay keyed by sport name so the existing
-        // `LiveSportSection` prop contract is unchanged.
         if ((summarySportsLive.value.counts[sportId]?.total ?? 0) === 0)
           return null;
         const isExpanded = expandedSports.has(sportName) && !!eventId;
         if (!isExpanded && isMobile.value) return null;
         return (
-          <div
-            className="flex w-full"
-            key={sportId}
-            style={{
-              order: orderConfigState.value[sportName]?.order || 999,
-              display:
-                orderConfigState.value[sportName]?.enabled === false
-                  ? "none"
-                  : "flex",
-            }}
-          >
+          <div className="flex w-full" key={sportId}>
             <LiveSportSection
               key={sportId}
               isExpanded={isExpanded}

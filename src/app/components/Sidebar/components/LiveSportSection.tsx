@@ -4,7 +4,6 @@ import { isMobile } from "@/state/isMobile";
 import { MiniMatch } from "@/app/components/MatchesBoard/components/Match/MiniMatch";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { summarySportsLive } from "@/state/summarySports";
-import { orderConfigState } from "@/state/orderConfigState";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useTranslate } from "@/shared/i18n/i18n";
@@ -218,36 +217,18 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
                           regionId
                         ]
                       : undefined;
-                  if (
-                    (regionCounts?.total ?? 0) === 0 ||
-                    orderConfigState.value[selectedSportName]?.regions?.[
-                      regionNameRow
-                    ]?.enabled === false
-                  ) {
+                  if ((regionCounts?.total ?? 0) === 0) {
                     return null;
                   }
                   return (
-                    <div
-                      key={regionId}
-                      style={{
-                        order:
-                          orderConfigState.value[selectedSportName]?.regions?.[
-                            regionNameRow
-                          ]?.order || 999,
-                      }}
-                    >
+                    <div key={regionId}>
                       {leagues.map((league) => {
                         const leagueId = league[0];
                         const leagueNameRow = league[1];
                         const leagueEventIds = league[2] ?? [];
                         const leagueCount =
                           regionCounts?.leagues?.[leagueId] ?? 0;
-                        if (
-                          leagueCount === 0 ||
-                          orderConfigState.value[selectedSportName]?.regions?.[
-                            regionNameRow
-                          ]?.leagues?.[leagueNameRow]?.enabled === false
-                        ) {
+                        if (leagueCount === 0) {
                           return null;
                         }
                         // Only render leagues that already have at least one
@@ -265,13 +246,6 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
                           <div
                             key={`${regionId}-${leagueId}`}
                             className={`flex flex-col px-[5px] ${!collapsed ? "pb-[5px]" : ""}`}
-                            style={{
-                              order:
-                                orderConfigState.value[selectedSportName]
-                                  ?.regions?.[regionNameRow]?.leagues?.[
-                                  leagueNameRow
-                                ]?.order || 999,
-                            }}
                           >
                             <button
                               onClick={(e) => {

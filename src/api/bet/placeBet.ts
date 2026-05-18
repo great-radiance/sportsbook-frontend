@@ -33,22 +33,24 @@ export type PlaceBetRejected = {
   rejectionReason: string;
 };
 
-export type PlaceBetResponseBody = {
-  data: PlaceBetAccepted | PlaceBetRejected;
-};
+export type PlaceBetResult = PlaceBetAccepted | PlaceBetRejected;
+
+function unwrapPlaceBetResponse(body: unknown): PlaceBetResult {
+  if (body && typeof body === "object" && "data" in body) {
+    return (body as { data: PlaceBetResult }).data;
+  }
+  return body as PlaceBetResult;
+}
 
 export async function apiPlaceBet(
   payload: PlaceBetPayload,
-): Promise<PlaceBetResponseBody> {
-  const { data } = await instance.post<PlaceBetResponseBody>(
+): Promise<PlaceBetResult> {
+  const { data } = await instance.post<PlaceBetResult | { data: PlaceBetResult }>(
     "/bets/place",
     payload,
   );
-  return data;
+  return unwrapPlaceBetResponse(data);
 }
-
-/** Result body inside `{ data: … }` from `POST /bets/place`. */
-export type PlaceBetResult = PlaceBetAccepted | PlaceBetRejected;
 
 /**
  * Places a bet with a stable `idempotencyKey`. On network/timeout failure,
@@ -58,12 +60,10 @@ export async function apiPlaceBetWithRetry(
   payload: PlaceBetPayload,
 ): Promise<PlaceBetResult> {
   try {
-    const res = await apiPlaceBet(payload);
-    return res.data;
+    return await apiPlaceBet(payload);
   } catch (firstError) {
     try {
-      const res = await apiPlaceBet(payload);
-      return res.data;
+      return await apiPlaceBet(payload);
     } catch {
       throw firstError;
     }

@@ -16,11 +16,21 @@ interface SelectedOddComponentProps {
   forceUpdate: number;
   selectedBetType: "single" | "multi" | "system";
   setForceUpdate: (updater: (prev: number) => number) => void;
+  minStake?: number;
+  maxStake?: number;
 }
 
 export const SelectedOddComponent: FunctionComponent<
   SelectedOddComponentProps
-> = ({ bet, index, forceUpdate, selectedBetType, setForceUpdate }) => {
+> = ({
+  bet,
+  index,
+  forceUpdate,
+  selectedBetType,
+  setForceUpdate,
+  minStake,
+  maxStake,
+}) => {
   const { t } = useTranslate("betslip");
   const baseTheme = baseColorTheme.value;
   const oddsValue = computed(() => {
@@ -133,6 +143,8 @@ export const SelectedOddComponent: FunctionComponent<
                 <input
                   key={`${bet.oddsId}-${forceUpdate}`}
                   type="number"
+                  min={minStake}
+                  max={maxStake}
                   value={bet.amount.toString()}
                   onInput={(e) => {
                     const value = (e.target as HTMLInputElement).value;

@@ -14,8 +14,11 @@ import { PrematchLoader } from "../Loading/PrematchLoader";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import { apiGetSidebar, withPrematchSidebarFeatured } from "@/api/sidebar/apiGetSidebar";
-import { useOrderConfig } from "@/hooks/useOrderConfig";
+import {
+  apiGetSidebar,
+  withPrematchSidebarFeatured,
+} from "@/api/sidebar/apiGetSidebar";
+// import { useOrderConfig } from "@/hooks/useOrderConfig";
 import { loadedSportsbookState } from "@/state/loadedSportsbookState";
 
 export const Sidebar: FunctionComponent = () => {
@@ -59,9 +62,9 @@ export const Sidebar: FunctionComponent = () => {
         outRightSummarySports.value = withPrematchSidebarFeatured(res1, res3);
         // orderConfigState.value = configRes;
         setLoading(false);
-        useOrderConfig({
-          includeRegionPlaceholders: true,
-        });
+        // useOrderConfig({
+        //   includeRegionPlaceholders: true,
+        // });
       } catch (error) {
         console.error("Error fetching summary or oders:", error);
         setLoading(false);

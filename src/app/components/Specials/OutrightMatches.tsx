@@ -5,7 +5,7 @@ import { storeEvent } from "@/helpers/storeEvent";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader } from "../Loading";
-import { orderConfigState } from "@/state/orderConfigState";
+// import { orderConfigState } from "@/state/orderConfigState";
 import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { Match } from "../MatchesBoard/components/Match";
@@ -169,12 +169,12 @@ export const OutrightMatches: FunctionComponent = () => {
               <div
                 key={regionId}
                 className="flex flex-col w-full"
-                style={{
-                  order:
-                    orderConfigState.value[selectedSportName]?.regions?.[
-                      regionName
-                    ]?.order ?? 999,
-                }}
+                // style={{
+                //   order:
+                //     orderConfigState.value[selectedSportName]?.regions?.[
+                //       regionName
+                //     ]?.order ?? 999,
+                // }}
               >
                 {leagues.map((league) => {
                   const leagueId = league[0];
@@ -185,12 +185,12 @@ export const OutrightMatches: FunctionComponent = () => {
                       key={leagueId}
                       open={leagueId === firstLeagueId}
                       className="flex flex-col w-full gap-2 group/l"
-                      style={{
-                        order:
-                          orderConfigState.value[selectedSportName]?.regions?.[
-                            regionName
-                          ]?.leagues?.[leagueName]?.order ?? 999,
-                      }}
+                      // style={{
+                      //   order:
+                      //     orderConfigState.value[selectedSportName]?.regions?.[
+                      //       regionName
+                      //     ]?.leagues?.[leagueName]?.order ?? 999,
+                      // }}
                     >
                       <summary className="flex w-full justify-between items-center gap-2 py-2 px-3 rounded-lg bg-[var(--sub-element-color)] cursor-pointer">
                         <span className="text-[16px] font-bold">

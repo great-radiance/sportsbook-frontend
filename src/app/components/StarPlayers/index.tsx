@@ -4,17 +4,16 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import "./style.scss";
 import { HorizontalTabs } from "../HorizontalTabs";
-import {
-  apiGetStarPlayers,
-  type StarPlayerCardResponse,
-} from "@/api/home/homeWidgets";
-import { getAppConfig } from "@/shared/config/appConfig";
+import type { StarPlayerCardResponse } from "@/api/home/homeWidgets";
 import {
   addStarPlayerBundleToSlip,
   type WidgetSelectionInput,
 } from "@/helpers/homeWidgetBetslip";
-
-const WIDGET_REFRESH_MS = 60_000;
+import { useHomeWidgetPolling } from "@/hooks/useHomeWidgetPolling";
+import {
+  loadHomeWidgetsBatch,
+  starPlayersCache,
+} from "@/state/homeWidgetsCache";
 
 function pickToInput(
   pick: StarPlayerCardResponse["picks"][0],
@@ -35,13 +34,9 @@ export const StarPlayers: FunctionComponent = () => {
 
   const load = useCallback(async () => {
     try {
-      const { lang } = getAppConfig();
-      const res = await apiGetStarPlayers({
-        lang: lang || "en",
-        limit: 20,
-      });
+      await loadHomeWidgetsBatch({ starLimit: 20 });
       if (!mountedRef.current) return;
-      setPlayers(res?.data ?? []);
+      setPlayers(starPlayersCache.value ?? []);
     } catch {
       if (!mountedRef.current) return;
       setPlayers([]);
@@ -50,13 +45,16 @@ export const StarPlayers: FunctionComponent = () => {
 
   useEffect(() => {
     mountedRef.current = true;
-    void load();
-    const t = window.setInterval(() => void load(), WIDGET_REFRESH_MS);
+    const unsub = starPlayersCache.subscribe((v) => {
+      if (v && mountedRef.current) setPlayers(v);
+    });
     return () => {
       mountedRef.current = false;
-      window.clearInterval(t);
+      unsub();
     };
-  }, [load]);
+  }, []);
+
+  useHomeWidgetPolling(load);
 
   const handleAddBundle = useCallback((card: StarPlayerCardResponse) => {
     void addStarPlayerBundleToSlip(card.picks.map(pickToInput));

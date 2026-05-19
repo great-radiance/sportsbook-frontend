@@ -2,12 +2,12 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { FunctionComponent } from "preact";
 import { useState, useEffect } from "preact/hooks";
 import {
-  getCashoutOffer,
   fullCashout,
   partialCashout,
   setAutoCashout,
-  CashoutOfferResponse,
+  cashoutAmountForBet,
 } from "@/api/bet/cashout";
+import type { BetItemType } from "@/shared/utils/bet";
 import { formatCurrency } from "@/shared/utils/formatters";
 import { currency } from "@/state/betState";
 import { notify } from "@/shared/toast";
@@ -19,7 +19,7 @@ interface HandleCashoutProps {
   betId: string;
   onClose: () => void;
   onSuccess?: () => void;
-  cashoutOffer: CashoutOfferResponse | null;
+  bet: BetItemType | null;
 }
 
 type PriceChangePolicy =
@@ -32,8 +32,10 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
   betId,
   onClose,
   onSuccess,
-  cashoutOffer,
+  bet,
 }) => {
+  const availableCashout = bet ? cashoutAmountForBet(bet) : 0;
+  const canCashout = Boolean(bet) && availableCashout > 0;
   const { t } = useTranslate("betslip");
   const { t: tCommon } = useTranslate("common");
   const [selectedTab, setSelectedTab] = useState<"Manual">("Manual");
@@ -42,10 +44,9 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
     useState<PriceChangePolicy>("always-ask");
   const [cashoutType, setCashoutType] = useState<CashoutType>("full");
   const [partialAmount, setPartialAmount] = useState<number>(
-    0.5 * (cashoutOffer?.availableCashout ?? 0) || 0,
+    0.5 * availableCashout || 0,
   );
   const [partialPercentage, setPartialPercentage] = useState<number>(50);
-  // const [cashoutOffer, setCashoutOffer] = useState<CashoutOfferResponse | null>(null);
   // const [loading, setLoading] = useState<boolean>(true);
   const [processing, setProcessing] = useState<boolean>(false);
 
@@ -65,7 +66,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
   ];
 
   const handleManualCashout = async () => {
-    if (!cashoutOffer || !cashoutOffer.canCashout) {
+    if (!canCashout) {
       notify(
         "Cashout is not available for this bet",
         "error",
@@ -79,11 +80,10 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
     try {
       let response;
       if (cashoutType === "full") {
-        response = await fullCashout(betId, cashoutOffer.availableCashout);
+        response = await fullCashout(betId, availableCashout);
       } else {
-        // Calculate percentage from amount
         const percentage =
-          (partialAmount / cashoutOffer.availableCashout) * 100;
+          (partialAmount / availableCashout) * 100;
         if (percentage <= 0 || percentage >= 100) {
           notify(
             "Partial cashout percentage must be between 0.01 and 100",
@@ -160,8 +160,8 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
     const target = e.target as HTMLInputElement;
     const value = parseFloat(target.value);
     setPartialPercentage(value);
-    if (cashoutOffer) {
-      setPartialAmount((cashoutOffer.availableCashout * value) / 100);
+    if (canCashout) {
+      setPartialAmount((availableCashout * value) / 100);
     }
   };
 
@@ -169,22 +169,21 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
     const target = e.target as HTMLInputElement;
     const value = parseFloat(target.value) || 0;
     setPartialAmount(value);
-    if (cashoutOffer && cashoutOffer.availableCashout > 0) {
-      const percentage = (value / cashoutOffer.availableCashout) * 100;
+    if (canCashout && availableCashout > 0) {
+      const percentage = (value / availableCashout) * 100;
       setPartialPercentage(Math.min(100, Math.max(0, percentage)));
     }
   };
 
   const getMinMaxValues = () => {
-    if (!cashoutOffer) return { min: 0, max: 100 };
-    // Based on API docs, min is 1.01 and max is around the cashout offer
+    if (!canCashout) return { min: 0, max: 100 };
     return {
       min: 1.01,
-      max: cashoutOffer.availableCashout || 100,
+      max: availableCashout || 100,
     };
   };
 
-  if (!cashoutOffer || !cashoutOffer.canCashout) {
+  if (!canCashout) {
     return (
       <div className="w-full max-w-[400px] mx-auto bg-[var(--background-color)] rounded-[4px] p-4">
         <div className="w-full px-[15px] h-[49px] flex items-center justify-between">
@@ -198,7 +197,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
         </div>
         <div className="py-8 text-center">
           <span className="text-[14px]">
-            {cashoutOffer?.canCashout && t("cashoutNotAvailable")}
+            {t("cashoutNotAvailable")}
           </span>
         </div>
       </div>
@@ -283,7 +282,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
               />
               <span className="text-[14px]">
                 {t("fullCashOut")}{" "}
-                {formatCurrency(cashoutOffer.availableCashout)}
+                {formatCurrency({ canCashout: availableCashout > 0, availableCashout, bet }.availableCashout)}
               </span>
             </label>
 
@@ -314,7 +313,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
                 placeholder={t("amountSliderPlaceholder")}
                 className="w-full px-3 py-2 bg-white/10 text-[12px] rounded-[4px] border border-[var(--primary-border-color)] focus:outline-none focus:border-[var(--primary-color)]"
                 min={0}
-                max={cashoutOffer.availableCashout}
+                max={{ canCashout: availableCashout > 0, availableCashout, bet }.availableCashout}
                 step={0.01}
               />
               <div className="flex flex-col gap-1">
@@ -397,7 +396,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
       {/* Value Range Indicator */}
       {/* <div className="flex justify-between text-[10px] px-1">
               <span>1.01</span>
-              <span>{formatCurrency(cashoutOffer.availableCashout * 2)}</span>
+              <span>{formatCurrency({ canCashout: availableCashout > 0, availableCashout, bet }.availableCashout * 2)}</span>
             </div>
           </div> */}
 

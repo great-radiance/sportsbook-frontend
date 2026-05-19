@@ -1,17 +1,11 @@
 import { FunctionComponent } from "preact";
 import { BetComponent } from "./BetComponent";
 import { apiGetBetHistory } from "@/api/bet/betHistory";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getAppConfig } from "@/shared/config/appConfig";
-import {
-  betHistoryState,
-  cashOutOfferState,
-  currentPageState,
-  totalPagesState,
-} from "@/state/betHistoryState";
-import { loadedAllMatches } from "@/state/loadedAllMatches";
+import { betHistoryState, totalPagesState } from "@/state/betHistoryState";
 import { playerSessionReady } from "@/state/betState";
 
 export const OpenBets: FunctionComponent = () => {
@@ -20,100 +14,80 @@ export const OpenBets: FunctionComponent = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
+  const [refreshToken, setRefreshToken] = useState(0);
   const { xUserId } = getAppConfig();
   const [selectedTab, setSelectedTab] = useState<"open" | "settled">("open");
+  const sessionReady = playerSessionReady.value;
 
-  const lastRequestKeyRef = useRef<string>("");
-
-  const fetchPendingBets = useCallback(async () => {
-    if (
-      !xUserId ||
-      !playerSessionReady.value ||
-      !page ||
-      !selectedTab ||
-      !loadedAllMatches.value
-    )
-      return;
-
-    const status =
-      selectedTab === "open"
-        ? "accepted,pending"
-        : "won,lost,voided,cashed_out,cancelled";
-
-    const requestKey = `${xUserId}|${page}|${status}`;
-
-    // prevents duplicate fetches (including StrictMode double-invoke)
-    if (lastRequestKeyRef.current === requestKey) return;
-    lastRequestKeyRef.current = requestKey;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await apiGetBetHistory({
-        page,
-        limit: 10,
-        status,
-      });
-
-      betHistoryState.value = response?.bets || [];
-      totalPagesState.value = response?.totalPages || 1;
-    } catch (err) {
-      console.error("Error fetching pending bets:", err);
-      setError("An error occurred while fetching pending bets");
-      betHistoryState.value = [];
-    } finally {
-      setLoading(false);
-    }
-  }, [xUserId, playerSessionReady.value, selectedTab, page, loadedAllMatches.value]);
-
-  const fetchAfterCashout = useCallback(async () => {
-    if (
-      !xUserId ||
-      !playerSessionReady.value ||
-      !page ||
-      !selectedTab ||
-      !loadedAllMatches.value
-    )
-      return;
-
-    const status =
-      selectedTab === "open"
-        ? "accepted,pending"
-        : "won,lost,voided,cashed_out,cancelled";
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await apiGetBetHistory({
-        page,
-        limit: 10,
-        status,
-      });
-
-      betHistoryState.value = response?.bets || [];
-      totalPagesState.value = response?.totalPages || 1;
-      console.log("openBets", getAppConfig().lang);
-    } catch (err) {
-      console.error("Error fetching pending bets:", err);
-      setError("An error occurred while fetching pending bets");
-      betHistoryState.value = [];
-    } finally {
-      setLoading(false);
-    }
-  }, [xUserId, playerSessionReady.value, selectedTab, page, loadedAllMatches.value]);
+  const lastFetchedKeyRef = useRef<string>("");
 
   useEffect(() => {
-    fetchPendingBets();
-  }, [fetchPendingBets]);
+    if (!xUserId || !sessionReady) return;
+
+    const fetchKey = `${xUserId}|${page}|${selectedTab}|${refreshToken}`;
+    if (lastFetchedKeyRef.current === fetchKey) return;
+
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await apiGetBetHistory({
+          page,
+          limit: 10,
+          sort: "newest",
+          tab: selectedTab,
+        });
+
+        if (cancelled) return;
+
+        if (!response) {
+          betHistoryState.value = [];
+          totalPagesState.value = 1;
+          return;
+        }
+
+        lastFetchedKeyRef.current = fetchKey;
+        betHistoryState.value = response.bets;
+        totalPagesState.value = response.totalPages;
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Error fetching bet history:", err);
+        setError("An error occurred while fetching pending bets");
+        betHistoryState.value = [];
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [xUserId, sessionReady, page, selectedTab, refreshToken]);
+
+  const handleTabChange = (tab: "open" | "settled") => {
+    if (tab === selectedTab) return;
+    lastFetchedKeyRef.current = "";
+    setPage(1);
+    setSelectedTab(tab);
+  };
+
+  const handleCashoutSuccess = () => {
+    lastFetchedKeyRef.current = "";
+    setRefreshToken((n) => n + 1);
+  };
 
   if (error) {
     return (
       <div className="w-full min-h-[400px] flex flex-col items-center justify-center gap-2">
         <span className="text-red-400 text-[14px]">{error}</span>
         <button
-          onClick={() => fetchPendingBets()}
+          onClick={() => {
+            lastFetchedKeyRef.current = "";
+            setRefreshToken((n) => n + 1);
+          }}
           className={`px-4 py-2 bg-white/10 rounded-[4px]  text-[12px] transition-colors ${!isMobile.value ? "hover:bg-white/20" : ""}`}
         >
           Retry
@@ -122,27 +96,14 @@ export const OpenBets: FunctionComponent = () => {
     );
   }
 
-  // if (pendingBets.length === 0) {
-  //   return (
-  //     <div className="w-full min-h-[400px] flex items-center justify-center">
-  //       <span className="text-[14px]">You have no open bets at the moment</span>
-  //     </div>
-  //   );
-  // }
-
-  const handleCashoutSuccess = () => {
-    // Refresh the list after successful cashout
-    fetchAfterCashout();
-  };
+  const bets = betHistoryState.value;
 
   return (
     <div className="w-full min-h-[400px] pb-30 md:pb-20 rounded-t-[16px] overflow-y-auto rounded-[4px] flex text-[12px] bg-[var(--sub-element-color)] text-[var(--text-basic-color)] flex-col gap-2 py-2">
       <div className="flex items-center justify-center w-full border-b-[1px] border-[var(--border-color)]  py-4 uppercase">
         {tBetslip("mybets")}
       </div>
-      {/* tablist */}
       <div className="bg-[var(--sub-element-secondary)] rounded-[90px] left-3 right-3 absolute flex items-center gap-1 p-1">
-        {/* OPEN TAB */}
         <div
           className={`flex-1 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
             selectedTab === "open"
@@ -151,12 +112,10 @@ export const OpenBets: FunctionComponent = () => {
                 ? "hover:bg-white/20"
                 : ""
           }`}
-          onClick={() => setSelectedTab("open")}
+          onClick={() => handleTabChange("open")}
         >
           <span className="text-[12px] py-2 px-3">{tBetslip("Open")}</span>
         </div>
-
-        {/* SETTLED TAB */}
         <div
           className={`flex-1 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
             selectedTab === "settled"
@@ -165,7 +124,7 @@ export const OpenBets: FunctionComponent = () => {
                 ? "hover:bg-white/20"
                 : ""
           }`}
-          onClick={() => setSelectedTab("settled")}
+          onClick={() => handleTabChange("settled")}
         >
           <span className="text-[12px] py-2 px-3">{tBetslip("Settled")}</span>
         </div>
@@ -176,30 +135,22 @@ export const OpenBets: FunctionComponent = () => {
         </div>
       )}
 
-      {!loading && betHistoryState.value.length === 0 ? (
+      {!loading && bets.length === 0 ? (
         <div className="w-full min-h-[400px] flex items-center justify-center">
           <span className="text-[14px]">{tBetslip("noOpenBets")}</span>
         </div>
       ) : (
-        betHistoryState.value.map((bet) => {
-          if (
-            cashOutOfferState.value[bet.betId]?.canCashout === false &&
-            selectedTab === "open"
-          ) {
-            return null;
-          }
-          return (
-            <div
-              key={bet.betId}
-              className="w-full flex items-center justify-center px-2"
-            >
-              <BetComponent bet={bet} onCashoutSuccess={handleCashoutSuccess} />
-            </div>
-          );
-        })
+        !loading &&
+        bets.map((bet) => (
+          <div
+            key={bet.betId}
+            className="w-full flex items-center justify-center px-2"
+          >
+            <BetComponent bet={bet} onCashoutSuccess={handleCashoutSuccess} />
+          </div>
+        ))
       )}
 
-      {/* Pagination */}
       {totalPagesState.value > 1 && (
         <div className="w-full flex items-center justify-center gap-2 mt-4">
           <button

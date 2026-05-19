@@ -10,14 +10,22 @@
 
 1. [Player Headers](#player-headers)
 2. [Public Data](#public-data)
+   - [Event Search](#event-search)
 3. [Real-Time Odds (WebSocket)](#real-time-odds-websocket)
 4. [Player Session](#player-session)
 5. [Betting](#betting)
 6. [My Bets](#my-bets)
 7. [Cashout](#cashout)
 8. [Bet Builder](#bet-builder)
-9. [Errors](#errors)
-10. [Quick Reference](#quick-reference)
+9. [Home Widgets](#home-widgets)
+   - [Star Players Widget](#star-players-widget)
+   - [Trending Accas Widget](#trending-accas-widget)
+   - [Mapping to Bet Placement](#mapping-to-bet-placement)
+   - [Refresh & Caching Strategy](#refresh--caching-strategy)
+   - [Odds Staleness Handling](#odds-staleness-handling)
+10. [Player Analytics](#player-analytics)
+11. [Errors](#errors)
+12. [Quick Reference](#quick-reference)
 
 ---
 
@@ -26,7 +34,7 @@
 All player endpoints require these three headers. No login, no token.
 
 ```
-x-user-id:   player_001
+x-user-id:     player_001
 x-operator-id: a1b2c3d4e5f6g7h8
 x-currency:    USD
 ```
@@ -59,7 +67,7 @@ GET /sidebar
 GET /sidebar?lang=en&status=1
 ```
 
-Returns a compact navigation tree. See [Quick Reference](#quick-reference) for the array format.
+Returns a compact navigation tree.
 
 ### Sports / Leagues / Regions / Markets
 
@@ -112,6 +120,82 @@ GET /events/:eventId
   ]
 }
 ```
+
+### Event Search
+
+Full-text search across events, teams, sports, leagues, and regions. Use this to power a search box or typeahead.
+
+```
+GET /events/search?q=arsenal
+GET /events/search?q=manchester&from=2026-05-17T00:00:00Z&to=2026-05-18T23:59:59Z
+GET /events/search?from=2026-05-18T00:00:00Z&to=2026-05-18T23:59:59Z
+```
+
+| Param  | Required | Description                                                                                            |
+| ------ | -------- | ------------------------------------------------------------------------------------------------------ |
+| `q`    | NO       | Case-insensitive text — matched against event name, market name, sport, region, league, and team names |
+| `from` | NO       | ISO 8601 — filter `eventInfo.startTime >=`                                                             |
+| `to`   | NO       | ISO 8601 — filter `eventInfo.startTime <=`                                                             |
+
+Omit `q` to use as a date-range-only filter. Omit both to return all events (same as `GET /events`).
+
+Results are cached for **30 seconds**.
+
+**Response (200):**
+
+```json
+{
+  "source": "cache",
+  "total": 2,
+  "data": [
+    {
+      "eventId": 5001,
+      "eventInfo": {
+        "id":        5001,
+        "name":      "Arsenal vs Chelsea",
+        "status":    1,
+        "startTime": "2026-05-18T15:00:00.000Z",
+        "sport":       { "id": 1,   "name": "Soccer" },
+        "competition": { "id": 101, "name": "Premier League" },
+        "competitors": [
+          { "id": 201, "name": "Arsenal", "type": "home" },
+          { "id": 202, "name": "Chelsea", "type": "away" }
+        ]
+      },
+      "markets": [...]
+    }
+  ]
+}
+```
+
+**Typical usage — search box:**
+
+```js
+async function searchEvents(query) {
+  if (query.length < 2) return [];
+  const res = await fetch(
+    `/api/v1/events/search?q=${encodeURIComponent(query)}`,
+  );
+  const { data } = await res.json();
+  return data;
+}
+```
+
+**Typical usage — today's events:**
+
+```js
+const today = new Date();
+const from = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+const to = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+
+const { data } = await fetch(
+  `/api/v1/events/search?from=${from}&to=${to}`,
+).then((r) => r.json());
+```
+
+**Empty results:** Returns `data: []` and `total: 0` — never an error. Always render a "No events found" state.
+
+---
 
 ### Odds (REST)
 
@@ -454,28 +538,32 @@ Headers: x-user-id, x-operator-id
 ```json
 {
   "data": {
-    "betId":           "6645abc123def111",
-    "betType":         "parlay",
-    "status":          "accepted",
-    "stakeAmount":     25.00,
-    "potentialPayout": 625.00,
-    "actualPayout":    null,
-    "combinedOdds":    25.00,
-    "currency":        "USD",
-    "createdAt":       "2026-05-18T10:01:00.000Z",
-    "acceptedAt":      "2026-05-18T10:01:00.100Z",
-    "settledAt":       null,
-    "cashoutAmount":   null,
+    "betId": "6645abc123def111",
+    "betType": "parlay",
+    "status": "accepted",
+    "stakeAmount": 25.0,
+    "potentialPayout": 625.0,
+    "actualPayout": null,
+    "combinedOdds": 25.0,
+    "currency": "USD",
+    "createdAt": "2026-05-18T10:01:00.000Z",
+    "acceptedAt": "2026-05-18T10:01:00.100Z",
+    "settledAt": null,
+    "cashoutAmount": null,
     "selections": [
       {
-        "selectionId":      10234,
-        "eventId":          5001,
-        "marketId":         1,
-        "status":           "pending",
-        "oddsAtPlacement":  2.50,
-        "eventSnapshot":    { "id": 5001, "name": "Arsenal vs Chelsea", ... },
-        "marketSnapshot":   { "id": 1,    "name": "Match Result" },
-        "selectionSnapshot":{ "id": 10234,"name": "Arsenal", "odds": 2.50 }
+        "selectionId": 10234,
+        "eventId": 5001,
+        "marketId": 1,
+        "status": "pending",
+        "oddsAtPlacement": 2.5,
+        "eventSnapshot": {
+          "id": 5001,
+          "name": "Arsenal vs Chelsea",
+          "...": "..."
+        },
+        "marketSnapshot": { "id": 1, "name": "Match Result" },
+        "selectionSnapshot": { "id": 10234, "name": "Arsenal", "odds": 2.5 }
       }
     ]
   }
@@ -491,12 +579,6 @@ pending → accepted → won / lost / voided
 pending → rejected
 accepted → cashed_out
 accepted → cancelled
-```
-
-**Failed (404):**
-
-```json
-{ "error": "Bet not found" }
 ```
 
 ### Bet Status Poll
@@ -641,33 +723,578 @@ Minimum 2 selections. Generate a fresh `requestId` (`crypto.randomUUID()`) per r
 | `3`      | Selections cannot be combined                        |
 | `4`      | Alternative odds available (`alternativeOdds` field) |
 
-**Errors:**
+---
 
-| HTTP  | When                                                              |
-| ----- | ----------------------------------------------------------------- |
-| `400` | Missing `requestId`, `eventId`, `segmentId`, or fewer than 2 bets |
-| `502` | odds88 upstream error                                             |
-| `503` | Odds feed not connected                                           |
+## Home Widgets
+
+The home page exposes two curated widgets generated and cached on the server. Both endpoints are **public** — no headers required.
+
+| Widget             | Endpoint                   | Default size        |
+| ------------------ | -------------------------- | ------------------- |
+| **Star Players**   | `GET /home/star-players`   | Up to 20 cards      |
+| **Trending Accas** | `GET /home/trending-accas` | 3 coupons of 5 legs |
+
+Both return placement-ready `eventId`, `marketId`, `selectionId`, and `odds` values that map directly into `POST /bets/place`.
+
+---
+
+### Star Players Widget
+
+#### Fetch Star Players
+
+```
+GET /api/v1/home/star-players
+```
+
+| Param     | Default | Description                                     |
+| --------- | ------- | ----------------------------------------------- |
+| `lang`    | `en`    | Language code for sport / league / region names |
+| `limit`   | `20`    | Max cards to return (server cap: 50)            |
+| `sportId` | —       | Restrict cards to a specific sport              |
+
+#### Response Shape
+
+```json
+{
+  "data": [
+    {
+      "cardId": "sp_5001_10234",
+      "eventId": 5001,
+      "playerName": "Erling Haaland",
+      "matchName": "Manchester City vs Arsenal",
+      "sport": { "id": 1, "name": "Soccer" },
+      "league": { "id": 101, "name": "Premier League" },
+      "region": { "id": 10, "name": "England" },
+      "startTime": "2026-05-17T14:00:00.000Z",
+      "picks": [
+        {
+          "role": "player_prop",
+          "eventId": 5001,
+          "marketId": 88001,
+          "selectionId": 10234,
+          "marketName": "Anytime Goalscorer",
+          "outcomeName": "Erling Haaland",
+          "odds": 2.1
+        },
+        {
+          "role": "match_result",
+          "eventId": 5001,
+          "marketId": 1,
+          "selectionId": 10001,
+          "marketName": "Match Result",
+          "outcomeName": "Manchester City",
+          "odds": 1.85
+        },
+        {
+          "role": "total_goals",
+          "eventId": 5001,
+          "marketId": 90012,
+          "selectionId": 10099,
+          "marketName": "Total Goals",
+          "outcomeName": "Over 2.5",
+          "odds": 1.72
+        }
+      ],
+      "combinedOdds": 6.68,
+      "displayOrder": 1
+    }
+  ],
+  "meta": {
+    "count": 12,
+    "generatedAt": "2026-05-15T12:00:00.000Z"
+  }
+}
+```
+
+| Field          | Description                                                |
+| -------------- | ---------------------------------------------------------- |
+| `cardId`       | Stable identifier — use as React / template key            |
+| `playerName`   | Hero player display name                                   |
+| `picks[].role` | `player_prop` \| `match_result` \| `total_goals`           |
+| `picks[].odds` | Decimal price **at response time** — validate at placement |
+| `combinedOdds` | Product of all three leg odds — show as bundle price       |
+| `displayOrder` | Already sorted server-side                                 |
+
+#### Rendering a Card
+
+```js
+function StarPlayerCard({ card }) {
+  const playerPick = card.picks.find((p) => p.role === "player_prop");
+  const matchPick = card.picks.find((p) => p.role === "match_result");
+  const totalsPick = card.picks.find((p) => p.role === "total_goals");
+
+  return (
+    <div className="star-player-card">
+      <div className="card-header">
+        <span className="player-name">{card.playerName}</span>
+        <span className="league">{card.league.name}</span>
+        <span className="kick-off">
+          {new Date(card.startTime).toLocaleTimeString()}
+        </span>
+      </div>
+      <div className="match-name">{card.matchName}</div>
+      <div className="picks">
+        <PickRow pick={playerPick} />
+        <PickRow pick={matchPick} />
+        <PickRow pick={totalsPick} />
+      </div>
+      <div className="footer">
+        <span className="combined-odds">{card.combinedOdds.toFixed(2)}</span>
+        <button onClick={() => addBundleToSlip(card)}>Add All</button>
+      </div>
+    </div>
+  );
+}
+```
+
+#### Placing the Bundle as a Parlay
+
+```js
+function addBundleToSlip(card) {
+  openBetSlip({
+    betType: "parlay",
+    selections: card.picks.map((pick) => ({
+      eventId: pick.eventId,
+      marketId: pick.marketId,
+      selectionId: pick.selectionId,
+      odds: pick.odds,
+    })),
+    combinedOdds: card.combinedOdds,
+  });
+}
+```
+
+#### Placing a Single Leg
+
+```js
+function addSinglePickToSlip(pick) {
+  openBetSlip({
+    betType: "single",
+    selections: [
+      {
+        eventId: pick.eventId,
+        marketId: pick.marketId,
+        selectionId: pick.selectionId,
+        odds: pick.odds,
+      },
+    ],
+  });
+}
+```
+
+---
+
+### Trending Accas Widget
+
+#### Fetch Trending Accas
+
+```
+GET /api/v1/home/trending-accas
+```
+
+| Param     | Default | Description                  |
+| --------- | ------- | ---------------------------- |
+| `lang`    | `en`    | Language code                |
+| `limit`   | `3`     | Max coupons (server cap: 10) |
+| `sportId` | —       | Filter to a single sport     |
+
+#### Response Shape
+
+```json
+{
+  "data": [
+    {
+      "couponId": "ta_1747300000000_a1b2c3",
+      "foldCount": 5,
+      "combinedOdds": 24.5,
+      "socialProof": { "betCount": 187 },
+      "legs": [
+        {
+          "eventId": 5001,
+          "matchName": "Man City vs Arsenal",
+          "sport": { "id": 1, "name": "Soccer" },
+          "region": { "id": 10, "name": "England" },
+          "league": { "id": 101, "name": "Premier League" },
+          "startTime": "2026-05-17T14:00:00.000Z",
+          "marketId": 1,
+          "selectionId": 10001,
+          "marketName": "Match Result",
+          "outcomeName": "Man City",
+          "odds": 1.85
+        }
+      ],
+      "displayOrder": 1
+    }
+  ],
+  "meta": {
+    "couponCount": 3,
+    "generatedAt": "2026-05-15T12:00:00.000Z"
+  }
+}
+```
+
+| Field                  | Description                                                       |
+| ---------------------- | ----------------------------------------------------------------- |
+| `couponId`             | Stable identifier — use as React / template key                   |
+| `foldCount`            | Number of legs (always equals `legs.length`)                      |
+| `combinedOdds`         | Server-computed product of all leg odds                           |
+| `socialProof.betCount` | Only present when enough bets exist — show as "187+ bets on this" |
+| `displayOrder`         | Already sorted server-side                                        |
+
+#### Rendering a Coupon
+
+```js
+function TrendingAccaCard({ coupon }) {
+  return (
+    <div className="acca-card">
+      <div className="card-header">
+        <span>{coupon.foldCount}-Fold Acca</span>
+        <span>{coupon.combinedOdds.toFixed(2)}</span>
+        {coupon.socialProof && (
+          <span>{coupon.socialProof.betCount}+ bets on this</span>
+        )}
+      </div>
+      <ul className="legs">
+        {coupon.legs.map((leg, i) => (
+          <li key={i}>
+            <span>{leg.matchName}</span>
+            <span>{leg.outcomeName}</span>
+            <span>{leg.odds.toFixed(2)}</span>
+          </li>
+        ))}
+      </ul>
+      <button onClick={() => addAccaToSlip(coupon)}>
+        Add {coupon.foldCount}-Fold — {coupon.combinedOdds.toFixed(2)}
+      </button>
+    </div>
+  );
+}
+```
+
+#### Placing the Acca
+
+```js
+function addAccaToSlip(coupon) {
+  openBetSlip({
+    betType: "parlay",
+    selections: coupon.legs.map((leg) => ({
+      eventId: leg.eventId,
+      marketId: leg.marketId,
+      selectionId: leg.selectionId,
+      odds: leg.odds,
+    })),
+    combinedOdds: coupon.combinedOdds,
+  });
+}
+```
+
+---
+
+### Mapping to Bet Placement
+
+```js
+// Star Players — all three picks as a parlay
+const payload = {
+  idempotencyKey: crypto.randomUUID(),
+  betType: "parlay",
+  stake: 5.0,
+  selections: card.picks.map((pick) => ({
+    eventId: pick.eventId,
+    marketId: pick.marketId,
+    selectionId: pick.selectionId,
+    odds: pick.odds,
+  })),
+};
+
+// Trending Acca — full coupon as a parlay
+const payload = {
+  idempotencyKey: crypto.randomUUID(),
+  betType: "parlay",
+  stake: 2.0,
+  selections: coupon.legs.map((leg) => ({
+    eventId: leg.eventId,
+    marketId: leg.marketId,
+    selectionId: leg.selectionId,
+    odds: leg.odds,
+  })),
+};
+
+const res = await fetch("/api/v1/bets/place", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...playerHeaders },
+  body: JSON.stringify(payload),
+});
+
+const result = await res.json();
+if (result.status === "accepted") {
+  showBetConfirmation(result);
+} else if (result.rejectionReason === "ODDS_CHANGED") {
+  await refreshWidgets();
+  showOddsChangedDialog();
+} else {
+  showRejectionMessage(result.rejectionReason);
+}
+```
+
+---
+
+### Refresh & Caching Strategy
+
+The platform caches widget responses in Redis (default 60s TTL). You do not need your own server-side cache.
+
+```js
+const WIDGET_REFRESH_MS = 60_000;
+
+async function loadHomeWidgets() {
+  const [starPlayers, trendingAccas] = await Promise.all([
+    fetch("/api/v1/home/star-players?lang=en").then((r) => r.json()),
+    fetch("/api/v1/home/trending-accas?lang=en").then((r) => r.json()),
+  ]);
+  renderStarPlayers(starPlayers.data);
+  renderTrendingAccas(trendingAccas.data);
+}
+
+// Pause refresh when the bet slip is open — resume on close
+function openBetSlip(data) {
+  stopWidgetRefresh(); /* render slip */
+}
+function closeBetSlip() {
+  loadHomeWidgets();
+  startWidgetRefresh();
+}
+
+// Pause when tab is hidden
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopWidgetRefresh();
+  else {
+    loadHomeWidgets();
+    startWidgetRefresh();
+  }
+});
+```
+
+---
+
+### Odds Staleness Handling
+
+Widget odds are cached for up to 60 seconds. The platform validates odds at placement time.
+
+| Scenario                           | Recommended behaviour                                      |
+| ---------------------------------- | ---------------------------------------------------------- |
+| Odds moved up (better for player)  | Highlight in green, auto-accept                            |
+| Odds moved down (worse for player) | Show dialog, require player confirmation                   |
+| Market closed                      | Remove from slip with "This market is no longer available" |
+
+**On `ODDS_CHANGED` rejection:**
+
+```js
+async function placeBet(payload) {
+  const result = await submitBet(payload);
+  if (result.rejectionReason !== "ODDS_CHANGED") return result;
+
+  const fresh = await fetch("/api/v1/home/star-players?lang=en").then((r) =>
+    r.json(),
+  );
+  const updatedCard = fresh.data.find(
+    (c) => c.eventId === payload.selections[0].eventId,
+  );
+
+  if (updatedCard)
+    showOddsMovedDialog({
+      old: payload.selections.map((s) => s.odds),
+      updated: updatedCard.picks.map((p) => p.odds),
+    });
+  else showEventClosedDialog();
+
+  return result;
+}
+```
+
+**Empty states:** Both endpoints return `data: []` (not an error) when no qualifying content exists. Always handle gracefully.
+
+---
+
+## Player Analytics
+
+Personal betting statistics. All endpoints require `x-user-id` and `x-operator-id` headers.
+
+### Common Parameters
+
+| `period` | Range                 |
+| -------- | --------------------- |
+| `today`  | Midnight today → now  |
+| `7d`     | Last 7 days (default) |
+| `30d`    | Last 30 days          |
+| `90d`    | Last 90 days          |
+| `1y`     | Last 365 days         |
+
+Custom range: `?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z`
+
+Granularity (time-series): `day` (default) | `week` | `month`
+
+---
+
+### Player Overview
+
+Personal betting summary — all-time stats, period stats, and current streak.
+
+```
+GET /users/me/analytics/overview
+Headers: x-user-id, x-operator-id
+```
+
+**Query params:** `period`, `from`, `to`
+
+**Response (200):**
+
+```json
+{
+  "data": {
+    "period": { "from": "...", "to": "..." },
+    "currency": "USD",
+    "allTime": {
+      "totalBets": 1247,
+      "wonBets": 421,
+      "lostBets": 789,
+      "parlayBets": 184,
+      "totalStaked": 28420.0,
+      "totalWon": 24180.0,
+      "netPnl": -4240.0,
+      "winRate": 34.79,
+      "biggestWin": 1240.0,
+      "biggestStake": 500.0,
+      "avgOdds": 2.841,
+      "avgStake": 22.79
+    },
+    "periodStats": {
+      "periodBets": 87,
+      "wonBets": 31,
+      "lostBets": 52,
+      "periodStaked": 1924.0,
+      "periodWon": 1648.0,
+      "periodPnl": -276.0,
+      "winRate": 37.35
+    },
+    "streak": {
+      "current": 3,
+      "type": "win"
+    }
+  }
+}
+```
+
+`netPnl` = `totalWon` − `totalStaked` (negative = player is net down).  
+`streak.current` is the length of the current run of wins or losses, based on the last 20 settled bets.
+
+---
+
+### Favourite Sports & Leagues
+
+Which sports and leagues the player bets on most.
+
+```
+GET /users/me/analytics/sports
+Headers: x-user-id, x-operator-id
+```
+
+**Query params:** `period`, `from`, `to`
+
+**Response (200):**
+
+```json
+{
+  "data": {
+    "bySport": [
+      {
+        "id": 1,
+        "name": "Soccer",
+        "selectionCount": 724,
+        "betCount": 512,
+        "totalStaked": 11240.0,
+        "totalWon": 9840.0,
+        "pnl": -1400.0,
+        "winRate": 35.21,
+        "avgOdds": 2.341
+      }
+    ],
+    "byLeague": [
+      {
+        "id": 101,
+        "name": "Premier League",
+        "selectionCount": 284,
+        "betCount": 201,
+        "totalStaked": 4240.0,
+        "totalWon": 3840.0,
+        "pnl": -400.0,
+        "winRate": 37.41,
+        "avgOdds": 2.141
+      }
+    ]
+  },
+  "period": { "from": "...", "to": "..." },
+  "currency": "USD"
+}
+```
+
+Top 10 sports and top 10 leagues, sorted by `selectionCount` descending.
+
+---
+
+### Betting Timeline
+
+Day-by-day betting activity history.
+
+```
+GET /users/me/analytics/timeline
+Headers: x-user-id, x-operator-id
+```
+
+**Query params:** `period`, `from`, `to`, `granularity`
+
+**Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "date": "2026-05-01",
+      "betsPlaced": 7,
+      "totalStaked": 142.5,
+      "totalWon": 124.0,
+      "pnl": -18.5,
+      "wonBets": 2,
+      "lostBets": 4,
+      "pendingBets": 1,
+      "avgStake": 20.36
+    }
+  ],
+  "granularity": "day",
+  "period": { "from": "...", "to": "..." },
+  "currency": "USD"
+}
+```
+
+Cumulate `pnl` over the timeline to render a running P&L line chart.
 
 ---
 
 ## Errors
 
-All error responses have the same shape:
+All error responses:
 
 ```json
 { "error": "Human-readable message" }
 ```
 
-| Code  | Meaning                     | What to do                                     |
-| ----- | --------------------------- | ---------------------------------------------- |
-| `400` | Missing or invalid field    | Show the error message near the relevant field |
-| `403` | Action not allowed          | Show "not permitted"                           |
-| `404` | Not found                   | Show "not found" state                         |
-| `409` | Duplicate idempotency key   | Fetch and show the existing result             |
-| `422` | Bet rejected                | Map `rejectionReason` to a user message        |
-| `502` | Operator wallet unreachable | Show graceful fallback, allow retry            |
-| `503` | Odds feed disconnected      | Show "live odds temporarily unavailable"       |
+| Code  | Meaning                     | What to do                               |
+| ----- | --------------------------- | ---------------------------------------- |
+| `400` | Missing or invalid field    | Show near the relevant field             |
+| `403` | Action not allowed          | Show "not permitted"                     |
+| `404` | Not found                   | Show "not found" state                   |
+| `409` | Duplicate idempotency key   | Fetch and show the existing result       |
+| `422` | Bet rejected                | Map `rejectionReason` to a user message  |
+| `502` | Operator wallet unreachable | Show graceful fallback, allow retry      |
+| `503` | Odds feed disconnected      | Show "live odds temporarily unavailable" |
 
 ---
 
@@ -685,24 +1312,65 @@ All endpoints are prefixed with `/api/v1`. No `Authorization` header needed.
 | `GET`  | `/regions`                    | All regions                                      |
 | `GET`  | `/markets`                    | All market types                                 |
 | `GET`  | `/events`                     | Events (filter: `sportId`, `leagueId`, `status`) |
+| `GET`  | `/events/search`              | Full-text search (params: `q`, `from`, `to`)     |
 | `GET`  | `/events/:eventId`            | Single event with markets                        |
 | `GET`  | `/odds/:eventId`              | Odds for one event                               |
 | `GET`  | `/odds88/events/array`        | Full live event tree (compact)                   |
+| `GET`  | `/home/star-players`          | Star Players widget                              |
+| `GET`  | `/home/trending-accas`        | Trending Accas widget                            |
 | `GET`  | `/health/odds88/feeds/status` | Feed connectivity                                |
 | `WS`   | `/ws/odds88/events`           | Live odds stream                                 |
 
 ### Player (requires `x-user-id`, `x-operator-id`)
 
-| Method | Endpoint                      | Description                    |
-| ------ | ----------------------------- | ------------------------------ |
-| `GET`  | `/users/me`                   | Player profile + status        |
-| `GET`  | `/users/me/limits`            | Effective betting limits       |
-| `GET`  | `/users/me/exposure`          | Today's stake totals           |
-| `POST` | `/bets/place`                 | Place a bet                    |
-| `GET`  | `/bets/history`               | Paginated bet list             |
-| `GET`  | `/bets/:betId`                | Full bet detail                |
-| `GET`  | `/bets/:betId/status`         | Lightweight status poll        |
-| `POST` | `/bets/:betId/cashout`        | Execute cashout                |
-| `POST` | `/odds88/cashout/subscribe`   | Subscribe bet to cashout feed  |
-| `POST` | `/odds88/cashout/unsubscribe` | Unsubscribe from cashout feed  |
-| `POST` | `/odds88/bet-builder/price`   | Get Bet Builder combined price |
+| Method | Endpoint                       | Description                    |
+| ------ | ------------------------------ | ------------------------------ |
+| `GET`  | `/users/me`                    | Player profile + status        |
+| `GET`  | `/users/me/limits`             | Effective betting limits       |
+| `GET`  | `/users/me/exposure`           | Today's stake totals           |
+| `GET`  | `/users/me/analytics/overview` | Personal stats + streak        |
+| `GET`  | `/users/me/analytics/sports`   | Favourite sports & leagues     |
+| `GET`  | `/users/me/analytics/timeline` | Betting timeline               |
+| `POST` | `/bets/place`                  | Place a bet                    |
+| `GET`  | `/bets/history`                | Paginated bet list             |
+| `GET`  | `/bets/:betId`                 | Full bet detail                |
+| `GET`  | `/bets/:betId/status`          | Lightweight status poll        |
+| `POST` | `/bets/:betId/cashout`         | Execute cashout                |
+| `POST` | `/odds88/cashout/subscribe`    | Subscribe bet to cashout feed  |
+| `POST` | `/odds88/cashout/unsubscribe`  | Unsubscribe from cashout feed  |
+| `POST` | `/odds88/bet-builder/price`    | Get Bet Builder combined price |
+
+### Integration Checklist
+
+**Session**
+
+- [ ] `GET /users/me`, `GET /users/me/limits`, and balance from operator backend called in parallel on load
+- [ ] Player `status` checked — bet slip disabled for non-`active` statuses
+- [ ] Balance refreshed after each bet placement and cashout
+
+**Betting**
+
+- [ ] `idempotencyKey` is a fresh `crypto.randomUUID()` per bet submission
+- [ ] Same key reused on network-failure retry — new key after any slip change
+- [ ] `ODDS_CHANGED` rejection re-fetches odds and shows new prices before resubmit
+
+**WebSocket**
+
+- [ ] Snapshot rendered on first message (`type: "snapshot"`)
+- [ ] Deltas applied on subsequent messages (`type: "delta"`)
+- [ ] Reconnect with exponential back-off on disconnect
+
+**Home Widgets**
+
+- [ ] Both widgets fetched in parallel on home page mount (`Promise.all`)
+- [ ] `lang` param passed to match the player's active language
+- [ ] Empty `data: []` handled gracefully — no errors thrown
+- [ ] Widget refresh paused while bet slip is open
+- [ ] `ODDS_CHANGED` on widget bet re-fetches widgets and shows new prices
+- [ ] Widgets refreshed every 60 seconds; paused when browser tab is hidden
+
+**Analytics**
+
+- [ ] `GET /users/me/analytics/overview` used for "My Stats" summary
+- [ ] `netPnl` shown from player's perspective (negative = player is down)
+- [ ] `streak` shown only when `current` > 1

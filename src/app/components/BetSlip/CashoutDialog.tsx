@@ -13,9 +13,14 @@ import {
   cashoutDialogOnSuccess,
   isOpenedCashoutDialog,
 } from "@/state/isOpenedCashoutDialog";
-import { selectedCashoutBetId, selectedCashoutOffer } from "@/state/betState";
-import { cashOutOfferState } from "@/state/betHistoryState";
-import { fullCashout, type CashoutOfferResponse } from "@/api/bet/cashout";
+import {
+  selectedCashoutAmount,
+  selectedCashoutBet,
+  selectedCashoutBetId,
+} from "@/state/betState";
+import { fullCashout } from "@/api/bet/cashout";
+import { isCashoutableStatus } from "@/helpers/betStatus";
+import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
 import {
   formatCurrency,
   formatDate,
@@ -30,7 +35,8 @@ import type { BetItemType, BetLegType } from "@/shared/utils/bet";
 function clearCashoutDialogSignals() {
   isOpenedCashoutDialog.value = false;
   selectedCashoutBetId.value = null;
-  selectedCashoutOffer.value = null;
+  selectedCashoutBet.value = null;
+  selectedCashoutAmount.value = 0;
   cashoutDialogOnSuccess.value = null;
 }
 
@@ -73,13 +79,9 @@ export const CashoutDialog: FunctionComponent = () => {
   const [processing, setProcessing] = useState(false);
 
   const betId = selectedCashoutBetId.value;
-  const offer: CashoutOfferResponse | null = betId
-    ? (cashOutOfferState.value[betId] ?? selectedCashoutOffer.value)
-    : null;
-
-  const bet: BetItemType | null = offer?.betHistory ?? null;
-  const canAct = Boolean(offer?.canCashout);
-  const available = offer?.availableCashout ?? 0;
+  const bet: BetItemType | null = selectedCashoutBet.value;
+  const available = selectedCashoutAmount.value;
+  const canAct = Boolean(bet && isCashoutableStatus(bet.status) && available > 0);
   const possibleWin = bet ? bet.stakeAmount * bet.startingOdds : 0;
 
   const shortBetId = bet
@@ -101,7 +103,7 @@ export const CashoutDialog: FunctionComponent = () => {
   }, []);
 
   const handleManualCashout = async () => {
-    if (!betId || !offer || !offer.canCashout) {
+    if (!betId || !bet || !canAct) {
       notify(
         "Cashout is not available for this bet",
         "error",
@@ -121,6 +123,7 @@ export const CashoutDialog: FunctionComponent = () => {
           "check2-circle",
           3000,
         );
+        void refreshAfterWalletAction();
         cashoutDialogOnSuccess.value?.();
         clearCashoutDialogSignals();
         dialogRef.current?.hide();
@@ -168,7 +171,7 @@ export const CashoutDialog: FunctionComponent = () => {
     }
   }, [isOpenedCashoutDialog.value, betId]);
 
-  const showUnavailable = !offer || !canAct;
+  const showUnavailable = !bet || !canAct;
 
   return (
     <sl-dialog

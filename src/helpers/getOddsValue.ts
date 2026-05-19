@@ -21,3 +21,24 @@ export const getOddsValue = (
   }
   return 1;
 };
+
+export const getOddsMv = (
+  eventId: number,
+  marketId: string,
+  oddId: string,
+): number => {
+  const marketSig = storeState.value[eventId]?.value?.markets?.[marketId];
+  const selections = marketSig?.value?.selections;
+  const idNum = Number(oddId);
+  if (selections?.length) {
+    const selSig = selections.find((s) => s.value?.id === idNum);
+    if (selSig && typeof selSig === "object" && "value" in selSig) {
+      return selSig.value.mv ?? 0;
+    }
+  }
+  const oddSig = selectionsStoreState.value[oddId];
+  if (oddSig && typeof oddSig === "object" && "value" in oddSig) {
+    return (oddSig as Signal<{ mv?: number }>).value?.mv ?? 0;
+  }
+  return 0;
+};

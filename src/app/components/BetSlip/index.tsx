@@ -51,6 +51,16 @@ import { getOddsValue } from "@/helpers/getOddsValue";
 import { computed } from "@preact/signals";
 import SystemBetLineComponent from "./SystembetSection";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import { PlayerExposureBar } from "./PlayerExposureBar";
+import {
+  refreshAfterWalletAction,
+  refreshBalanceFromConfig,
+} from "@/helpers/refreshPlayerWallet";
+import {
+  handleOddsChangedRejection,
+  onBetRejectedWithReason,
+  type SubmittedSelectionLine,
+} from "@/helpers/betRejection";
 
 function extractAxiosMessage(err: unknown): string {
   const e = err as {
@@ -60,6 +70,27 @@ function extractAxiosMessage(err: unknown): string {
   return (
     e?.response?.data?.message || e?.message || "Bet request failed. Try again."
   );
+}
+
+function toSubmittedLines(odds: SelectedOddType[]): SubmittedSelectionLine[] {
+  return odds.map((o) => ({
+    label: `${o.name} — ${o.marketName}`,
+    eventId: o.eventId,
+    marketId: o.apiMarketId,
+    selectionId: o.apiSelectionId,
+    odds: getOddsValue(o.eventId, o.marketId, o.oddsId),
+  }));
+}
+
+function notifyBetRejected(
+  code: string | undefined,
+  submitted?: SubmittedSelectionLine[],
+): void {
+  onBetRejectedWithReason(code);
+  notify(rejectionReasonMessage(code), "error", "x-circle", 3500);
+  if (code === "ODDS_CHANGED" && submitted?.length) {
+    void handleOddsChangedRejection(submitted);
+  }
 }
 
 function rejectionReasonMessage(code: string | undefined): string {
@@ -87,13 +118,6 @@ function slipSelectionsPayload(odds: SelectedOddType[]) {
     selectionId: odd.apiSelectionId ?? Number(odd.oddsId),
     odds: getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
   }));
-}
-
-/** Balance is from the operator wallet (integration guide) — refresh from init config only. */
-function refreshBalanceFromConfig() {
-  const cfg = getAppConfig();
-  if (typeof cfg.xUserBalance === "number") balance.value = cfg.xUserBalance;
-  if (cfg.currency) currency.value = cfg.currency;
 }
 
 async function subscribeCashoutForBet(betId: string, playerId?: string) {
@@ -382,13 +406,9 @@ export const BetSlip: FunctionComponent = () => {
             selections: slipSelectionsPayload(buildingOdds),
           });
           if (d?.status === "rejected") {
-            notify(
-              rejectionReasonMessage(
-                (d as { rejectionReason?: string }).rejectionReason,
-              ),
-              "error",
-              "x-circle",
-              3500,
+            notifyBetRejected(
+              (d as { rejectionReason?: string }).rejectionReason,
+              toSubmittedLines(buildingOdds),
             );
             buildingOdds.forEach((o) => failedBets.add(o));
           } else if (d?.status === "accepted") {
@@ -396,7 +416,7 @@ export const BetSlip: FunctionComponent = () => {
             setBuildingOdds([]);
             buildingBetAmount.value = 0;
             notify("Bet accepted", "success", "check2-circle", 2500);
-            refreshBalanceFromConfig();
+            void refreshAfterWalletAction();
             void subscribeCashoutForBet(d.betId, xUserId);
           } else {
             notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -430,18 +450,14 @@ export const BetSlip: FunctionComponent = () => {
               selections: slipSelectionsPayload([odd]),
             });
             if (d?.status === "rejected") {
-              notify(
-                rejectionReasonMessage(
-                  (d as { rejectionReason?: string }).rejectionReason,
-                ),
-                "error",
-                "x-circle",
-                3500,
+              notifyBetRejected(
+                (d as { rejectionReason?: string }).rejectionReason,
+                toSubmittedLines([odd]),
               );
               failedBets.add(odd);
             } else if (d?.status === "accepted") {
               notify("Bet accepted", "success", "check2-circle", 2500);
-              refreshBalanceFromConfig();
+              void refreshAfterWalletAction();
               void subscribeCashoutForBet(d.betId, xUserId);
             } else {
               notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -475,20 +491,16 @@ export const BetSlip: FunctionComponent = () => {
             selections: slipSelectionsPayload(nonBuildingOdds),
           });
           if (d?.status === "rejected") {
-            notify(
-              rejectionReasonMessage(
-                (d as { rejectionReason?: string }).rejectionReason,
-              ),
-              "error",
-              "x-circle",
-              3500,
+            notifyBetRejected(
+              (d as { rejectionReason?: string }).rejectionReason,
+              toSubmittedLines(nonBuildingOdds),
             );
             nonBuildingOdds.forEach((o) => failedBets.add(o));
           } else if (d?.status === "accepted") {
             selectedOdds.value = [];
             window.localStorage.removeItem("selectedOdds");
             notify("Bet accepted", "success", "check2-circle", 2500);
-            refreshBalanceFromConfig();
+            void refreshAfterWalletAction();
             void subscribeCashoutForBet(d.betId, xUserId);
           } else {
             notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -513,20 +525,16 @@ export const BetSlip: FunctionComponent = () => {
                   selections: slipSelectionsPayload(nonBuildingOdds),
                 });
                 if (d?.status === "rejected") {
-                  notify(
-                    rejectionReasonMessage(
-                      (d as { rejectionReason?: string }).rejectionReason,
-                    ),
-                    "error",
-                    "x-circle",
-                    3500,
+                  notifyBetRejected(
+                    (d as { rejectionReason?: string }).rejectionReason,
+                    toSubmittedLines(nonBuildingOdds),
                   );
                   nonBuildingOdds.forEach((o) => failedBets.add(o));
                 } else if (d?.status === "accepted") {
                   selectedOdds.value = [];
                   window.localStorage.removeItem("selectedOdds");
                   notify("Bet accepted", "success", "check2-circle", 2500);
-                  refreshBalanceFromConfig();
+                  void refreshAfterWalletAction();
                   void subscribeCashoutForBet(d.betId, xUserId);
                 } else {
                   notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -1236,6 +1244,7 @@ export const BetSlip: FunctionComponent = () => {
                       </div>
                     </div>
 
+                    <PlayerExposureBar />
                     <div className="w-full rounded-[4px] p-[5px] mb-[20px] relative">
                       {isLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-[var(--sub-element-secondary)] rounded-[4px] z-10">

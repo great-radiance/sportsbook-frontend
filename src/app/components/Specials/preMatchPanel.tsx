@@ -19,7 +19,10 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { storeEvent } from "@/helpers/storeEvent";
 import { MarketNavigation } from "../marketNavigation";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
-import { isSoccerSport, sortSoccerFlatMatches } from "@/helpers/soccerLeagueTiers";
+import {
+  isSoccerSport,
+  sortSoccerFlatMatches,
+} from "@/helpers/soccerLeagueTiers";
 import {
   POPULAR_SPORT_ID,
   SOCCER_SPORT_ID,
@@ -30,7 +33,7 @@ const PAGE_SIZE = 10;
 const DEFAULT_SPORT_ID = SOCCER_SPORT_ID;
 const FALLBACK_MARKET_OPTIONS = ["Match Result", "Total", "Handicap"];
 /** Sport ids that render the moneyline layout (names come from event payload). */
-const MONEYLINE_SPORT_IDS = new Set([8]); // Basketball
+const MONEYLINE_SPORT_IDS = new Set([8, 6, 7, 14]); // Basketball
 
 /**
  * Heuristic: does the event carry a market we can render in the requested
@@ -75,7 +78,7 @@ export const PreMatchPanel: FunctionComponent = () => {
 
   /**
    * Flatten the tuple-tree summary for the active sport into one ordered list
-   * of `SummaryEventRef`s. `summarySports` (prematch) and `summarySportsLive` share
+   * of `FlatItem`s. `summarySports` (prematch) and `summarySportsLive` share
    * the same tuple shape — only the source changes by `matchView`.
    */
   const flatList: SummaryEventRef[] = useMemo(() => {

@@ -1,18 +1,17 @@
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import {
-  apiGetTrendingAccas,
-  type TrendingAccaCouponResponse,
-} from "@/api/home/homeWidgets";
-import { getAppConfig } from "@/shared/config/appConfig";
+import type { TrendingAccaCouponResponse } from "@/api/home/homeWidgets";
 import {
   addSingleWidgetPickToSlip,
   addTrendingAccaToSlip,
   type WidgetSelectionInput,
 } from "@/helpers/homeWidgetBetslip";
-
-const WIDGET_REFRESH_MS = 60_000;
+import { useHomeWidgetPolling } from "@/hooks/useHomeWidgetPolling";
+import {
+  loadHomeWidgetsBatch,
+  trendingAccasCache,
+} from "@/state/homeWidgetsCache";
 
 const formatDate = (iso: string) => {
   const t = new Date(iso).getTime();
@@ -43,13 +42,9 @@ const TrendingAccas = () => {
 
   const load = useCallback(async () => {
     try {
-      const { lang } = getAppConfig();
-      const res = await apiGetTrendingAccas({
-        lang: lang || "en",
-        limit: 3,
-      });
+      await loadHomeWidgetsBatch({ accaLimit: 3 });
       if (!mountedRef.current) return;
-      setCoupons(res?.data ?? []);
+      setCoupons(trendingAccasCache.value ?? []);
     } catch {
       if (!mountedRef.current) return;
       setCoupons([]);
@@ -58,13 +53,16 @@ const TrendingAccas = () => {
 
   useEffect(() => {
     mountedRef.current = true;
-    void load();
-    const t = window.setInterval(() => void load(), WIDGET_REFRESH_MS);
+    const unsub = trendingAccasCache.subscribe((v) => {
+      if (v && mountedRef.current) setCoupons(v);
+    });
     return () => {
       mountedRef.current = false;
-      window.clearInterval(t);
+      unsub();
     };
-  }, [load]);
+  }, []);
+
+  useHomeWidgetPolling(load);
 
   if (coupons.length === 0) return null;
 

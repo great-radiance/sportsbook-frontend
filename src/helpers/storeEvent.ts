@@ -22,7 +22,6 @@ function readIsBetBuilderSupported(source: BetBuilderSupportIn): boolean {
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
-  console.log("storeEvent", event);
   if (!storeState.value[event.eventInfo.id]) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,
@@ -45,6 +44,7 @@ export const storeEvent = (event: MatchDataResponse) => {
           market.parameters,
           selectionExtra,
         ),
+        mv: 0,
         isBetBuilderSupported: readIsBetBuilderSupported(
           selection as BetBuilderSupportIn,
         ),
@@ -87,7 +87,7 @@ export const storeEvent = (event: MatchDataResponse) => {
       // market.tradingStatus === 2 ||
       // market.tradingStatus === 3
     ) {
-      marketsRecord[market.id] = signal(marketData);
+      marketsRecord[String(market.id)] = signal(marketData);
     }
   }
   const evSig = storeState.value[event.eventInfo.id];
@@ -117,7 +117,6 @@ export const storeEvent = (event: MatchDataResponse) => {
     scoreboard: event.scoreboard,
     // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
-  console.log("storedEvent", evSig.value);
 };
 
 export const storeSelection = (
@@ -141,6 +140,12 @@ export const storeSelection = (
         "value" in selectionSig
           ? selectionSig.value.price
           : 1,
+      mv:
+        selectionSig &&
+        typeof selectionSig === "object" &&
+        "value" in selectionSig
+          ? (selectionSig.value.mv ?? 0)
+          : 0,
     }),
   };
   // console.log("storedEvent", selectionsStoreState.value);

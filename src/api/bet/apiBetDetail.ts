@@ -1,19 +1,45 @@
 import { instance } from "../instance";
+import { unwrapApiData } from "../unwrapApiData";
+import { getAppConfig } from "@/shared/config/appConfig";
+import { mapBetDetailToBetItem } from "./mapBetDetail";
+import type { BetItemType } from "@/shared/utils/bet";
+import { apiCashoutSubscribe } from "./cashout";
 
 export type BetDetailSelection = {
   selectionId: number;
   eventId: number;
   marketId: number;
   status: string;
+  settlementResult?: string | null;
   oddsAtPlacement: number;
+  currentOdds?: number;
+  stakePortion?: number;
+  potentialPayout?: number;
+  actualPayout?: number | null;
+  settledAt?: string | null;
   eventSnapshot?: {
     id?: number;
     name?: string;
+    status?: number;
+    tradingStatus?: number;
+    statusDescription?: string;
     sport?: { id?: number; name?: string };
+    country?: { id?: number; name?: string };
     competition?: { id?: number; name?: string };
+    season?: unknown;
+    competitors?: { id?: number; name?: string }[];
+    startTime?: string;
+    isOutright?: boolean;
+    isBetBuilderSupported?: boolean;
+    mappingInfo?: { feedId: number; id: string }[];
   };
-  marketSnapshot?: { id?: number; name?: string };
-  selectionSnapshot?: { id?: number; name?: string; odds?: number };
+  marketSnapshot?: { id?: number; name?: string; type?: number };
+  selectionSnapshot?: {
+    id?: number;
+    name?: string;
+    odds?: number;
+    price?: number;
+  };
 };
 
 export type BetDetail = {
@@ -25,27 +51,26 @@ export type BetDetail = {
   actualPayout: number | null;
   combinedOdds: number;
   currency: string;
+  selectionCount?: number;
   createdAt: string;
   acceptedAt?: string | null;
   settledAt?: string | null;
   cashoutAmount?: number | null;
   cashoutAt?: string | null;
+  rejectionReason?: string | null;
   selections?: BetDetailSelection[];
+  statusTimeline?: unknown[];
+  walletTransactions?: unknown[];
 };
 
-function unwrapData<T>(body: unknown): T {
-  if (body && typeof body === "object" && "data" in body) {
-    return (body as { data: T }).data;
-  }
-  return body as T;
-}
+const detailInFlight = new Map<string, Promise<BetItemType | null>>();
 
 /** `GET /bets/:betId` */
 export async function apiGetBetDetail(betId: string): Promise<BetDetail> {
   const { data } = await instance.get<BetDetail | { data: BetDetail }>(
     `/bets/${betId}`,
   );
-  return unwrapData<BetDetail>(data);
+  return unwrapApiData<BetDetail>(data);
 }
 
 /** `GET /bets/:betId/status` */
@@ -58,5 +83,40 @@ export async function apiGetBetStatus(betId: string): Promise<{
     | { betId: string; status: string; updatedAt: string }
     | { data: { betId: string; status: string; updatedAt: string } }
   >(`/bets/${betId}/status`);
-  return unwrapData(data);
+  return unwrapApiData(data);
+}
+
+async function fetchBetDetailForUi(betId: string): Promise<BetItemType | null> {
+  try {
+    const detail = await apiGetBetDetail(betId);
+    const bet = mapBetDetailToBetItem(detail);
+
+    if (detail.status === "accepted") {
+      const playerId = getAppConfig().xUserId;
+      if (playerId) {
+        void apiCashoutSubscribe(betId, playerId).catch((err) => {
+          console.warn("cashout subscribe failed:", err);
+        });
+      }
+    }
+
+    return bet;
+  } catch (error) {
+    console.error("GET /bets/:betId failed:", error);
+    return null;
+  }
+}
+
+/** Load full bet receipt + cashout subscribe (deduped per `betId`). */
+export async function loadBetDetail(
+  betId: string,
+): Promise<BetItemType | null> {
+  const inFlight = detailInFlight.get(betId);
+  if (inFlight) return inFlight;
+
+  const promise = fetchBetDetailForUi(betId).finally(() => {
+    detailInFlight.delete(betId);
+  });
+  detailInFlight.set(betId, promise);
+  return promise;
 }

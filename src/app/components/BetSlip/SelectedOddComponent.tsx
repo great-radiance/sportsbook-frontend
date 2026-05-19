@@ -5,7 +5,8 @@ import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { selectedOdds } from "@/state/betState";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { getOddsValue } from "@/helpers/getOddsValue";
+import { getOddsMv, getOddsValue } from "@/helpers/getOddsValue";
+import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 import { computed } from "@preact/signals";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
 import { baseColorTheme } from "@/state/baseColorTheme";
@@ -36,6 +37,9 @@ export const SelectedOddComponent: FunctionComponent<
   const oddsValue = computed(() => {
     return getOddsValue(bet.eventId, bet.marketId, bet.oddsId);
   });
+  const oddsMv = computed(() =>
+    getOddsMv(bet.eventId, bet.marketId, bet.oddsId),
+  );
 
   const calculatePossibleWin = (stake: number, odds: number): number => {
     return stake * odds;
@@ -96,8 +100,9 @@ export const SelectedOddComponent: FunctionComponent<
                 className="w-4"
               />
             </button>
-            <span className="text-[var(--primary-color)] text-[12px] font-normal">
+            <span className="relative inline-flex text-[var(--primary-color)] text-[12px] font-normal">
               {oddsValue.value.toFixed(2)}
+              <OddsMoveIndicator mv={oddsMv.value} />
             </span>
           </div>
         </div>

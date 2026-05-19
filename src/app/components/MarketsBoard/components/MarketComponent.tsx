@@ -14,6 +14,7 @@ import { storeState } from "@/state/storeState";
 import { tOdd } from "@/types/tEvent";
 import { Signal } from "@preact/signals";
 import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
+import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 
 // type MarketWithTick = MarketType & { __tick?: number };
 
@@ -67,6 +68,10 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
     : selectionsRaw;
   // Use the primary market's selection count for column layout so that
   // each "row" stays paired (e.g. Over | Under) when extras are appended.
+  console.log(
+    "selectionsMV",
+    selections.map(({ sig }) => sig.value.mv),
+  );
   const columns = Math.min(
     4,
     Math.max(
@@ -186,12 +191,14 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                 selection?.value.status === 2 ||
                 selection?.value.status === 3
               ) {
-                return null;
-                // <span
-                //   className={`flex items-center border ${theme === "dark" ? "bg-[var(--sub-element-secondary)] border-[var(--border-color)]" : "bg-[var(--sub-element-secondary)] border-[var(--border-color)]"} justify-center px-[10px] py-2  text-[12px] rounded-[8px] text-[var(--text-primary-color)] min-w-0`}
-                // >
-                //   -
-                // </span>
+                // return null;
+                return (
+                  <span
+                    className={`flex items-center border bg-[var(--sub-element-secondary)] border-[var(--border-color)] justify-center px-[10px] py-2  text-[12px] rounded-[8px] text-[var(--text-primary-color)] min-w-0`}
+                  >
+                    -
+                  </span>
+                );
               }
 
               const apiMid =
@@ -222,9 +229,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                 >
                   <span
                     className={`truncate ${
-                      selected
-                        ? "text-black"
-                        : "group-hover/m:text-black"
+                      selected ? "text-black" : "group-hover/m:text-black"
                     } mr-2`}
                   >
                     {getOddName(selection?.value.name)}
@@ -239,41 +244,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                   >
                     {selection?.value.price?.toFixed(2)}
                   </div>
-
-                  {/* {odd.mv === 1 && (
-                    <span
-                      key={`up-${selection?.value.id}`}
-                      className="absolute odd-move-mark top-1 right-[2px] w-0 h-0 market-indicator-up"
-                      style={{
-                        borderStyle: "solid",
-                        borderWidth: "0px 8px 8px 0px",
-                        borderTopColor: "transparent",
-                        borderRightColor: "#16C72E",
-                        borderBottomColor: "#000000",
-                        borderLeftColor: "transparent",
-                        background:
-                          "linear-gradient(to top right, #000000 0%, #16C72E 100%)",
-                        clipPath: "polygon(0 0, 100% 0, 100% 100%)",
-                      }}
-                    />
-                  )}
-
-                  {odd?.mv === -1 && (
-                    <span
-                      key={`down-${odd.id}`}
-                      className="absolute odd-move-mark bottom-1 right-[2px] w-0 h-0 market-indicator-down"
-                      style={{
-                        borderStyle: "solid",
-                        borderWidth: "0px 0px 8px 8px",
-                        borderTopColor: "transparent",
-                        borderRightColor: "#000000",
-                        borderBottomColor: "#FF3449",
-                        borderLeftColor: "transparent",
-                        background:
-                          "linear-gradient(to top right, #000000 0%, #FF3449 100%)",
-                      }}
-                    />
-                  )} */}
+                  <OddsMoveIndicator mv={selection?.value.mv} />
                 </div>
               );
             })}

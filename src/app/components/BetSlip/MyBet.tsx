@@ -7,12 +7,11 @@ import { notify } from "@/shared/toast";
 import "./myBetStyle.scss";
 import { Select, SelectItem } from "@/app/components/Select";
 import { apiGetBetHistory } from "@/api/bet/betHistory";
+import { betHistoryState } from "@/state/betHistoryState";
 import { BetItemType } from "@/shared/utils/bet";
 import { BetComponent } from "./BetComponent";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { set } from "date-fns";
-
 export const MyBet: FunctionComponent = () => {
   const { t } = useTranslate("betslip");
   const { t: tCommon } = useTranslate("common");
@@ -45,24 +44,23 @@ export const MyBet: FunctionComponent = () => {
 
   // Fetch all bet history
   const fetchAllBets = async (pageNum: number = 1, limit: number = 10) => {
+    if (!xUserId) return;
     try {
       setLoading(true);
-      // Fetch all bets without status filter to get everything
-      const params = {
-        userId: xUserId || "",
+      const response = await apiGetBetHistory({
         page: pageNum,
-        limit: limit,
-      };
-      // const response = await apiGetBetHistory(params);
-      // if (response && response.bets) {
-      //   setAllBets(response.bets);
-      //   setFilteredBets(response.bets); // Show all initially
-      //   setTotalPages(response.totalPages || 1);
-      //   setPage(response.page || 1);
-      // } else {
-      //   setAllBets([]);
-      //   setFilteredBets([]);
-      // }
+        limit,
+        sort: "newest",
+      });
+      if (response?.bets) {
+        setAllBets(response.bets);
+        setFilteredBets(response.bets);
+        setTotalPages(response.totalPages || 1);
+        setPage(response.page || pageNum);
+      } else {
+        setAllBets([]);
+        setFilteredBets([]);
+      }
     } catch (err) {
       console.error("Error fetching bet history:", err);
       notify("Failed to fetch bet history", "error", "x-circle", 2000);
@@ -112,18 +110,20 @@ export const MyBet: FunctionComponent = () => {
     filterBets(selectedBetType, selectedPeriod);
   };
 
-  // Fetch all bets when dialog opens
-  useEffect(() => {
-    if (isOpenedMyBet.value) {
-      fetchAllBets();
-    }
-  }, [isOpenedMyBet.value]);
+  const dialogOpen = isOpenedMyBet.value;
 
   useEffect(() => {
-    if (isOpenedMyBet.value) {
-      fetchAllBets(page);
+    if (!dialogOpen || !xUserId) return;
+
+    // Desktop sidebar already loads history in OpenBets — avoid a second list request.
+    if (!isMobile.value && betHistoryState.value.length > 0) {
+      setAllBets(betHistoryState.value);
+      setFilteredBets(betHistoryState.value);
+      return;
     }
-  }, [page]);
+
+    void fetchAllBets(page);
+  }, [dialogOpen, page, xUserId]);
 
   // Extract initials from username
   const getInitials = (name: string): string => {

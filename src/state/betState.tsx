@@ -2,9 +2,8 @@ import { betType, SelectedOddType } from "@/shared/utils/bet";
 import { signal } from "@preact/signals";
 import { BetSelection } from "@/shared/utils/EventsUtils";
 import { BetItemType } from "@/shared/utils/bet";
-import { CashoutOfferResponse } from "@/api/bet/cashout";
 import { isMobile } from "@/state/isMobile";
-import type { UserLimits, UserMe } from "@/api/user/apiUsersMe";
+import type { UserExposure, UserLimits, UserMe } from "@/api/user/apiUsersMe";
 
 export const balance = signal<number>(0);
 export const currency = signal<string>("USD");
@@ -20,7 +19,9 @@ export const multipleBetAmount = signal<number>(0);
 export const buildingBetAmount = signal<number>(0);
 export const myBetsState = signal<BetItemType[]>([]);
 export const selectedCashoutBetId = signal<string | null>(null);
-export const selectedCashoutOffer = signal<CashoutOfferResponse | null>(null);
+/** Bet + cashout amount when opening `CashoutDialog`. */
+export const selectedCashoutBet = signal<BetItemType | null>(null);
+export const selectedCashoutAmount = signal<number>(0);
 
 export const selectedBetslipTab = signal<"bet-slip" | "my-bet">("bet-slip");
 
@@ -33,6 +34,8 @@ export const isBuilding = signal<boolean>(false);
 /** `GET /users/me` — loaded on app start in MainLayout. */
 export const playerProfile = signal<UserMe | null>(null);
 export const playerLimits = signal<UserLimits | null>(null);
+/** `GET /users/me/exposure` — daily stake totals for RG UI. */
+export const playerExposure = signal<UserExposure | null>(null);
 export const playerSessionReady = signal<boolean>(false);
 
 /** `POST /odds88/bet-builder/price` — combined price when bet builder mode is active. */

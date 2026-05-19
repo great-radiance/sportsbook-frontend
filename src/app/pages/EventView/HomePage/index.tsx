@@ -9,6 +9,7 @@ import { UpcomingMatches } from "@/app/components/Specials/UpcomingMatches";
 import { HorizontalTabs } from "@/app/components/HorizontalTabs";
 import TrendingAccas from "@/app/components/HomePage.tsx/TrendingAccas";
 import { StarPlayers } from "@/app/components/StarPlayers";
+import { loadHomeWidgetsBatch } from "@/state/homeWidgetsCache";
 
 export const HomePage: FunctionComponent = () => {
   const [shouldRenderLive, setShouldRenderLive] = useState(false);
@@ -48,6 +49,7 @@ export const HomePage: FunctionComponent = () => {
   }, []);
 
   useEffect(() => {
+    void loadHomeWidgetsBatch({ starLimit: 20, accaLimit: 3 });
     return () => {
       observerRef.current?.disconnect();
     };

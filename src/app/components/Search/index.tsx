@@ -21,8 +21,9 @@ import "./style.css";
 import { isOpenedMyBet } from "@/state/betState";
 import { PopularMatches } from "../Specials/PopularMatches";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import { apiSearchEvents } from "@/api/apiSearchEvents";
-import type { responseEvent } from "@/api/matches/apiGetMatches";
+import { apiSearchEvents } from "@/api/events/apiSearchEvents";
+import type { SearchEventRow } from "@/types/searchEvent";
+import { searchRowPrematchPath } from "@/helpers/mapGuideSearchEvent";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { isMobile } from "@/state/isMobile";
 
@@ -58,7 +59,7 @@ function formatTime(ts: number): string {
 export const Search: FunctionComponent = () => {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<responseEvent[]>([]);
+  const [allResults, setAllResults] = useState<SearchEventRow[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
@@ -77,8 +78,8 @@ export const Search: FunctionComponent = () => {
   const debouncedSearchRef = useRef(
     debounce(async (query: string) => {
       const q = query.trim();
-      if (q.length <= 2) {
-        setSearchResults([]);
+      if (q.length < 2) {
+        setAllResults([]);
         setTotalCount(0);
         setHasMore(false);
         setLoading(false);
@@ -87,16 +88,12 @@ export const Search: FunctionComponent = () => {
       const requestId = ++searchRequestIdRef.current;
       setLoading(true);
       try {
-        const results = await apiSearchEvents({
-          q,
-          limit: PAGE_SIZE,
-          offset: 0,
-        });
+        const results = await apiSearchEvents({ q });
         if (requestId !== searchRequestIdRef.current) return;
-        const rows = results.data?.map ?? [];
-        setSearchResults(rows);
-        setTotalCount(results.totalCount ?? rows.length);
-        setHasMore(rows.length < (results.totalCount ?? rows.length));
+        const rows = results.data ?? [];
+        setAllResults(rows);
+        setTotalCount(results.total ?? rows.length);
+        setHasMore(rows.length > PAGE_SIZE);
         setSelectedSport("All");
         setEventsExpanded(true);
         setMarketsExpanded(true);
@@ -105,7 +102,7 @@ export const Search: FunctionComponent = () => {
       } catch (error) {
         if (requestId !== searchRequestIdRef.current) return;
         console.error("Error searching events:", error);
-        setSearchResults([]);
+        setAllResults([]);
         setTotalCount(0);
         setHasMore(false);
       } finally {
@@ -121,7 +118,7 @@ export const Search: FunctionComponent = () => {
       setTimeout(() => inputRef.current?.focus(), 100);
     } else {
       setSearchQuery("");
-      setSearchResults([]);
+      setAllResults([]);
       setTotalCount(0);
       setHasMore(false);
       setLoading(false);
@@ -142,7 +139,7 @@ export const Search: FunctionComponent = () => {
     };
   }, [searchQuery]);
 
-  const isQueryActive = searchQuery.trim().length > 2;
+  const isQueryActive = searchQuery.trim().length >= 2;
   const queryTokens = useMemo(() => getQueryTokens(searchQuery), [searchQuery]);
 
   const highlightText = useCallback(
@@ -180,20 +177,19 @@ export const Search: FunctionComponent = () => {
   );
 
   const listMatches = useMemo(() => {
-    if (!searchResults.length) return [];
-    if (selectedSport === "All") return searchResults;
-    return searchResults.filter((m) => (m?.[1] ?? "") === selectedSport);
-  }, [searchResults, selectedSport]);
+    if (!allResults.length) return [];
+    if (selectedSport === "All") return allResults;
+    return allResults.filter((m) => m.sportName === selectedSport);
+  }, [allResults, selectedSport]);
 
   const sportFilterList = useMemo(() => {
-    if (!searchResults.length) return [];
+    if (!allResults.length) return [];
     const sports = new Set<string>();
-    searchResults.forEach((r) => {
-      const sport = r?.[1] ?? "";
-      if (sport) sports.add(sport);
+    allResults.forEach((r) => {
+      if (r.sportName) sports.add(r.sportName);
     });
     return ["All", ...[...sports].sort()];
-  }, [searchResults]);
+  }, [allResults]);
 
   const matchedMarkets = useMemo(() => {
     if (!queryTokens.length) return [];
@@ -201,25 +197,25 @@ export const Search: FunctionComponent = () => {
     const out: {
       eventId: number;
       sport: string;
+      sportId: number;
       region: string;
+      regionId: number;
       league: string;
+      leagueId: number;
       startDate: number;
       participants: string[];
       marketName: string;
     }[] = [];
 
     for (const row of listMatches) {
-      const eventId = row?.[0] ?? 0;
-      const sport = row?.[1] ?? "";
-      const region = row?.[2] ?? "";
-      const league = row?.[3] ?? "";
-      const participants = (row?.[4] ?? [])
-        .map((p) => p?.[0] ?? "")
-        .filter(Boolean);
-      const startDate = row?.[9] ?? 0;
-      const markets = row?.[7] ?? [];
-      for (const m of markets) {
-        const name = (m?.[1] ?? "") as string;
+      const eventId = row.eventId;
+      const sport = row.sportName;
+      const region = row.regionName;
+      const league = row.leagueName;
+      const participants = row.participants.filter(Boolean);
+      const startDate = row.startTime;
+      for (const m of row.markets) {
+        const name = m.name;
         if (!name) continue;
         const nameLower = name.toLowerCase();
         const hit = qLower.some((t) => nameLower.includes(t));
@@ -227,8 +223,11 @@ export const Search: FunctionComponent = () => {
         out.push({
           eventId,
           sport,
+          sportId: row.sportId,
           region,
+          regionId: row.regionId,
           league,
+          leagueId: row.leagueId,
           startDate,
           participants,
           marketName: name,
@@ -238,31 +237,24 @@ export const Search: FunctionComponent = () => {
     return out;
   }, [listMatches, queryTokens]);
 
-  const fetchNextPage = useCallback(async () => {
-    const q = searchQuery.trim();
-    if (q.length <= 2 || !hasMore || loadingMore) return;
+  const fetchNextPage = useCallback(() => {
+    if (!hasMore || loadingMore) return;
     setLoadingMore(true);
-    try {
-      const next = await apiSearchEvents({
-        q,
-        limit: PAGE_SIZE,
-        offset: searchResults.length,
-      });
-      const rows = next.data?.map ?? [];
-      const nextTotalCount = next.totalCount ?? totalCount;
-      if (rows.length === 0) {
-        setHasMore(false);
-        return;
-      }
-      setSearchResults((prev) => [...prev, ...rows]);
-      setTotalCount(nextTotalCount);
-      setHasMore(searchResults.length + rows.length < nextTotalCount);
-    } catch (error) {
-      console.error("Error loading more search results:", error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [searchQuery, hasMore, loadingMore, searchResults.length, totalCount]);
+    setVisibleEventsCount((c) => c + PAGE_SIZE);
+    setVisibleMarketsCount((c) => c + PAGE_SIZE);
+    setHasMore(
+      visibleEventsCount + PAGE_SIZE < listMatches.length ||
+        visibleMarketsCount + PAGE_SIZE < matchedMarkets.length,
+    );
+    setLoadingMore(false);
+  }, [
+    hasMore,
+    loadingMore,
+    visibleEventsCount,
+    visibleMarketsCount,
+    listMatches.length,
+    matchedMarkets.length,
+  ]);
 
   // If the user asks to view more than we currently have loaded, auto-fetch next page.
   useEffect(() => {
@@ -381,8 +373,8 @@ export const Search: FunctionComponent = () => {
               </div>
             ) : listMatches.length === 0 ? (
               <div className="flex justify-center py-8 text-center text-gray-500">
-                <p>No results found for "{searchQuery}" &nbsp;</p>
-                <p> Try a different search term</p>
+                <p>No events found for &quot;{searchQuery}&quot;.</p>
+                <p>Try a different search term.</p>
               </div>
             ) : (
               <div className="flex w-full flex-col">
@@ -409,21 +401,17 @@ export const Search: FunctionComponent = () => {
 
                   {eventsExpanded &&
                     listMatches.slice(0, visibleEventsCount).map((m) => {
-                      const id = m?.[0] ?? 0;
-                      const sport = m?.[1] ?? "";
-                      const region = m?.[2] ?? "";
-                      const league = m?.[3] ?? "";
-                      const p1 = m?.[4]?.[0]?.[0] ?? "";
-                      const p2 = m?.[4]?.[1]?.[0] ?? "";
+                      const p1 = m.participants[0] ?? "";
+                      const p2 = m.participants[1] ?? "";
                       const title = p1 && p2 ? `${p1} - ${p2}` : "";
                       return (
                         <button
-                          key={`${id}-${sport}-${league}`}
+                          key={`${m.eventId}-${m.sportName}-${m.leagueName}`}
                           type="button"
                           onClick={(e) => {
                             linkButtonOnClick(
                               e,
-                              `/event-view/pre-match/${sport}/${region}/${league}/${id}`,
+                              searchRowPrematchPath(m),
                               setLocation,
                             );
                             showSearchState.value = false;
@@ -434,7 +422,7 @@ export const Search: FunctionComponent = () => {
                           className="flex items-start gap-2 w-full text-left rounded-lg p-3 hover:bg-[var(--highlight-background)] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] transition-colors"
                         >
                           <img
-                            src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sport}.png`}
+                            src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${m.sportName}.png`}
                             alt=""
                             className="w-5 h-5 object-contain flex-shrink-0 mt-0.5 brightness-0 invert"
                             onError={(e) => {
@@ -444,14 +432,14 @@ export const Search: FunctionComponent = () => {
                           />
                           <div className="flex flex-col min-w-0 flex-1">
                             <span className="text-[12px] text-[var(--text-sub-color)] truncate">
-                              {highlightText(league || "")}
+                              {highlightText(m.leagueName || "")}
                             </span>
                             <span className="text-[14px] font-medium text-[var(--text-basic-color)] truncate mt-0.5">
                               {highlightText(title || "")}
                             </span>
                             <span className="text-[12px] text-[var(--text-sub-color)] mt-0.5">
-                              {formatDate(m?.[9] ?? 0)},{" "}
-                              {formatTime(m?.[9] ?? 0)}
+                              {formatDate(m.startTime)},{" "}
+                              {formatTime(m.startTime)}
                             </span>
                           </div>
                         </button>
@@ -527,7 +515,21 @@ export const Search: FunctionComponent = () => {
                               onClick={(e) => {
                                 linkButtonOnClick(
                                   e,
-                                  `/event-view/pre-match/${mm.sport}/${mm.region}/${mm.league}/${mm.eventId}`,
+                                  searchRowPrematchPath({
+                                    eventId: mm.eventId,
+                                    sportName: mm.sport,
+                                    sportId: mm.sportId,
+                                    regionName: mm.region,
+                                    regionId: mm.regionId,
+                                    leagueName: mm.league,
+                                    leagueId: mm.leagueId,
+                                    participants: [
+                                      mm.participants[0] ?? "",
+                                      mm.participants[1] ?? "",
+                                    ],
+                                    startTime: mm.startDate,
+                                    markets: [],
+                                  }),
                                   setLocation,
                                 );
                                 showSearchState.value = false;

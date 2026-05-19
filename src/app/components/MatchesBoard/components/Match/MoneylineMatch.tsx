@@ -27,6 +27,7 @@ import { isMobile } from "@/state/isMobile";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { isBuilding } from "@/state/betState";
+import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 
 interface MoneylineMatchProps {
   eventId: number;
@@ -368,7 +369,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
       <button
         key={odd.id}
         type="button"
-        className={`flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-[8px] px-2 py-1.5 transition-colors ${
+        className={`relative flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-[8px] px-2 py-1.5 transition-colors ${
           isMobile.value ? "" : "hover:bg-[var(--primary-color)]"
         } ${selected ? "bg-[var(--primary-color)] text-white/90" : "text-[var(--text-basic-color)] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] group group-hover:text-white"}`}
         onClick={(e) => {
@@ -402,6 +403,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         >
           {odd.price != null ? odd.price.toFixed(2) : "—"}
         </span>
+        <OddsMoveIndicator mv={odd.mv} />
       </button>
     );
   };

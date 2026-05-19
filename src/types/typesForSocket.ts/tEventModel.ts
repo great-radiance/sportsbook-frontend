@@ -15,6 +15,8 @@ export type tSelectionValue = {
   isBetBuilderSupported: boolean;
   competitionId: number;
   startingPrice: number;
+  /** Price move: 1 = up, -1 = down, 0 = unchanged (set on WS update). */
+  mv: number;
 };
 
 export type tSelectionSignal = Signal<tSelectionValue>;

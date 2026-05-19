@@ -1,21 +1,26 @@
 /** @jsxImportSource preact */
-import { FunctionComponent } from 'preact';
-import { useEffect } from 'preact/hooks';
-import '@/styles/main.scss';
-import '@shoelace-style/shoelace/dist/themes/light.css';
-import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
-import { AppProviders } from './AppProviders';
-import { I18nStore } from '@/shared/i18n/i18n';
+import { FunctionComponent } from "preact";
+import { useEffect } from "preact/hooks";
+import "@/styles/main.scss";
+import "@shoelace-style/shoelace/dist/themes/light.css";
+import { setBasePath } from "@shoelace-style/shoelace/dist/utilities/base-path.js";
+import { AppProviders } from "./AppProviders";
+import { I18nStore } from "@/shared/i18n/i18n";
 
 interface AppRootProps {
   i18n: I18nStore;
   disallowUrlChange?: boolean;
 }
 
-export const AppRoot: FunctionComponent<AppRootProps> = ({ i18n, disallowUrlChange }) => {
+export const AppRoot: FunctionComponent<AppRootProps> = ({
+  i18n,
+  disallowUrlChange,
+}) => {
   useEffect(() => {
     // Set Shoelace base path for CDN or local assets
-    setBasePath('https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.1/cdn/');
+    setBasePath(
+      "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.1/cdn/",
+    );
     const styleEl = document.createElement("style");
     styleEl.setAttribute("id", "sb-parent-patches"); // optional marker
     styleEl.textContent = `

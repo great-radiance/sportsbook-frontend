@@ -1,21 +1,16 @@
 import { instance } from "../instance";
-import { BetItemType, BetLegType } from "@/shared/utils/bet";
-import { apiGetBetDetail } from "./apiBetDetail";
-
-export interface CashoutOfferResponse {
-  betHistory: BetItemType;
-  availableCashout: number;
-  canCashout: boolean;
-}
+import { unwrapApiData } from "../unwrapApiData";
+import { getMaxCashoutAmount } from "@/helpers/betStatus";
+import { BetItemType } from "@/shared/utils/bet";
 
 export interface CashoutResponse {
+  success?: boolean;
   betId: string;
   cashoutAmount: number;
-  cashedOutAt?: string;
   status: string;
+  cashedOutAt?: string;
   remainingStake?: number;
   isPartial?: boolean;
-  success?: boolean;
 }
 
 /** `POST /odds88/cashout/subscribe` */
@@ -37,120 +32,41 @@ export async function apiExecuteCashout(
   cashoutAmount: number,
   idempotencyKey?: string,
 ): Promise<CashoutResponse> {
-  const { data } = await instance.post<CashoutResponse>(
-    `/bets/${betId}/cashout`,
-    {
-      cashoutAmount,
-      idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
-    },
-  );
-  return data;
-}
-
-function mapBetDetailToBetItem(detail: Awaited<ReturnType<typeof apiGetBetDetail>>): BetItemType {
-  const legs: BetLegType[] = (detail.selections ?? []).map((sel) => {
-    const snap = sel.selectionSnapshot;
-    const ev = sel.eventSnapshot;
-    return {
-      eventId: sel.eventId,
-      sport: { id: ev?.sport?.id ?? 0, name: ev?.sport?.name ?? "" },
-      region: { seqId: 0, id: null, name: null },
-      league: {
-        seqId: 0,
-        id: ev?.competition?.id ?? null,
-        name: ev?.competition?.name ?? null,
-      },
-      participants: ev?.name
-        ? ev.name.split(/\s+vs\s+/i).map((name, i) => ({
-            seqId: i,
-            id: null,
-            name: name.trim(),
-            providerId: 0,
-            providerName: "",
-            home: i === 0,
-          }))
-        : [],
-      market: { name: sel.marketSnapshot?.name ?? "" },
-      odds: [
-        {
-          id: String(sel.selectionId),
-          name: snap?.name ?? "—",
-          value: sel.oddsAtPlacement,
-          selected: true,
-          currentValue: sel.oddsAtPlacement,
-          settlement: null,
-        },
-      ],
-    };
+  const { data } = await instance.post<
+    CashoutResponse | { data: CashoutResponse }
+  >(`/bets/${betId}/cashout`, {
+    cashoutAmount,
+    idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
   });
-
-  return {
-    betId: detail.betId,
-    userId: "",
-    startingOdds: detail.combinedOdds,
-    betType: detail.betType === "single" ? "single" : "multi",
-    legs: legs.length ? legs : [],
-    details: legs,
-    systemType: "",
-    remainingStake: detail.stakeAmount,
-    autoCashoutSettings: null,
-    stakeAmount: detail.stakeAmount,
-    status: detail.status === "accepted" ? "pending" : detail.status,
-    cashoutHistory: [],
-    cashoutAmount: detail.cashoutAmount ?? null,
-    cashedOutAt: detail.cashoutAt ?? null,
-    placedAt: detail.createdAt,
-    settledAt: detail.settledAt,
-    providerResponse: { transactionId: "", code: 0, message: "" },
-    metadata: { currency: detail.currency, potentialPayout: detail.potentialPayout },
-  };
+  return unwrapApiData<CashoutResponse>(data);
 }
 
-/**
- * Cashout offer for My Bets UI — uses `GET /bets/:betId` (`cashoutAmount` when available).
- */
-export const getCashoutOffer = async (
-  betId: string,
-): Promise<CashoutOfferResponse | null> => {
-  try {
-    const detail = await apiGetBetDetail(betId);
-    const amount = detail.cashoutAmount ?? 0;
-    const canCashout =
-      detail.status === "accepted" && amount > 0;
-    return {
-      betHistory: mapBetDetailToBetItem(detail),
-      availableCashout: amount,
-      canCashout,
-    };
-  } catch (error) {
-    console.error("Error getting cashout offer:", error);
-    return null;
-  }
-};
+export function cashoutAmountForBet(bet: BetItemType): number {
+  const apiAmount =
+    typeof bet.metadata?.apiCashoutAmount === "number"
+      ? bet.metadata.apiCashoutAmount
+      : null;
+  return getMaxCashoutAmount(bet.stakeAmount, apiAmount);
+}
 
 export const fullCashout = async (
   betId: string,
-  cashoutAmount?: number,
+  cashoutAmount: number,
 ): Promise<CashoutResponse | null> => {
   try {
-    let amount = cashoutAmount;
-    if (amount == null || amount <= 0) {
-      const detail = await apiGetBetDetail(betId);
-      amount = detail.cashoutAmount ?? 0;
-    }
-    if (!amount || amount <= 0) return null;
-    return await apiExecuteCashout(betId, amount);
+    if (!cashoutAmount || cashoutAmount <= 0) return null;
+    return await apiExecuteCashout(betId, cashoutAmount);
   } catch (error) {
-    console.error("Error performing cashout:", error);
+    console.error("POST /bets/:betId/cashout failed:", error);
     return null;
   }
 };
 
-/** Partial cashout is not in the integration guide — delegates to full cashout. */
+/** Partial cashout is not in the integration guide — full amount only. */
 export const partialCashout = async (
   betId: string,
-  _percentage: number,
-): Promise<CashoutResponse | null> => fullCashout(betId);
+  cashoutAmount: number,
+): Promise<CashoutResponse | null> => fullCashout(betId, cashoutAmount);
 
 export interface AutoCashoutRequest {
   betId: string;
@@ -172,7 +88,7 @@ export interface AutoCashoutResponse {
   } | null;
 }
 
-/** Auto-cashout is not in the integration guide — no-op stub. */
+/** Not in integration guide — no-op. */
 export const setAutoCashout = async (
   _request: AutoCashoutRequest,
 ): Promise<AutoCashoutResponse | null> => null;

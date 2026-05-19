@@ -169,8 +169,16 @@ export const Market: FunctionComponent<MarketProps> = ({
   const name = market?.name;
   const lowerName = name?.toLowerCase() || "";
 
+  console.log("market", marketId, market);
+
   if (isBuilding.value && !market?.isBetBuilderSupported) {
-    return null;
+    return (
+      <div className="flex w-full h-[34px] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] items-center justify-center rounded-[8px]">
+        <span className="text-[var(--text-sub-color)] text-[12px]">
+          Bet Builder not available
+        </span>
+      </div>
+    );
   }
 
   const selectionsAll = market?.selections ?? [];
@@ -179,7 +187,13 @@ export const Market: FunctionComponent<MarketProps> = ({
     : selectionsAll;
 
   if (isBuilding.value && selections.length === 0) {
-    return null;
+    return (
+      <div className="flex w-full h-[34px] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] items-center justify-center rounded-[8px]">
+        <span className="text-[var(--text-sub-color)] text-[12px]">
+          Bet Builder not available
+        </span>
+      </div>
+    );
   }
 
   const column = selections.length;

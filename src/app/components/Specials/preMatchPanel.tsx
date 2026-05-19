@@ -17,7 +17,7 @@ import { isEventValidForDisplay } from "@/helpers/sortEventIdsByStartDate";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { storeEvent } from "@/helpers/storeEvent";
-import { MarketNavigation } from "../marketNavigation";
+import { MarketNavigation, type MarketNavOption } from "../marketNavigation";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import {
   isSoccerSport,
@@ -28,12 +28,43 @@ import {
   SOCCER_SPORT_ID,
   type SummaryEventRef,
 } from "@/helpers/summaryIds";
+import type { SidebarMarketRef } from "@/state/summarySports";
 
 const PAGE_SIZE = 10;
 const DEFAULT_SPORT_ID = SOCCER_SPORT_ID;
-const FALLBACK_MARKET_OPTIONS = ["Match Result", "Total", "Handicap"];
 /** Sport ids that render the moneyline layout (names come from event payload). */
 const MONEYLINE_SPORT_IDS = new Set([8, 6, 7, 14]); // Basketball
+
+function isMoneylineSport(sportId: number, sportName?: string): boolean {
+  return MONEYLINE_SPORT_IDS.has(sportId) || /hockey/i.test(sportName ?? "");
+}
+
+function marketTabSortKey(ref: SidebarMarketRef): number {
+  const orders = ref.groups?.map((g) => g.order) ?? [];
+  return orders.length > 0 ? Math.min(...orders) : ref.id;
+}
+
+function marketOptionsFromRef(
+  refs: SidebarMarketRef[] | undefined,
+): MarketNavOption[] {
+  if (!refs?.length) return [];
+  return refs
+    .slice()
+    .sort((a, b) => {
+      const orderDiff = marketTabSortKey(a) - marketTabSortKey(b);
+      if (orderDiff !== 0) return orderDiff;
+      return a.id - b.id;
+    })
+    .map((m) => ({ id: m.id, label: m.name }));
+}
+
+function eventHasMarketType(event: unknown, marketType: number): boolean {
+  const markets = (
+    event as { markets?: Record<string, { value?: { type?: number } }> }
+  )?.markets;
+  if (!markets) return false;
+  return Object.values(markets).some((sig) => sig?.value?.type === marketType);
+}
 
 /**
  * Heuristic: does the event carry a market we can render in the requested
@@ -43,13 +74,13 @@ const MONEYLINE_SPORT_IDS = new Set([8, 6, 7, 14]); // Basketball
  */
 const liveMatchWouldRender = (
   event: any,
-  marketSlug: string,
+  marketType: number,
   allowAutoSelect: boolean,
 ): boolean => {
   if (!event?.markets) return false;
   const markets = Object.values(event.markets).map((sig: any) => sig.value);
   if (!markets.length) return false;
-  if (markets.find((m: any) => m.name === marketSlug)?.id) return true;
+  if (markets.find((m: any) => m.type === marketType)?.id) return true;
   return allowAutoSelect && !!markets[0]?.id;
 };
 
@@ -63,8 +94,7 @@ export const PreMatchPanel: FunctionComponent = () => {
 
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedMarketName, setSelectedMarketName] =
-    useState<string>("Match Result");
+  const [selectedMarketType, setSelectedMarketType] = useState<number>(1);
   const [sportsData, setSportsData] = useState<
     { count: number; name: string; id: number }[]
   >([]);
@@ -133,6 +163,44 @@ export const PreMatchPanel: FunctionComponent = () => {
     });
   }, [flatList, loadedCount, selectedSport, storeState.value]);
 
+  /** Market tabs from `/sidebar` `marketsRef` only (no fallback). */
+  const sidebarMarketOptions = useMemo(() => {
+    if (selectedSport === POPULAR_SPORT_ID) return [];
+    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
+    return marketOptionsFromRef(summary.marketsRef?.[String(selectedSport)]);
+  }, [selectedSport, isLiveMode, summarySports.value, summarySportsLive.value]);
+
+  /** Drop tabs that none of the loaded events offer; keep admin sort order. */
+  const marketOptions = useMemo(() => {
+    if (!sidebarMarketOptions.length) return [];
+    const loadedEvents = displayedEvents
+      .map((item) => storeState.value[item.eventId]?.value)
+      .filter(Boolean);
+    if (!loadedEvents.length) return sidebarMarketOptions;
+    return sidebarMarketOptions.filter((opt) =>
+      loadedEvents.some((ev) => eventHasMarketType(ev, opt.id)),
+    );
+  }, [sidebarMarketOptions, displayedEvents, storeState.value]);
+
+  const isMoneylineSportSelected = useMemo(() => {
+    if (selectedSport === POPULAR_SPORT_ID) return false;
+    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
+    const sport = summary.data?.find((s) => s[0] === selectedSport);
+    return isMoneylineSport(selectedSport, String(sport?.[1] ?? ""));
+  }, [selectedSport, isLiveMode, summarySports.value, summarySportsLive.value]);
+
+  const showMarketNav =
+    marketOptions.length > 0 &&
+    !isMoneylineSportSelected &&
+    selectedSport !== 0;
+
+  useEffect(() => {
+    if (!showMarketNav || !marketOptions.length) return;
+    if (!marketOptions.some((o) => o.id === selectedMarketType)) {
+      setSelectedMarketType(marketOptions[0].id);
+    }
+  }, [showMarketNav, marketOptions, selectedMarketType]);
+
   useEffect(() => {
     if (selectedSport !== POPULAR_SPORT_ID) return;
     const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
@@ -195,7 +263,7 @@ export const PreMatchPanel: FunctionComponent = () => {
 
   useEffect(() => {
     getMatches();
-  }, [getMatches]);
+  }, [selectedSport, matchView, loadedSidebarState.value, pageName]);
 
   const handleShowMore = useCallback(() => {
     (async () => {
@@ -361,11 +429,13 @@ export const PreMatchPanel: FunctionComponent = () => {
           }
         />
 
-        <MarketNavigation
-          options={FALLBACK_MARKET_OPTIONS}
-          selectedValue={selectedMarketName}
-          onSelect={setSelectedMarketName}
-        />
+        {showMarketNav ? (
+          <MarketNavigation
+            options={marketOptions}
+            selectedValue={selectedMarketType}
+            onSelect={setSelectedMarketType}
+          />
+        ) : null}
       </div>
 
       {loadingMatches ? (
@@ -387,14 +457,22 @@ export const PreMatchPanel: FunctionComponent = () => {
               )
                 return null;
 
-              const isMoneyline =
-                MONEYLINE_SPORT_IDS.has(storedEvent.sport?.id ?? 0) ||
-                /hockey/i.test(storedEvent.sport?.name ?? "");
-              const marketSlug = selectedMarketName;
+              const isMoneyline = isMoneylineSport(
+                storedEvent.sport?.id ?? 0,
+                storedEvent.sport?.name,
+              );
+              if (
+                showMarketNav &&
+                !isMoneyline &&
+                !eventHasMarketType(storedEvent, selectedMarketType)
+              ) {
+                return null;
+              }
               const canRenderLiveMatch =
                 !isLiveMode ||
                 isMoneyline ||
-                liveMatchWouldRender(storedEvent, marketSlug, true);
+                !showMarketNav ||
+                liveMatchWouldRender(storedEvent, selectedMarketType, false);
               if (!canRenderLiveMatch) return null;
 
               return (
@@ -407,9 +485,11 @@ export const PreMatchPanel: FunctionComponent = () => {
                   ) : (
                     <Match
                       eventId={item.eventId}
-                      marketSlug={marketSlug}
+                      marketType={
+                        showMarketNav ? selectedMarketType : undefined
+                      }
                       showLeagueLogo={true}
-                      allowAutoSelect={true}
+                      allowAutoSelect={!showMarketNav}
                       allowRounded={true}
                     />
                   )}

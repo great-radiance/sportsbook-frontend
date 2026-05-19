@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { buildFeaturedLeaguesFromSummary } from "@/helpers/featuredLeaguesFromSummary";
+import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 
 type LeagueItem = { sport: string; region: string; league: string };
 
@@ -13,10 +14,10 @@ export const TopLeagueMenu = () => {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isMobile.value) {
-      setLoading(false);
-      return;
-    }
+    // if (!isMobile.value) {
+    //   setLoading(false);
+    //   return;
+    // }
     if (Object.keys(popularLeaguesState.value).length > 0) {
       setLoading(false);
       return;
@@ -63,8 +64,6 @@ export const TopLeagueMenu = () => {
       setLocation(path);
     }
   };
-
-  if (!isMobile.value) return null;
 
   if (loading) {
     const skeletonCount = 8;
@@ -123,7 +122,8 @@ export const TopLeagueMenu = () => {
               <img
                 src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sport)}/${encodeURIComponent(region)}/${encodeURIComponent(league)}.webp`}
                 onError={(e) => {
-                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-league-logo.jpg`;
+                  e.currentTarget.src = getFlagIconFromregionName(region);
+                  e.currentTarget.className = "rounded-full w-4 h-4";
                 }}
                 alt=""
                 className={`h-5 w-5 shrink-0`}
@@ -133,9 +133,7 @@ export const TopLeagueMenu = () => {
               <span className="block text-[var(--text-primary-color)]">
                 {league}
               </span>
-              <span className="text-[var(--text-basic-color)]">
-                {region}
-              </span>
+              <span className="text-[var(--text-basic-color)]">{region}</span>
             </div>
           </button>
         ))}

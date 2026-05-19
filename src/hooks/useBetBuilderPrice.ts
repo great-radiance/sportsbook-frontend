@@ -13,7 +13,7 @@ import {
   selectedOdds,
 } from "@/state/betState";
 
-const DEFAULT_SEGMENT_ID = 1;
+const DEFAULT_SEGMENT_ID = 2359;
 
 /**
  * Fetches `POST /odds88/bet-builder/price` when bet-builder selections change.

@@ -35,10 +35,7 @@ import { formatCurrency } from "@/shared/utils/formatters";
 import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
 import { useEnableBetType } from "@/hooks/useEnableBetType";
 import { useBetBuilderPriceSync } from "@/hooks/useBetBuilderPrice";
-import {
-  canPlayerPlaceBets,
-  playerStatusMessage,
-} from "@/api/user/apiUsersMe";
+import { canPlayerPlaceBets, playerStatusMessage } from "@/api/user/apiUsersMe";
 import { apiCashoutSubscribe } from "@/api/bet/cashout";
 import {
   maxParlayLegsFromLimits,
@@ -240,7 +237,12 @@ export const BetSlip: FunctionComponent = () => {
       (config.xUserBalance ?? 0) ||
       0;
 
-    if (selectedOdds.value.length === 0 || !haveUser || !profileOk || funds <= 0) {
+    if (
+      selectedOdds.value.length === 0 ||
+      !haveUser ||
+      !profileOk ||
+      funds <= 0
+    ) {
       setBetable(false);
       return;
     }
@@ -326,13 +328,11 @@ export const BetSlip: FunctionComponent = () => {
     ) {
       return betBuilderPrice.value;
     }
-    if (buildingOdds.length > 0) {
-      return buildingOdds.reduce(
-        (acc, bet) =>
-          acc * (getOddsValue(bet.eventId, bet.marketId, bet.oddsId) ?? 1),
-        1,
-      );
-    }
+    // if (buildingOdds.length > 0) {
+    //   return buildingOdds.reduce(
+    //     (acc, bet) =>
+    //       acc * (getOddsValue(bet.eventId, bet.marketId, bet.oddsId) ?? 1),
+    // }
     return 1;
   });
 
@@ -412,7 +412,9 @@ export const BetSlip: FunctionComponent = () => {
             );
             buildingOdds.forEach((o) => failedBets.add(o));
           } else if (d?.status === "accepted") {
-            selectedOdds.value = selectedOdds.value.filter((o) => !o.isBuilding);
+            selectedOdds.value = selectedOdds.value.filter(
+              (o) => !o.isBuilding,
+            );
             setBuildingOdds([]);
             buildingBetAmount.value = 0;
             notify("Bet accepted", "success", "check2-circle", 2500);

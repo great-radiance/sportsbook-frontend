@@ -1,26 +1,40 @@
 import type {
   SidebarFeaturedLeagueRow,
   SidebarFeaturedMatches,
+  SidebarMarketsRef,
   summaryData,
 } from "@/state/summarySports";
 import { instance } from "../instance";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { tCounts, tSportResponse } from "./apiGetSummaryArray";
 
-/** League under a region — same tuple shape as featured league rows. */
-export type SidebarLeagueRow = [number, string, number, number[]];
+/** League tuple — `[leagueId, name, eventCount, eventIds[], regionId?, sportId?]`. */
+export type SidebarLeagueRow = [
+  number,
+  string,
+  number,
+  number[],
+  number?,
+  number?,
+];
 
 /** `[regionId, regionName, regionEventCount, leagues]` */
 export type SidebarRegionRow = [number, string, number, SidebarLeagueRow[]];
 
 /**
- * `[sportId, sportName, sportEventCount, reserved, regions]`
- * Index `3` is an extra payload slot (often `[]`) from the API — ignored when mapping.
- * Legacy shape without index 3: `[sportId, sportName, sportEventCount, regions]` is still supported.
+ * Sport row: `[sportId, name, eventCount, famousLeagues[], regions[]]`.
+ * Legacy: `[sportId, name, eventCount, regions[]]` (regions at index 3).
  */
 export type SidebarSportRow =
-  | [number, string, number, unknown[], SidebarRegionRow[]]
+  | [number, string, number, SidebarFeaturedLeagueRow[], SidebarRegionRow[]]
   | [number, string, number, SidebarRegionRow[]];
+
+type SidebarApiBody = {
+  data: SidebarArr;
+  marketsRef?: SidebarMarketsRef;
+  cached?: boolean;
+  ms?: number;
+};
 
 /** `[featuredMatches, featuredLeagues, ...sports]` */
 export type SidebarArr = [
@@ -41,16 +55,24 @@ function regionsFromSportRow(sport: SidebarSportRow): SidebarRegionRow[] {
   if (s.length >= 5 && Array.isArray(s[4])) {
     return s[4] as SidebarRegionRow[];
   }
-  if (Array.isArray(s[3])) {
+  if (s.length === 4 && Array.isArray(s[3])) {
     return s[3] as SidebarRegionRow[];
   }
   return [];
 }
 
+function famousLeaguesFromSportRow(
+  sport: SidebarSportRow,
+): SidebarFeaturedLeagueRow[] {
+  const s = sport as readonly unknown[];
+  if (s.length >= 5 && Array.isArray(s[3]) && Array.isArray(s[4])) {
+    return s[3] as SidebarFeaturedLeagueRow[];
+  }
+  return [];
+}
+
 /** Strip count / reserved slots and map sidebar sports tuples to `tSportResponse`. */
-export function sidebarSportsToSportResponse(
-  sports: SidebarSportRow[],
-): tSportResponse {
+export function convertResponse(sports: SidebarSportRow[]): tSportResponse {
   return sports.map((sport) => {
     const sportId = sport[0] as number;
     const sportName = sport[1] as string;
@@ -124,12 +146,13 @@ export const apiGetSidebar = async ({
     params.append("isBetBuilderSupported", isBetBuilderSupported.toString());
   }
 
-  const response = await instance.get<{ data: SidebarArr }>(
+  const response = await instance.get<SidebarApiBody>(
     `/sidebar?${params.toString()}`,
   );
   const arr = response.data.data;
+  const marketsRef = response.data.marketsRef ?? {};
   const sportsRaw = arr.slice(2) as SidebarSportRow[];
-  const resData = sidebarSportsToSportResponse(sportsRaw);
+  const resData = convertResponse(sportsRaw);
   const counts = buildCountsFromSportResponse(resData);
   const fm = arr[0];
   const featuredMatches: SidebarFeaturedMatches | undefined =
@@ -143,6 +166,15 @@ export const apiGetSidebar = async ({
     ? (arr[1] as SidebarFeaturedLeagueRow[])
     : [];
 
+  const featuredLeaguesBySport: Record<number, SidebarFeaturedLeagueRow[]> = {};
+  for (const sport of sportsRaw) {
+    const sportId = sport[0] as number;
+    const famous = famousLeaguesFromSportRow(sport);
+    if (famous.length) {
+      featuredLeaguesBySport[sportId] = famous;
+    }
+  }
+
   return {
     data: resData,
     counts,
@@ -152,6 +184,8 @@ export const apiGetSidebar = async ({
     ),
     featuredMatches,
     featuredLeagues,
+    featuredLeaguesBySport,
+    marketsRef,
   };
 };
 
@@ -169,5 +203,6 @@ export function withPrematchSidebarFeatured(
     ...other,
     featuredMatches: prematch.featuredMatches ?? other.featuredMatches,
     featuredLeagues: prematch.featuredLeagues ?? other.featuredLeagues,
+    marketsRef: prematch.marketsRef ?? other.marketsRef,
   };
 }

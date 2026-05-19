@@ -21,7 +21,7 @@ import { isBuilding } from "@/state/betState";
 
 interface MatchProps {
   eventId: number;
-  marketSlug?: string;
+  marketType?: number;
   marketId?: number;
   showLeagueLogo?: boolean;
   allowAutoSelect?: boolean; // If true, will auto-select the first market if no marketSlug match is found
@@ -71,7 +71,7 @@ const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
 
 export const Match: FunctionComponent<MatchProps> = ({
   eventId,
-  marketSlug,
+  marketType,
   marketId,
   // isLive = false,
   allowAutoSelect = false,
@@ -108,26 +108,26 @@ export const Match: FunctionComponent<MatchProps> = ({
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
   const getSelectedMarket = useCallback(
-    (marketSlug: string): number => {
-      const marketId = markets.find((m) => m.name === marketSlug)?.id;
+    (marketType: number): number => {
+      const marketId = markets.find((m) => m.type === marketType)?.id;
       if (marketId) return marketId;
       if (allowAutoSelect) {
         return markets[0]?.id ?? 1;
       }
-      return 1;
+      return 0;
     },
     [markets, allowAutoSelect],
   );
 
   // Get winner market (usually the first market)
-  const selectedMarket = marketId ?? getSelectedMarket(marketSlug ?? "");
+  const selectedMarket = marketId ?? getSelectedMarket(marketType ?? 0);
   console.log(
     "event",
-    event.competitors[0].name,
-    event.competitors[1].name,
-    markets,
+    event,
+    // markets,
     markets[0]?.id,
     selectedMarket,
+    storeState.value[eventId]?.value?.markets[selectedMarket]?.value,
   );
 
   const [compact, setCompact] = useState<number>();

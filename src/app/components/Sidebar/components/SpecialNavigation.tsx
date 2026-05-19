@@ -39,6 +39,42 @@ function buildPrematchPath(
   return `/event-view/pre-match/${parts.join("/")}`;
 }
 
+/** Build path from featured league tuple when API includes regionId/sportId. */
+function prematchPathFromFeaturedRow(
+  row: SidebarFeaturedLeagueRow,
+  sportsData: tSportResponse,
+): { path: string; sportName: string; regionName: string } | null {
+  const leagueId = row[0];
+  const leagueName = String(row[1] ?? "").trim();
+  const regionId = row[4];
+  const sportId = row[5];
+  if (regionId == null || sportId == null || !leagueName) {
+    return prematchPathForFeaturedLeague(sportsData, leagueId);
+  }
+  const sport = sportsData.find((s) => s[0] === sportId);
+  const sportName = sport ? String(sport[1] ?? "").trim() : "";
+  if (!sportName) return prematchPathForFeaturedLeague(sportsData, leagueId);
+  let regionName = "";
+  for (const region of sport[2] ?? []) {
+    if (region[0] === regionId) {
+      regionName = String(region[1] ?? "").trim();
+      break;
+    }
+  }
+  return {
+    path: buildPrematchPath(
+      sportName,
+      sportId,
+      regionName,
+      regionId,
+      leagueName,
+      leagueId,
+    ),
+    sportName,
+    regionName,
+  };
+}
+
 /** Resolve sport/region for a featured league id using the prematch summary tree. */
 function prematchPathForFeaturedLeague(
   sportsData: tSportResponse,
@@ -185,9 +221,9 @@ export const SpecialNavigation: FunctionComponent<
                   featuredLeagues.map((row: SidebarFeaturedLeagueRow) => {
                     const leagueId = row[0];
                     const leagueName = String(row[1] ?? "");
-                    const resolved = prematchPathForFeaturedLeague(
+                    const resolved = prematchPathFromFeaturedRow(
+                      row,
                       summarySports.value.data ?? [],
-                      leagueId,
                     );
                     const sportIcon = resolved?.sportName ?? "all-sports";
                     return (

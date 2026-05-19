@@ -38,6 +38,19 @@ function k(...parts: (string | number)[]) {
   return parts.join(":");
 }
 
+function regionNameForSport(
+  sport: SportRow | undefined,
+  regionId: number,
+): string {
+  if (!sport) return "";
+  for (const region of sport[2] ?? []) {
+    if (region[0] === regionId) {
+      return String(region[1] ?? "");
+    }
+  }
+  return "";
+}
+
 export const PrematchSportsNavigation: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
   const { t: tAlt } = useTranslate("alt");
@@ -132,7 +145,6 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
               <div
                 key={k("s", sportId)}
                 className="flex flex-col rounded-[4px]"
-                style={{ order: sportId }}
               >
                 <button
                   type="button"
@@ -178,6 +190,48 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
 
                 {isSportExpanded ? (
                   <div className="hidden md:flex flex-col rounded-md bg-white/5 gap-0 overflow-hidden">
+                    {summarySports.value.featuredLeaguesBySport?.[sportId]?.map(
+                      (featuredLeague) => {
+                        const leagueId = featuredLeague[0] as number;
+                        const leagueName = String(featuredLeague[1] ?? "");
+                        const regionId = featuredLeague[4] as number;
+                        const leagueSportId =
+                          (featuredLeague[5] as number) ?? sportId;
+                        const leagueSport =
+                          sports.find((s) => s[0] === leagueSportId) ?? sport;
+                        const pathSportName = String(leagueSport[1] ?? sportName);
+                        const regionName = regionNameForSport(
+                          leagueSport,
+                          regionId,
+                        );
+                        return (
+                          <button
+                            key={k("l", sportId, leagueId)}
+                            type="button"
+                            onClick={(e) => {
+                              linkButtonOnClick(
+                                e,
+                                buildPrematchPath(
+                                  pathSportName,
+                                  leagueSportId,
+                                  regionName,
+                                  regionId,
+                                  leagueName,
+                                  leagueId,
+                                ),
+                                setLocation,
+                              );
+                            }}
+                            style={{ paddingLeft: 18 }}
+                            className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
+                          >
+                            <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[12px]">
+                              {leagueName}
+                            </span>
+                          </button>
+                        );
+                      },
+                    )}
                     {regions.map((region) => {
                       const regionId = region[0] as number;
                       const regionName = String(region[1] ?? "");
@@ -200,7 +254,6 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                         <div
                           key={k("r", sportId, regionId)}
                           className="flex flex-col"
-                          style={{ order: regionId }}
                         >
                           <button
                             type="button"
@@ -220,7 +273,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                             style={{ paddingLeft: 18 }}
                             className="flex justify-between gap-2 items-center py-2 px-1 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                           >
-                            <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[14px]">
+                            <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[15px]">
                               {regionLabel}
                             </span>
                             <div className="hidden md:flex items-center gap-2 shrink-0">
@@ -274,7 +327,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                                         setLocation,
                                       );
                                     }}
-                                    style={{ paddingLeft: 30, order: leagueId }}
+                                    style={{ paddingLeft: 30 }}
                                     className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                                   >
                                     <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[12px]">

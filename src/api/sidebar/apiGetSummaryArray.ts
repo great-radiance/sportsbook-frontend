@@ -127,7 +127,7 @@ export const apiGetSummaryArray = async ({
   }
 
   return {
-    data: resData,
+    data: [],
     counts: counts as tCountTree,
     TotalCount: Object.values(counts).reduce(
       (acc, curr) => acc + curr.total,

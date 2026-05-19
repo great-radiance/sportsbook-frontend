@@ -32,10 +32,10 @@ export const OutrightMatches: FunctionComponent = () => {
   const { t } = useTranslate("sidebar");
   const { t: tLiveCal } = useTranslate("liveCalendar");
 
-  const popularEventIds = useMemo(
-    () => outRightSummarySports.value.featuredMatches?.[1] ?? [],
-    [outRightSummarySports.value],
-  );
+  // const popularEventIds = useMemo(
+  //   () => outRightSummarySports.value.featuredMatches?.[1] ?? [],
+  //   [outRightSummarySports.value],
+  // );
 
   const sportsWithCount = useMemo<
     { count: number; name: string; id: number }[]
@@ -94,16 +94,12 @@ export const OutrightMatches: FunctionComponent = () => {
             }
           }
         }
-        const merged = [
-          ...popularEventIds,
-          ...eventIds.filter((id) => !popularEventIds.includes(id)),
-        ];
-        if (merged.length === 0) {
+        if (eventIds.length === 0) {
           if (!cancelled) setLoading(false);
           return;
         }
 
-        await fetchMatchesInChunks(merged);
+        await fetchMatchesInChunks(eventIds);
         if (cancelled) return;
       } catch (error) {
         console.error("Error fetching outright matches:", error);
@@ -114,7 +110,7 @@ export const OutrightMatches: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [outRightSummarySports.value, selectedSport, popularEventIds, regions]);
+  }, [outRightSummarySports.value, selectedSport, regions]);
 
   return (
     <div
@@ -142,7 +138,7 @@ export const OutrightMatches: FunctionComponent = () => {
         <UpcomingMatchesLoader matchesCount={4} />
       ) : (
         <div className="flex flex-col w-full">
-          {popularEventIds.length > 0 && (
+          {/* {popularEventIds.length > 0 && (
             <div className="flex flex-col w-full gap-2 pb-4 border-b border-[var(--primary-border-color)] mb-2">
               <div className="flex flex-1 items-center gap-2 px-1">
                 <img
@@ -160,7 +156,7 @@ export const OutrightMatches: FunctionComponent = () => {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
           {regions.map((region) => {
             const regionId = region[0];
             const regionName = region[1];

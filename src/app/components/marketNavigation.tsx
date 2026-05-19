@@ -2,49 +2,102 @@ import { FunctionComponent } from "preact";
 import { HorizontalTabs } from "./HorizontalTabs";
 import { isMobile } from "@/state/isMobile";
 import { MARKET_NAMES } from "@/shared/utils/marketNames";
-import { useEffect } from "preact/hooks";
+import { useEffect, useMemo } from "preact/hooks";
 
-interface MarketNavigationProps {
-  options: string[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
+/** Sidebar `marketsRef` entry — `id` is the market type passed to `Match`. */
+export type MarketNavOption = { id: number; label: string };
+
+const FALLBACK_NAV_OPTIONS: MarketNavOption[] = [
+  { id: 1, label: "Match Result" },
+  { id: 2, label: "Total" },
+  { id: 3, label: "Handicap" },
+];
+
+type MarketNavigationProps = {
   className?: string;
+} & (
+  | {
+      options: MarketNavOption[];
+      selectedValue: number;
+      onSelect: (value: number) => void;
+    }
+  | {
+      options: string[];
+      selectedValue: string;
+      onSelect: (value: string) => void;
+    }
+);
+
+function isNumericOptions(
+  options: MarketNavOption[] | string[],
+): options is MarketNavOption[] {
+  return (
+    options.length > 0 &&
+    typeof options[0] === "object" &&
+    options[0] !== null &&
+    "id" in options[0]
+  );
 }
 
-export const MarketNavigation: FunctionComponent<MarketNavigationProps> = ({
-  options,
-  selectedValue,
-  onSelect,
-  className,
-}) => {
-  options = options?.length > 0 ? options : MARKET_NAMES;
+export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
+  props,
+) => {
+  const { className, options, selectedValue, onSelect } = props;
+  const idMode = isNumericOptions(options);
+
+  const navOptions = useMemo((): MarketNavOption[] => {
+    if (!options?.length) {
+      return idMode ? FALLBACK_NAV_OPTIONS : MARKET_NAMES.map((label, i) => ({
+        id: i + 1,
+        label,
+      }));
+    }
+    if (idMode) {
+      return options;
+    }
+    return options.map((label, i) => ({ id: i + 1, label }));
+  }, [options, idMode]);
+
   useEffect(() => {
-    onSelect(options[0]);
-  }, [options]);
+    const first = navOptions[0];
+    if (!first) return;
+    if (idMode) {
+      (onSelect as (value: number) => void)(first.id);
+    } else {
+      (onSelect as (value: string) => void)(first.label);
+    }
+  }, [navOptions, idMode, onSelect]);
 
   return (
     <div className={`flex w-full text-[var(--text-basic-color)] ${className}`}>
       <HorizontalTabs
-        className={`w-full min-w-0 px-4`}
+        className="w-full min-w-0 px-4"
         scrollerClassName={`${isMobile.value ? "touch-pan-x" : ""} snap-x snap-mandatory`}
       >
-        {options.map((option: string) => {
-          const isSelected = selectedValue === option;
+        {navOptions.map((option) => {
+          const isSelected = idMode
+            ? selectedValue === option.id
+            : selectedValue === option.label;
           return (
             <button
               role="tab"
               aria-selected={isSelected}
               tabIndex={isSelected ? 0 : -1}
-              title={option}
-              key={option}
+              title={option.label}
+              key={option.id}
+              type="button"
               className={`snap-start shrink-0 flex px-1 items-center justify-center whitespace-nowrap transition-colors text-[12px] ${
                 isSelected
                   ? "border-b-[2px] border-[var(--primary-border-color)] font-bold"
                   : "hover:pb-[2px]"
               } focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
-              onClick={() => onSelect(option)}
+              onClick={() =>
+                idMode
+                  ? (onSelect as (value: number) => void)(option.id)
+                  : (onSelect as (value: string) => void)(option.label)
+              }
             >
-              <span>{option}</span>
+              <span>{option.label}</span>
             </button>
           );
         })}
@@ -52,3 +105,5 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = ({
     </div>
   );
 };
+
+

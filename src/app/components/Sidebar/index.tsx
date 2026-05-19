@@ -59,7 +59,8 @@ export const Sidebar: FunctionComponent = () => {
         // stoiximanSidebarState.value = res;
         summarySports.value = res1;
         summarySportsLive.value = withPrematchSidebarFeatured(res1, res2);
-        outRightSummarySports.value = withPrematchSidebarFeatured(res1, res3);
+        // Keep outright featured leagues/matches from the outright sidebar response only.
+        outRightSummarySports.value = res3;
         // orderConfigState.value = configRes;
         setLoading(false);
         // useOrderConfig({

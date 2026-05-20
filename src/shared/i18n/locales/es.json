@@ -119,7 +119,9 @@
     "outRight": "Ganador absoluto",
     "position": "Posición",
     "points": "Puntos",
-    "betBuilderShortLabel": "BB"
+    "betBuilderShortLabel": "BB",
+    "noMarketsAvailable": "No markets available for this event",
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
   },
   "betslip": {
     "removeAll": "Quitar todo",

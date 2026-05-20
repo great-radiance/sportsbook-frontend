@@ -9,8 +9,8 @@ export type MarketNavOption = { id: number; label: string };
 
 const FALLBACK_NAV_OPTIONS: MarketNavOption[] = [
   { id: 1, label: "Match Result" },
-  { id: 2, label: "Total" },
-  { id: 3, label: "Handicap" },
+  { id: 66, label: "Total" },
+  { id: 47, label: "Handicap" },
 ];
 
 type MarketNavigationProps = {
@@ -47,10 +47,12 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
 
   const navOptions = useMemo((): MarketNavOption[] => {
     if (!options?.length) {
-      return idMode ? FALLBACK_NAV_OPTIONS : MARKET_NAMES.map((label, i) => ({
-        id: i + 1,
-        label,
-      }));
+      return idMode
+        ? FALLBACK_NAV_OPTIONS
+        : MARKET_NAMES.map((label, i) => ({
+            id: i + 1,
+            label,
+          }));
     }
     if (idMode) {
       return options;
@@ -105,5 +107,3 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
     </div>
   );
 };
-
-

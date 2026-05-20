@@ -26,8 +26,8 @@ export const SwitchMachesBoard: FunctionComponent = () => {
     if (pageName === "special") {
       if (sportName === "upcoming") {
         return <UpcomingMatches />;
-        // } else if (sportName === "popular") {
-        //   return <PopularMatches />;
+      } else if (sportName === "popular") {
+        return <PopularMatches />;
         // } else if (sportName === "boosted") {
         //   return <BoostedOdds />;
       } else if (sportName === "outright") {

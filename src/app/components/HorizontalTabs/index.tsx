@@ -21,6 +21,9 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
   const dragStartScrollLeft = useRef(0);
+  const didDrag = useRef(false);
+
+  const DRAG_THRESHOLD_PX = 5;
 
   const update = useCallback(() => {
     const el = scrollerRef.current;
@@ -58,6 +61,9 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
     const el = scrollerRef.current;
     const onMove = (e: MouseEvent) => {
       if (!el) return;
+      if (Math.abs(e.clientX - dragStartX.current) > DRAG_THRESHOLD_PX) {
+        didDrag.current = true;
+      }
       const dx = dragStartX.current - e.clientX;
       el.scrollLeft = dragStartScrollLeft.current + dx;
       update();
@@ -74,9 +80,17 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
   const onScrollerMouseDown = (e: MouseEvent) => {
     if (e.button !== 0 || !scrollerRef.current) return;
     e.preventDefault();
+    didDrag.current = false;
     dragStartX.current = e.clientX;
     dragStartScrollLeft.current = scrollerRef.current.scrollLeft;
     setIsDragging(true);
+  };
+
+  const onScrollerClickCapture = (e: MouseEvent) => {
+    if (!didDrag.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    didDrag.current = false;
   };
 
   const scrollByPx = (dx: number) => {
@@ -129,6 +143,7 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
       <div
         ref={scrollerRef}
         onMouseDown={onScrollerMouseDown}
+        onClickCapture={onScrollerClickCapture}
         className={[
           "overflow-x-auto overflow-y-hidden whitespace-nowrap",
           "scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none]",

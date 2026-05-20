@@ -23,9 +23,15 @@ import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader, UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { Match } from "../MatchesBoard/components/Match";
+import { storeState } from "@/state/storeState";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  eventHasMarketType,
+  isMoneylineSport,
+} from "@/helpers/sidebarMarketNavigation";
+import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 
 const PAGE_SIZE = 10;
-const FALLBACK_MARKET_OPTIONS = ["Winner", "Total", "Handicap"];
 
 /**
  * Walk the `tSportResponse` tuple tree returned by `apiGetUpcomingMatches`
@@ -72,9 +78,6 @@ export const UpcomingMatches: FunctionComponent = () => {
 
   const [selectedTimeFilter, setSelectedTimeFilter] = useState<number>(
     timeFilterOptions[1].value,
-  );
-  const [selectedMarket, setSelectedMarket] = useState<string>(
-    FALLBACK_MARKET_OPTIONS[0],
   );
   const [selectedSport, setSelectedSport] = useState<number>(1);
   const [loadedIds, setLoadedIds] = useState<number[]>([]);
@@ -236,6 +239,27 @@ export const UpcomingMatches: FunctionComponent = () => {
 
   const showLoadMore = !loadingMatches && loadedIds.length < total;
 
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      loadedIds
+        .map((id) => storeState.value[id]?.value)
+        .filter(Boolean),
+    [loadedIds, storeState.value],
+  );
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    sportId: selectedSport,
+    sportName: selectedSportName,
+    loadedEvents: loadedEventsForMarkets,
+  });
+
   return (
     <div
       className={`flex flex-col text-[var(--text-basic-color)] w-full ${isMobile ? "" : "p-2"} pb-5 min-h-0`}
@@ -291,11 +315,13 @@ export const UpcomingMatches: FunctionComponent = () => {
             className="flex flex-col gap-[2px] w-full h-full scrollbar-none"
             style={{ height: "-webkit-fill-available" }}
           >
-            <MarketNavigation
-              options={FALLBACK_MARKET_OPTIONS}
-              selectedValue={selectedMarket}
-              onSelect={setSelectedMarket}
-            />
+            {showMarketNav ? (
+              <MarketNavigation
+                options={marketOptions}
+                selectedValue={selectedMarketType}
+                onSelect={setSelectedMarketType}
+              />
+            ) : null}
             <div className="w-full rounded-lg overflow-hidden flex-1 min-h-0">
               {loadedIds.length === 0 ? (
                 <div className="px-2 py-2 text-[var(--text-secondary-color)]">
@@ -304,7 +330,36 @@ export const UpcomingMatches: FunctionComponent = () => {
               ) : (
                 loadedIds.map((id) => (
                   <div key={`upcoming-${id}`} className="flex w-full">
-                    <Match eventId={id} marketSlug={selectedMarket} />
+                    {(() => {
+                      const stored = storeState.value[id]?.value;
+                      if (
+                        showMarketNav &&
+                        stored &&
+                        !isMoneylineSport(
+                          stored.sport?.id ?? selectedSport,
+                          stored.sport?.name,
+                        ) &&
+                        !eventHasMarketType(stored, selectedMarketType)
+                      ) {
+                        return null;
+                      }
+                      if (
+                        stored &&
+                        isMoneylineSport(
+                          stored.sport?.id ?? selectedSport,
+                          stored.sport?.name,
+                        )
+                      ) {
+                        return <MoneylineMatch eventId={id} />;
+                      }
+                      return (
+                        <Match
+                          eventId={id}
+                          marketType={matchMarketType}
+                          allowAutoSelect={allowAutoSelect}
+                        />
+                      );
+                    })()}
                   </div>
                 ))
               )}

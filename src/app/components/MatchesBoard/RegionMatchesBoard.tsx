@@ -14,6 +14,13 @@ import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 import { sortLeagueNames } from "@/helpers/sortLeagues";
 import { storeEvent } from "@/helpers/storeEvent";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
+import { storeState } from "@/state/storeState";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  eventHasMarketType,
+  isMoneylineSport,
+} from "@/helpers/sidebarMarketNavigation";
+import { MoneylineMatch } from "./components/Match/MoneylineMatch";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
 
@@ -21,15 +28,8 @@ export const RegionMatchesBoard: FunctionComponent = () => {
   const { sportName, sportIdParam, regionName, regionIdParam } =
     useRouteParams();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
-  const [selectedMarketSlug, setSelectedMarketSlug] =
-    useState<string>("Winner");
   const [loading, setLoading] = useState(true);
-  const [selectedMarkets, setSelectedMarkets] = useState<
-    Record<string, string[]>
-  >({});
-  const [outrightMarketsByLeague, setOutrightMarketsByLeague] = useState<
-    Record<string, string[]>
-  >({});
+  const sportId = Number(sportIdParam) || 0;
   const regionData = summarySports.value?.data
     ?.find((s) => s[0] === Number(sportIdParam))?.[2]
     ?.find((r) => r[0] === Number(regionIdParam))?.[2];
@@ -77,6 +77,34 @@ export const RegionMatchesBoard: FunctionComponent = () => {
   ]);
 
   const regionLeaguesKey = regionLeagues.join(",");
+
+  const loadedEventsForMarkets = useMemo(() => {
+    const ids =
+      selectedCategory === "Matches"
+        ? eventIdsForSelectedLeague
+        : outrightEventIdsForSelectedLeague;
+    return ids.map((id) => storeState.value[id]?.value).filter(Boolean);
+  }, [
+    selectedCategory,
+    eventIdsForSelectedLeague,
+    outrightEventIdsForSelectedLeague,
+    storeState.value,
+  ]);
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    sportId,
+    sportName: String(
+      summarySports.value.data?.find((s) => s[0] === sportId)?.[1] ?? "",
+    ),
+    loadedEvents: loadedEventsForMarkets,
+  });
 
   const fetchAndStoreAllLeagues = useCallback(async () => {
     if (!sportName || !regionName || regionLeagues.length === 0) return;
@@ -129,8 +157,6 @@ export const RegionMatchesBoard: FunctionComponent = () => {
       //   );
       //   outrightMetaTemp[league] = events.marketsMeta;
       // });
-      setSelectedMarkets(marketsMetaTemp);
-      // setOutrightMarketsByLeague(outrightMetaTemp);
     } catch (error) {
       console.error("Error fetching region matches board:", error);
     } finally {
@@ -222,15 +248,13 @@ export const RegionMatchesBoard: FunctionComponent = () => {
           ))}
         </HorizontalTabs>
 
-        <MarketNavigation
-          options={
-            selectedCategory === "Matches"
-              ? (selectedMarkets[selectedLeague] ?? [])
-              : (outrightMarketsByLeague[selectedLeague] ?? [])
-          }
-          selectedValue={selectedMarketSlug}
-          onSelect={setSelectedMarketSlug}
-        />
+        {showMarketNav ? (
+          <MarketNavigation
+            options={marketOptions}
+            selectedValue={selectedMarketType}
+            onSelect={setSelectedMarketType}
+          />
+        ) : null}
       </div>
 
       <div className="flex flex-col w-full rounded-[8px] overflow-hidden">
@@ -241,14 +265,36 @@ export const RegionMatchesBoard: FunctionComponent = () => {
             ))}
           </div>
         ) : selectedCategory === "Matches" ? (
-          eventIdsForSelectedLeague.map((eventId: number) => (
-            <Match
-              key={eventId}
-              eventId={eventId}
-              allowAutoSelect={true}
-              // marketSlug={selectedMarketSlug}
-            />
-          ))
+          eventIdsForSelectedLeague.map((eventId: number) => {
+            const stored = storeState.value[eventId]?.value;
+            if (
+              showMarketNav &&
+              stored &&
+              !isMoneylineSport(sportId, sportName) &&
+              !eventHasMarketType(stored, selectedMarketType)
+            ) {
+              return null;
+            }
+            const isMoneyline =
+              stored &&
+              isMoneylineSport(
+                stored.sport?.id ?? sportId,
+                stored.sport?.name,
+              );
+            return (
+              <div key={eventId}>
+                {isMoneyline ? (
+                  <MoneylineMatch eventId={eventId} />
+                ) : (
+                  <Match
+                    eventId={eventId}
+                    marketType={matchMarketType}
+                    allowAutoSelect={allowAutoSelect}
+                  />
+                )}
+              </div>
+            );
+          })
         ) : outrightEventIdsForSelectedLeague.length === 0 ? (
           <span className="flex items-center justify-center w-full py-4 text-[12px] text-[var(--text-sub-color)]">
             There is no outright for this competition
@@ -258,8 +304,8 @@ export const RegionMatchesBoard: FunctionComponent = () => {
             <Match
               key={eventId}
               eventId={eventId}
-              marketSlug={selectedMarketSlug}
-              allowAutoSelect={true}
+              marketType={matchMarketType}
+              allowAutoSelect={allowAutoSelect}
             />
           ))
         )}

@@ -22,15 +22,20 @@ export const isEventValidForDisplay = (event?: {
   return true;
 };
 
-export const sortEventIdsByStartDate = (ids: number[]) =>
-  [...ids]
-    // .filter((id) => isEventValidForDisplay(storeState.value[id]?.value))
-    .sort((a, b) => {
-      const aEvent = storeState.value[a]?.value;
-      const bEvent = storeState.value[b]?.value;
+function startTimeMs(eventId: number): number | null {
+  const raw = storeState.value[eventId]?.value?.startTime;
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
 
-      return (
-        new Date(aEvent?.startTime ?? "").getTime() -
-        new Date(bEvent?.startTime ?? "").getTime()
-      );
-    });
+/** Ascending by `startTime`; events without a valid time are listed last. */
+export const sortEventIdsByStartDate = (ids: number[]) =>
+  [...ids].sort((a, b) => {
+    const aMs = startTimeMs(a);
+    const bMs = startTimeMs(b);
+    if (aMs == null && bMs == null) return 0;
+    if (aMs == null) return 1;
+    if (bMs == null) return -1;
+    return aMs - bMs;
+  });

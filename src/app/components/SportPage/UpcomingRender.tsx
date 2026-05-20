@@ -1,10 +1,17 @@
 import { Match } from "../MatchesBoard/components/Match";
+import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { storeState } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
+import { summarySports } from "@/state/summarySports";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  eventHasMarketType,
+  isMoneylineSport,
+} from "@/helpers/sidebarMarketNavigation";
 
 const eventStartMs = (eventId: number): number => {
   const startTime = storeState.value[eventId]?.value?.startTime;
@@ -28,15 +35,10 @@ type Props = {
   selectedLeagueKey: string;
   setSelectedLeagueKey: (key: string) => void;
 
+  sportId: number;
   sportName?: string;
 
   selectedCategory: "Matches" | string;
-
-  selectedMarkets: Record<string, any[]>;
-  selectedOutrightMarkets: Record<string, any[]>;
-
-  selectedMarketSlug: string;
-  setSelectedMarketSlug: (slug: string) => void;
 
   selectedLeagueEntry?: {
     eventIds?: number[];
@@ -54,12 +56,9 @@ const UpcomingRender = ({
   leagueLabelMap,
   selectedLeagueKey,
   setSelectedLeagueKey,
+  sportId,
   sportName,
   selectedCategory,
-  selectedMarkets,
-  selectedOutrightMarkets,
-  selectedMarketSlug,
-  setSelectedMarketSlug,
   selectedLeagueEntry,
   loading,
   BASE_ASSET_PUBLIC_URL,
@@ -93,6 +92,51 @@ const UpcomingRender = ({
       })
       .filter((league) => league.visibleEventIds.length > 0);
   }, [leagueEntries, selectedCategory, filterStartTime]);
+
+  const loadedEventsForMarkets = useMemo(() => {
+    const ids = visibleLeagueGroups.flatMap((l) => l.visibleEventIds);
+    return ids.map((id) => storeState.value[id]?.value).filter(Boolean);
+  }, [visibleLeagueGroups, storeState.value]);
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    sportId,
+    sportName,
+    loadedEvents: loadedEventsForMarkets,
+  });
+
+  const renderMatch = (eventId: number) => {
+    const stored = storeState.value[eventId]?.value;
+    if (
+      showMarketNav &&
+      stored &&
+      !isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name) &&
+      !eventHasMarketType(stored, selectedMarketType)
+    ) {
+      return null;
+    }
+    if (
+      stored &&
+      isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name)
+    ) {
+      return <MoneylineMatch key={eventId} eventId={eventId} />;
+    }
+    return (
+      <Match
+        key={eventId}
+        eventId={eventId}
+        marketType={matchMarketType}
+        allowAutoSelect={allowAutoSelect}
+        allowRounded
+      />
+    );
+  };
 
   useEffect(() => {
     if (openedLeagueKeys.size === 0 && visibleLeagueGroups.length > 0) {
@@ -140,15 +184,13 @@ const UpcomingRender = ({
           </select>
         </div>
 
-        <MarketNavigation
-          options={
-            selectedCategory === "Matches"
-              ? (selectedMarkets[selectedLeagueKey] ?? [])
-              : (selectedOutrightMarkets[selectedLeagueKey] ?? [])
-          }
-          selectedValue={selectedMarketSlug}
-          onSelect={setSelectedMarketSlug}
-        />
+        {showMarketNav ? (
+          <MarketNavigation
+            options={marketOptions}
+            selectedValue={selectedMarketType}
+            onSelect={setSelectedMarketType}
+          />
+        ) : null}
       </div>
 
       <section className="flex flex-col gap-3 mt-5">
@@ -217,15 +259,7 @@ const UpcomingRender = ({
                     />
                   </span>
                 </div>
-                {isOpen &&
-                  league.visibleEventIds.map((eventId) => (
-                    <Match
-                      key={eventId}
-                      eventId={eventId}
-                      marketSlug={selectedMarketSlug}
-                      allowRounded
-                    />
-                  ))}
+                {isOpen && league.visibleEventIds.map(renderMatch)}
               </div>
             );
           })
@@ -247,14 +281,7 @@ const UpcomingRender = ({
               }),
             )
             .sort((a, b) => eventStartMs(a) - eventStartMs(b))
-            .map((eventId) => (
-              <Match
-                key={eventId}
-                eventId={eventId}
-                marketSlug={selectedMarketSlug}
-                allowRounded
-              />
-            ))
+            .map(renderMatch)
         )}
       </section>
     </>

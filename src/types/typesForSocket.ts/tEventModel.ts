@@ -1,5 +1,5 @@
-import { Live } from "@/shared/utils/types";
 import { Signal } from "@preact/signals";
+import type { SidebarMarketRef } from "@/state/summarySports";
 
 /** Single odd row stored under `tOddsModel.odds[oddId]` */
 export type tSelectionValue = {
@@ -65,6 +65,8 @@ export type tEventModel = {
     id: string;
   }[];
   markets: Record<string, Signal<tMarketModel>>; //marketSlug to marketId (uuid)
+  /** From `GET /odds88/events/:eventId` — groups markets by tab in MarketsBoard. */
+  marketsRef?: SidebarMarketRef[];
   scoreboard?: any;
 };
 

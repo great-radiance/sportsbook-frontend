@@ -27,22 +27,15 @@ import { baseColorTheme } from "@/state/baseColorTheme";
 import { storeEvent } from "@/helpers/storeEvent";
 import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 import { firstEventState } from "@/state/firstEventState";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  isMoneylineSport,
+  liveMatchWouldRender,
+} from "@/helpers/sidebarMarketNavigation";
+import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 
 /** React lib used under Preact; cast for JSX compatibility */
 const InfiniteScrollComponent = InfiniteScroll as any;
-
-/** Same resolution as `Match` so we only render region/league rows that show at least one match. */
-function liveMatchWouldRender(
-  event: tEventModel | undefined,
-  marketSlug: string,
-  allowAutoSelect: boolean,
-): boolean {
-  if (!event?.markets) return false;
-  const markets = Object.values(event.markets).map((sig) => sig.value);
-  if (!markets.length) return false;
-  if (markets.find((m) => m.name === marketSlug)?.id) return true;
-  return allowAutoSelect && !!markets[0]?.id;
-}
 
 export const LiveMatchesPanel: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
@@ -53,25 +46,13 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   const pendingDeleteRef = useRef<number[]>([]);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedMarketSlug, setSelectedMarketSlug] = useState<string>("");
   const [sportsData, setSportsData] = useState<
     { count: number; name: string; id: number }[]
   >([]);
   const { pageName } = useRouteParams();
   const [loadedCount, setLoadedCount] = useState<number>(0);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
-
   console.log("rendering live ......");
-
-  useEffect(() => {
-    if (!selectedMarkets.length) return;
-    setSelectedMarketSlug((prev) =>
-      prev && selectedMarkets.includes(prev)
-        ? prev
-        : (selectedMarkets[0] ?? ""),
-    );
-  }, [selectedMarkets]);
 
   // useEffect(() => {
   //   (async () => {
@@ -134,6 +115,28 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     return grouped;
   }, [sportRegions, loadedCount]);
 
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      flatList
+        .slice(0, loadedCount)
+        .map((id) => storeState.value[id]?.value)
+        .filter(Boolean),
+    [flatList, loadedCount, storeState.value],
+  );
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    sportId: selectedSport,
+    sportName: selectedSportName,
+    loadedEvents: loadedEventsForMarkets,
+  });
+
   // const selectedMarkets = useMemo(() => {
   //   return (
   //     summarySportsLive.value.config.find(
@@ -159,8 +162,6 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     const eventIds = firstBatch;
 
     setLoadedCount(0);
-    setSelectedMarkets([]);
-    setSelectedMarketSlug("");
 
     // No live events for the selected sport — turn off the loaders so the
     // SportsList can render its tabs (and the panel its empty state) instead
@@ -235,17 +236,15 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   }, [summarySportsLive.value]);
 
   useEffect(() => {
-    const marketSlugForVisibility =
-      selectedMarketSlug || selectedMarkets[0] || "";
-    if (!marketSlugForVisibility) return;
+    if (!showMarketNav && !allowAutoSelect) return;
 
     const loadedIds = flatList.slice(0, loadedCount);
     const firstVisibleId =
       loadedIds.find((id) =>
         liveMatchWouldRender(
           storeState.value[id]?.value,
-          marketSlugForVisibility,
-          true,
+          selectedMarketType,
+          allowAutoSelect,
         ),
       ) ?? null;
 
@@ -255,8 +254,9 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   }, [
     selectedSport,
     selectedSportName,
-    selectedMarketSlug,
-    selectedMarkets,
+    selectedMarketType,
+    showMarketNav,
+    allowAutoSelect,
     flatList,
     loadedCount,
   ]);
@@ -345,15 +345,13 @@ export const LiveMatchesPanel: FunctionComponent = () => {
           <LiveMatchesPanelLoader showMarketTabs={pageName === "live"} />
         ) : (
           <>
-            <MarketNavigation
-              options={
-                selectedMarkets.length > 0
-                  ? selectedMarkets
-                  : ["Winner", "Total", "Handicap"]
-              }
-              selectedValue={selectedMarketSlug || selectedMarkets[0] || ""}
-              onSelect={setSelectedMarketSlug}
-            />
+            {showMarketNav ? (
+              <MarketNavigation
+                options={marketOptions}
+                selectedValue={selectedMarketType}
+                onSelect={setSelectedMarketType}
+              />
+            ) : null}
             <div className="flex flex-col mt-1 rounded-[4px]">
               <>
                 {flatList.length === 0 ? (
@@ -362,15 +360,15 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                   Object.entries(groupedLimited).flatMap(
                     ([regionId, leagues]) =>
                       Object.entries(leagues).map(([leagueId, eventIds]) => {
-                        const visibleEventIds = eventIds.filter(
-                          (id) =>
-                            storeState.value[id] &&
-                            liveMatchWouldRender(
-                              storeState.value[id]?.value,
-                              selectedMarketSlug,
-                              true,
-                            ),
-                        );
+                        const visibleEventIds = eventIds.filter((id) => {
+                          const ev = storeState.value[id]?.value;
+                          if (!ev) return false;
+                          return liveMatchWouldRender(
+                            ev,
+                            selectedMarketType,
+                            allowAutoSelect,
+                          );
+                        });
                         if (visibleEventIds.length === 0) return null;
                         return (
                           <div
@@ -409,13 +407,28 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                                 <div
                                   className={`flex flex-col mt-[2px] rounded-[8px] overflow-hidden border-[1px] w-full border-[var(--border-color)] bg-[var(--sub-element-color)]`}
                                 >
-                                  {visibleEventIds.map((eventId) => (
-                                    <Match
-                                      key={eventId}
-                                      eventId={eventId}
-                                      allowAutoSelect={true}
-                                    />
-                                  ))}
+                                  {visibleEventIds.map((eventId) => {
+                                    const ev = storeState.value[eventId]?.value;
+                                    const isMoneyline =
+                                      ev &&
+                                      isMoneylineSport(
+                                        ev.sport?.id ?? selectedSport,
+                                        ev.sport?.name,
+                                      );
+                                    return isMoneyline ? (
+                                      <MoneylineMatch
+                                        key={eventId}
+                                        eventId={eventId}
+                                      />
+                                    ) : (
+                                      <Match
+                                        key={eventId}
+                                        eventId={eventId}
+                                        marketType={matchMarketType}
+                                        allowAutoSelect={allowAutoSelect}
+                                      />
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>

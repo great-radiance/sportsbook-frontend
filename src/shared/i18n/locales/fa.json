@@ -119,7 +119,9 @@
     "position": "موقعیت",
     "points": "امتیاز",
     "outRight": "برنده نهایی",
-    "betBuilderShortLabel": "BB"
+    "betBuilderShortLabel": "BB",
+    "noMarketsAvailable": "No markets available for this event",
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
   },
   "betslip": {
     "removeAll": "حذف همه",

@@ -160,8 +160,6 @@ export function addEventIdToSummaries(
     data: cloneSummaryData(target),
     counts: { ...target.counts },
     TotalCount: target.TotalCount,
-    featuredMatches: target.featuredMatches,
-    featuredLeagues: target.featuredLeagues,
   };
 
   const added = addEventIdToSummary(

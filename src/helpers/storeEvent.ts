@@ -114,6 +114,9 @@ export const storeEvent = (event: MatchDataResponse) => {
       ...evSig.value.markets,
       ...marketsRecord,
     },
+    marketsRef: event.marketsRef?.length
+      ? event.marketsRef
+      : evSig.value.marketsRef,
     scoreboard: event.scoreboard,
     // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;

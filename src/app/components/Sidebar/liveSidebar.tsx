@@ -1,6 +1,7 @@
 import { FunctionComponent } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { LiveSportsNavigation } from "@/app/components/Sidebar/components/LiveSportsNavigation";
+import { BetBuilderSidebarToggle } from "@/app/components/Sidebar/components/BetBuilderSidebarToggle";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { liveScrollPos } from "@/state/liveScrollPos";
@@ -56,8 +57,7 @@ export const LiveSidebar: FunctionComponent = () => {
         className="flex flex-col w-full flex-1 min-h-0 pr-[2px] rounded-[4px] gap-[2px] overflow-y-auto"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {/* {favoriteMatches.value.length > 0 && <FavoriteMatches />} */}
-
+        <BetBuilderSidebarToggle variant="live" />
         <LiveSportsNavigation groupByRegions={groupByRegions} />
       </div>
     </div>

@@ -7,7 +7,6 @@ import { apiGetMatches } from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { HorizontalTabs } from "@/app/components/HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { MarketNavigation } from "@/app/components/marketNavigation";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import { baseColorTheme } from "@/state/baseColorTheme";
@@ -52,15 +51,7 @@ export const SportPage: FunctionComponent = () => {
     leagueIdParam,
   } = useRouteParams();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
-  const [selectedMarketSlug, setSelectedMarketSlug] =
-    useState<string>("Winner");
   const [loading, setLoading] = useState(true);
-  const [selectedMarkets, setSelectedMarkets] = useState<
-    Record<string, string[]>
-  >({});
-  const [selectedOutrightMarkets, setSelectedOutrightMarkets] = useState<
-    Record<string, string[]>
-  >({});
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");
   const baseTheme = baseColorTheme.value;
   const sportRegions = useMemo(
@@ -274,10 +265,6 @@ export const SportPage: FunctionComponent = () => {
         sortedMatches.forEach((event) => storeEvent(event));
       }
 
-      // Outright fetching is not migrated to the new API/types yet; keep the
-      // state placeholders so child components stay typed correctly.
-      setSelectedMarkets({ [selectedLeagueEntry.key]: [] });
-      setSelectedOutrightMarkets({ [selectedLeagueEntry.key]: [] });
     } catch (error) {
       console.error("Error fetching sport league matches:", error);
     } finally {
@@ -366,12 +353,9 @@ export const SportPage: FunctionComponent = () => {
             leagueLabelMap={leagueLabelMap}
             selectedLeagueKey={selectedLeagueKey}
             setSelectedLeagueKey={setSelectedLeagueKey}
+            sportId={sportIdNum}
             sportName={sportName}
             selectedCategory={selectedCategory}
-            selectedMarkets={selectedMarkets}
-            selectedOutrightMarkets={selectedOutrightMarkets}
-            selectedMarketSlug={selectedMarketSlug}
-            setSelectedMarketSlug={setSelectedMarketSlug}
             selectedLeagueEntry={selectedLeagueEntry}
             loading={loading}
             BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
@@ -397,12 +381,9 @@ export const SportPage: FunctionComponent = () => {
             leagueLabelMap={leagueLabelMap}
             selectedLeagueKey={selectedLeagueKey}
             setSelectedLeagueKey={setSelectedLeagueKey}
+            sportId={sportIdNum}
             sportName={sportName}
             selectedCategory={selectedCategory}
-            selectedMarkets={selectedMarkets}
-            selectedOutrightMarkets={selectedOutrightMarkets}
-            selectedMarketSlug={selectedMarketSlug}
-            setSelectedMarketSlug={setSelectedMarketSlug}
             selectedLeagueEntry={selectedLeagueEntry}
             loading={loading || upcomingHydrateLoading}
             BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}

@@ -7,7 +7,7 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { translationState } from "@/state/translationState";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { summarySports } from "@/state/summarySports";
+import { featuredSummaryData, summarySports } from "@/state/summarySports";
 
 type SportRow = (typeof summarySports.value.data)[number];
 type RegionRow = SportRow[2][number];
@@ -190,7 +190,9 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
 
                 {isSportExpanded ? (
                   <div className="hidden md:flex flex-col rounded-md bg-white/5 gap-0 overflow-hidden">
-                    {summarySports.value.featuredLeaguesBySport?.[sportId]?.map(
+                    {featuredSummaryData.value.featuredLeaguesBySport?.[
+                      sportId
+                    ]?.map(
                       (featuredLeague) => {
                         const leagueId = featuredLeague[0] as number;
                         const leagueName = String(featuredLeague[1] ?? "");

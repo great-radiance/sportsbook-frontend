@@ -1,9 +1,18 @@
+import { useMemo } from "preact/hooks";
 import { Match } from "../MatchesBoard/components/Match";
+import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
+import { summarySports } from "@/state/summarySports";
+import { storeState } from "@/state/storeState";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  eventHasMarketType,
+  isMoneylineSport,
+} from "@/helpers/sidebarMarketNavigation";
 
 type League = {
   key: string;
@@ -16,24 +25,14 @@ type Props = {
   leagueLabelMap: Map<string, LeagueLabel>;
   selectedLeagueKey: string;
   setSelectedLeagueKey: (key: string) => void;
-
+  sportId: number;
   sportName?: string;
-
   selectedCategory: "Matches" | string;
-
-  selectedMarkets: Record<string, any[]>;
-  selectedOutrightMarkets: Record<string, any[]>;
-
-  selectedMarketSlug: string;
-  setSelectedMarketSlug: (slug: string) => void;
-
   selectedLeagueEntry?: {
     eventIds?: number[];
     outrightIds?: number[];
   };
-
   loading: boolean;
-
   BASE_ASSET_PUBLIC_URL: string;
   getFlagIconFromregionName: (region: string) => string;
 };
@@ -43,12 +42,9 @@ const HighlightRender = ({
   leagueLabelMap,
   selectedLeagueKey,
   setSelectedLeagueKey,
+  sportId,
   sportName,
   selectedCategory,
-  selectedMarkets,
-  selectedOutrightMarkets,
-  selectedMarketSlug,
-  setSelectedMarketSlug,
   selectedLeagueEntry,
   loading,
   BASE_ASSET_PUBLIC_URL,
@@ -60,6 +56,56 @@ const HighlightRender = ({
   const sortedOutrightIds = sortEventIdsByStartDate(
     selectedLeagueEntry?.outrightIds || [],
   );
+  const activeEventIds =
+    selectedCategory === "Matches" ? sortedEventIds : sortedOutrightIds;
+
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      activeEventIds
+        .map((id) => storeState.value[id]?.value)
+        .filter(Boolean),
+    [activeEventIds, storeState.value],
+  );
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    sportId,
+    sportName,
+    loadedEvents: loadedEventsForMarkets,
+  });
+
+  const renderMatch = (eventId: number) => {
+    const stored = storeState.value[eventId]?.value;
+    if (
+      showMarketNav &&
+      stored &&
+      !isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name) &&
+      !eventHasMarketType(stored, selectedMarketType)
+    ) {
+      return null;
+    }
+    if (
+      stored &&
+      isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name)
+    ) {
+      return <MoneylineMatch key={eventId} eventId={eventId} />;
+    }
+    return (
+      <Match
+        key={eventId}
+        eventId={eventId}
+        marketType={matchMarketType}
+        allowAutoSelect={allowAutoSelect}
+        allowRounded
+      />
+    );
+  };
 
   return (
     <>
@@ -115,15 +161,13 @@ const HighlightRender = ({
           </HorizontalTabs>
         </nav>
 
-        <MarketNavigation
-          options={
-            selectedCategory === "Matches"
-              ? (selectedMarkets[selectedLeagueKey] ?? [])
-              : (selectedOutrightMarkets[selectedLeagueKey] ?? [])
-          }
-          selectedValue={selectedMarketSlug}
-          onSelect={setSelectedMarketSlug}
-        />
+        {showMarketNav ? (
+          <MarketNavigation
+            options={marketOptions}
+            selectedValue={selectedMarketType}
+            onSelect={setSelectedMarketType}
+          />
+        ) : null}
       </div>
 
       <section className="flex flex-col gap-3">
@@ -133,24 +177,8 @@ const HighlightRender = ({
               <UpcomingMatchSkeleton key={`match-${index}`} />
             ))}
           </div>
-        ) : selectedCategory === "Matches" ? (
-          sortedEventIds.map((eventId) => (
-            <Match
-              key={eventId}
-              eventId={eventId}
-              marketSlug={selectedMarketSlug}
-              allowRounded
-            />
-          ))
         ) : (
-          sortedOutrightIds.map((eventId) => (
-            <Match
-              key={eventId}
-              eventId={eventId}
-              marketSlug={selectedMarketSlug}
-              allowRounded
-            />
-          ))
+          activeEventIds.map(renderMatch)
         )}
       </section>
     </>

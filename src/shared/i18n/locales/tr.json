@@ -119,7 +119,9 @@
     "position": "Sıra",
     "points": "Puan",
     "outRight": "Genel",
-    "betBuilderShortLabel": "BB"
+    "betBuilderShortLabel": "BB",
+    "noMarketsAvailable": "No markets available for this event",
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
   },
   "betslip": {
     "removeAll": "Tümünü Kaldır",

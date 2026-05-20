@@ -154,6 +154,11 @@ export function patchEventMarkets(event: MatchDataResponse): void {
     touched = true;
   }
 
+  if (event.marketsRef?.length) {
+    evSig.value = { ...evSig.value, marketsRef: event.marketsRef };
+    touched = true;
+  }
+
   if (event.scoreboard != null) {
     evSig.value = { ...evSig.value, scoreboard: event.scoreboard };
     touched = true;

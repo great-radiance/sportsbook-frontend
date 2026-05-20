@@ -173,7 +173,7 @@ export const EmblaBanner = () => {
 
             return (
               <div key={slide.id} className="embla__slide ">
-                <img src={`aaa${slide.image}`} alt={slide.title || "Banner"} />
+                <img src={`${slide.image}`} alt={slide.title || "Banner"} />
                 <div className="banner-overlay-image"></div>
                 {event && (
                   <div className="banner-overlay cursor-pointer h-full">

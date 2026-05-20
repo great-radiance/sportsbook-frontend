@@ -8,7 +8,7 @@ import {
   useSpecialNavigationItems,
 } from "@/hooks/useSpecialNavigationItems";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { summarySports } from "@/state/summarySports";
+import { featuredSummaryData, summarySports } from "@/state/summarySports";
 import type { SidebarFeaturedLeagueRow } from "@/state/summarySports";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
@@ -118,8 +118,8 @@ export const SpecialNavigation: FunctionComponent<
   const baseTheme = baseColorTheme.value;
 
   const featuredLeagues = useMemo(
-    () => summarySports.value.featuredLeagues ?? [],
-    [summarySports.value],
+    () => featuredSummaryData.value.featuredLeagues ?? [],
+    [featuredSummaryData.value.featuredLeagues],
   );
 
   const LinkButtonOnClick = (e: MouseEvent, path: string) => {

@@ -9,176 +9,151 @@ import { popularMatchesState } from "@/state/popularMatchesState";
 import { MarketNavigation } from "../marketNavigation";
 import { storeEvent } from "@/helpers/storeEvent";
 import { Match } from "../MatchesBoard/components/Match";
-import { summarySports } from "@/state/summarySports";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
-import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import { storeState } from "@/state/storeState";
-import { isEventValidForDisplay } from "@/helpers/sortEventIdsByStartDate";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  eventHasMarketType,
+  isMoneylineSport,
+} from "@/helpers/sidebarMarketNavigation";
+import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+import {
+  allEventIdsFromBuckets,
+  bucketsToPopularMatchesState,
+  isDisplayablePopularEvent,
+} from "@/helpers/buildPopularMatchesFromSidebar";
+import {
+  featuredBucketForSport,
+  featuredSportBuckets,
+} from "@/state/featuredMatchesState";
+import {
+  POPULAR_SPORT_ID,
+  SOCCER_SPORT_ID,
+} from "@/helpers/summaryIds";
+import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 const BATCH_SIZE = 25;
-const FALLBACK_MARKETS = ["Match Result", "Total", "Handicap"];
-
-type SportNode = Record<string, Record<string, number[]>>;
-
-function buildPopularTree(
-  events: MatchDataResponse[],
-): Record<string, SportNode> {
-  const tree: Record<string, SportNode> = {};
-  for (const ev of events) {
-    const id = ev.eventInfo?.id;
-    if (!id) continue;
-    const sportKey = String(ev.eventInfo.sport?.id ?? 0);
-    const region = ev.eventInfo.country?.name ?? "";
-    const league = ev.eventInfo.competition?.name ?? "";
-    if (!tree[sportKey]) tree[sportKey] = {};
-    if (!tree[sportKey][region]) tree[sportKey][region] = {};
-    if (!tree[sportKey][region][league]) tree[sportKey][region][league] = [];
-    if (!tree[sportKey][region][league].includes(id)) {
-      tree[sportKey][region][league].push(id);
-    }
-  }
-  return tree;
-}
-
-function collectMarketOptions(events: MatchDataResponse[]): string[] {
-  const names = new Set<string>();
-  for (const e of events) {
-    for (const m of e.markets ?? []) {
-      if (m.name) names.add(m.name);
-    }
-  }
-  if (names.size === 0) return FALLBACK_MARKETS;
-  const preferred = ["Match Result", "Winner", "1X2", "Moneyline"];
-  return [...names].sort((a, b) => {
-    const ai = preferred.indexOf(a);
-    const bi = preferred.indexOf(b);
-    if (ai !== -1 && bi !== -1) return ai - bi;
-    if (ai !== -1) return -1;
-    if (bi !== -1) return 1;
-    return a.localeCompare(b);
-  });
-}
-
-function getEventIdsForSport(
-  popularMatches: Record<string, SportNode>,
-  sportId: number,
-): number[] {
-  const state = popularMatches[String(sportId)];
-  if (!state) return [];
-
-  const ids: number[] = [];
-  for (const region of Object.keys(state)) {
-    for (const league of Object.keys(state[region] ?? {})) {
-      ids.push(...(state[region][league] ?? []));
-    }
-  }
-  return ids;
-}
 
 export const PopularMatches: FunctionComponent = () => {
   const { t } = useTranslate("liveCalendar");
 
-  const [selectedMarket, setSelectedMarket] = useState<string>("Match Result");
-  const [selectedSport, setSelectedSport] = useState<number>(0);
-  const [selectedMarkets, setSelectedMarkets] =
-    useState<string[]>(FALLBACK_MARKETS);
+  const [selectedSport, setSelectedSport] = useState<number>(SOCCER_SPORT_ID);
   const [loading, setLoading] = useState<boolean>(true);
+  const [hydrated, setHydrated] = useState(false);
 
-  const popularMatches = popularMatchesState.value as Record<string, SportNode>;
+  const sportBuckets = featuredSportBuckets.value;
 
-  const featuredEventIds = useMemo(
-    () => summarySports.value.featuredMatches?.[1] ?? [],
-    [summarySports.value.featuredMatches],
+  const sportTabs = useMemo(
+    () => sportBuckets.filter((b) => b.sportId !== POPULAR_SPORT_ID),
+    [sportBuckets],
   );
 
-  const sportsData = useMemo(() => {
-    return Object.keys(popularMatches).map((sportKey) => {
-      const sportId = Number(sportKey);
-      let count = 0;
-      const state = popularMatches[sportKey] ?? {};
-      for (const region of Object.keys(state)) {
-        for (const league of Object.keys(state[region] ?? {})) {
-          count += (state[region][league] ?? []).length;
-        }
-      }
+  const sportsData = useMemo(
+    () =>
+      sportTabs.map((bucket) => ({
+        id: bucket.sportId,
+        name: bucket.sportName,
+        count: bucket.eventRefs.length,
+      })),
+    [sportTabs],
+  );
 
-      const sampleId = getEventIdsForSport(
-        popularMatches as Record<string, SportNode>,
-        sportId,
-      )[0];
-      const sportName =
-        storeState.value[sampleId]?.value?.sport?.name ?? `Sport ${sportKey}`;
-
-      return { count, name: sportName, id: sportId };
-    });
-  }, [popularMatches, storeState.value]);
+  const selectedBucket = featuredBucketForSport(selectedSport);
 
   const displayedEventIds = useMemo(() => {
-    return getEventIdsForSport(popularMatches, selectedSport).filter((id) => {
-      const ev = storeState.value[id]?.value;
-      return !!ev && isEventValidForDisplay(ev);
-    });
-  }, [popularMatches, selectedSport, storeState.value]);
+    const refs = selectedBucket?.eventRefs ?? [];
+    const ids = refs
+      .map((ref) => ref.eventId)
+      .filter((id) => {
+        const ev = storeState.value[id]?.value;
+        return isDisplayablePopularEvent(ev);
+      });
+    return sortEventIdsByStartDate(ids);
+  }, [selectedBucket, storeState.value, hydrated]);
+
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      displayedEventIds
+        .map((id) => storeState.value[id]?.value)
+        .filter(Boolean),
+    [displayedEventIds, storeState.value],
+  );
+
+  const selectedSportName = useMemo(
+    () =>
+      sportsData.find((s) => s.id === selectedSport)?.name ??
+      `Sport ${selectedSport}`,
+    [sportsData, selectedSport],
+  );
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    sportId: selectedSport,
+    sportName: selectedSportName,
+    loadedEvents: loadedEventsForMarkets,
+    enabled: true,
+  });
 
   useEffect(() => {
-    if (!loadedSidebarState.value || featuredEventIds.length === 0) {
-      if (loadedSidebarState.value && featuredEventIds.length === 0) {
-        setLoading(false);
-      }
+    if (!loadedSidebarState.value) return;
+
+    const eventIds = allEventIdsFromBuckets(sportTabs);
+    if (eventIds.length === 0) {
+      popularMatchesState.value = {};
+      setHydrated(true);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
 
-    const loadFeaturedMatches = async () => {
+    const load = async () => {
       setLoading(true);
+      setHydrated(false);
       try {
-        const allEvents: MatchDataResponse[] = [];
-        for (let i = 0; i < featuredEventIds.length; i += BATCH_SIZE) {
-          const batchIds = featuredEventIds.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+          const batchIds = eventIds.slice(i, i + BATCH_SIZE);
           const batch = await apiGetMatches(batchIds);
-          allEvents.push(...(batch ?? []));
+          if (cancelled) return;
+          (batch ?? []).forEach((event) => storeEvent(event));
         }
 
         if (cancelled) return;
 
-        for (const event of allEvents) {
-          storeEvent(event);
-        }
-
-        popularMatchesState.value = buildPopularTree(allEvents);
-        setSelectedMarkets(collectMarketOptions(allEvents));
-        if (allEvents.length > 0) {
-          const firstSportId = allEvents[0]?.eventInfo?.sport?.id;
-          if (firstSportId) setSelectedSport(firstSportId);
-        }
+        popularMatchesState.value = bucketsToPopularMatchesState(sportTabs);
+        setHydrated(true);
       } catch (error) {
-        console.error("Error fetching featured matches:", error);
+        console.error("Error fetching popular featured matches:", error);
         if (!cancelled) {
           popularMatchesState.value = {};
-          setSelectedMarkets(FALLBACK_MARKETS);
+          setHydrated(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    void loadFeaturedMatches();
+    void load();
 
     return () => {
       cancelled = true;
     };
-  }, [featuredEventIds, loadedSidebarState.value]);
+  }, [sportTabs, loadedSidebarState.value]);
 
   useEffect(() => {
-    const sportKeys = Object.keys(popularMatches).map(Number);
-    if (sportKeys.length === 0) return;
-    if (!selectedSport || !popularMatches[String(selectedSport)]) {
-      setSelectedSport(sportKeys[0]);
+    if (sportTabs.length === 0) return;
+    if (!sportTabs.some((b) => b.sportId === selectedSport)) {
+      setSelectedSport(sportTabs[0].sportId);
     }
-  }, [popularMatches, selectedSport]);
+  }, [sportTabs, selectedSport]);
 
-  if (featuredEventIds.length === 0) {
+  if (!loadedSidebarState.value || sportTabs.length === 0) {
     return null;
   }
 
@@ -198,14 +173,17 @@ export const PopularMatches: FunctionComponent = () => {
           sportsData={sportsData}
           selectedSport={selectedSport}
           onSelectSport={setSelectedSport}
+          showPopular={false}
         />
       </div>
 
-      <MarketNavigation
-        options={selectedMarkets}
-        selectedValue={selectedMarket}
-        onSelect={setSelectedMarket}
-      />
+      {showMarketNav ? (
+        <MarketNavigation
+          options={marketOptions}
+          selectedValue={selectedMarketType}
+          onSelect={setSelectedMarketType}
+        />
+      ) : null}
 
       {loading ? (
         <div className="flex flex-col w-full gap-[2px] mt-1">
@@ -215,15 +193,50 @@ export const PopularMatches: FunctionComponent = () => {
         </div>
       ) : (
         <div className="flex flex-col w-full h-full rounded-lg overflow-hidden">
-          {displayedEventIds.map((eventId) => (
-            <div key={eventId} className="flex flex-col w-full rounded-[4px]">
-              <div className="w-full h-full transition-all duration-300 ease-in-out">
-                <div className="flex flex-col w-full h-full">
-                  <Match eventId={eventId} marketSlug={selectedMarket} />
+          {displayedEventIds.length === 0 ? (
+            <div className="px-2 py-4 text-[12px] text-[var(--text-sub-color)]">
+              {t("noDataAvailable")}
+            </div>
+          ) : (
+            displayedEventIds.map((eventId) => (
+              <div key={eventId} className="flex flex-col w-full rounded-[4px]">
+                <div className="w-full h-full transition-all duration-300 ease-in-out">
+                  <div className="flex flex-col w-full h-full">
+                    {(() => {
+                      const stored = storeState.value[eventId]?.value;
+                      if (
+                        showMarketNav &&
+                        stored &&
+                        !isMoneylineSport(
+                          stored.sport?.id ?? selectedSport,
+                          stored.sport?.name,
+                        ) &&
+                        !eventHasMarketType(stored, selectedMarketType)
+                      ) {
+                        return null;
+                      }
+                      if (
+                        stored &&
+                        isMoneylineSport(
+                          stored.sport?.id ?? selectedSport,
+                          stored.sport?.name,
+                        )
+                      ) {
+                        return <MoneylineMatch eventId={eventId} />;
+                      }
+                      return (
+                        <Match
+                          eventId={eventId}
+                          marketType={matchMarketType}
+                          allowAutoSelect={allowAutoSelect}
+                        />
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
     </div>

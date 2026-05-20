@@ -8,17 +8,16 @@ import {
   summarySportsLive,
 } from "@/state/summarySports";
 import { SpecialNavigation } from "@/app/components/Sidebar/components/SpecialNavigation";
+import { BetBuilderSidebarToggle } from "@/app/components/Sidebar/components/BetBuilderSidebarToggle";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { PrematchLoader } from "../Loading/PrematchLoader";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import {
-  apiGetSidebar,
-  withPrematchSidebarFeatured,
-} from "@/api/sidebar/apiGetSidebar";
-// import { useOrderConfig } from "@/hooks/useOrderConfig";
+import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
+import { syncFeaturedFromSidebars } from "@/state/featuredMatchesState";
+import { toSummaryTree } from "@/helpers/syncFeaturedSummary";
 import { loadedSportsbookState } from "@/state/loadedSportsbookState";
 
 export const Sidebar: FunctionComponent = () => {
@@ -30,14 +29,7 @@ export const Sidebar: FunctionComponent = () => {
       if (loadedSidebarState.value) return;
       try {
         setLoading(true);
-        const [
-          // res,
-          res1,
-          res2,
-          res3,
-          //  configRes
-        ] = await Promise.all([
-          // apiGetStoiximanSidebar(),
+        const [res1, res2, res3] = await Promise.all([
           apiGetSidebar({
             status: [1, 2],
             tradingStatus: 0,
@@ -53,22 +45,13 @@ export const Sidebar: FunctionComponent = () => {
             tradingStatus: 0,
             isOutright: true,
           }),
-          // apiGetOutright(),
-          // apiGetOrderConfigration(),
         ]);
-        // stoiximanSidebarState.value = res;
-        summarySports.value = res1;
-        summarySportsLive.value = withPrematchSidebarFeatured(res1, res2);
-        // Keep outright featured leagues/matches from the outright sidebar response only.
-        outRightSummarySports.value = res3;
-        // orderConfigState.value = configRes;
-        setLoading(false);
-        // useOrderConfig({
-        //   includeRegionPlaceholders: true,
-        // });
+        summarySports.value = toSummaryTree(res1);
+        summarySportsLive.value = toSummaryTree(res2);
+        outRightSummarySports.value = toSummaryTree(res3);
+        syncFeaturedFromSidebars(res1, res2, res3);
       } catch (error) {
         console.error("Error fetching summary or oders:", error);
-        setLoading(false);
       } finally {
         setLoading(false);
         loadedSidebarState.value = true;
@@ -80,8 +63,7 @@ export const Sidebar: FunctionComponent = () => {
   const fetchSidebar = useCallback(async () => {
     if (loading) return;
     try {
-      const [res, res2] = await Promise.all([
-        // apiGetPrematchSidebar(),
+      const [res, res2, res3] = await Promise.all([
         apiGetSidebar({
           status: [1, 2],
           tradingStatus: 0,
@@ -92,9 +74,16 @@ export const Sidebar: FunctionComponent = () => {
           tradingStatus: 0,
           isOutright: false,
         }),
+        apiGetSidebar({
+          status: [1, 2],
+          tradingStatus: 0,
+          isOutright: true,
+        }),
       ]);
-      summarySports.value = res;
-      summarySportsLive.value = withPrematchSidebarFeatured(res, res2);
+      summarySports.value = toSummaryTree(res);
+      summarySportsLive.value = toSummaryTree(res2);
+      outRightSummarySports.value = toSummaryTree(res3);
+      syncFeaturedFromSidebars(res, res2, res3);
     } catch (error) {
       console.error("Error fetching summary or oders:", error);
     } finally {
@@ -140,15 +129,12 @@ export const Sidebar: FunctionComponent = () => {
             ))}
           </div>
         ) : (
-          // <></>
           <LiveSidebar />
         )
       ) : (
         <>
-          {/* Navigation Items */}
           <div className="flex flex-col w-full flex-1 min-h-0 pr-[2px] rounded-[4px] gap-[2px] overflow-y-auto scrollbar-none">
-            {/* {favoriteMatches.value.length > 0 && <FavoriteMatches />} */}
-
+            <BetBuilderSidebarToggle />
             <SpecialNavigation />
             {loading ? (
               <PrematchLoader

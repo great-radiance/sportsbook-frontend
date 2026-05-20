@@ -121,14 +121,14 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   // Get winner market (usually the first market)
   const selectedMarket = marketId ?? getSelectedMarket(marketType ?? 0);
-  console.log(
-    "event",
-    event,
-    // markets,
-    markets[0]?.id,
-    selectedMarket,
-    storeState.value[eventId]?.value?.markets[selectedMarket]?.value,
-  );
+  // console.log(
+  //   "event",
+  //   event,
+  //   // markets,
+  //   markets[0]?.id,
+  //   selectedMarket,
+  //   storeState.value[eventId]?.value?.markets[selectedMarket]?.value,
+  // );
 
   const [compact, setCompact] = useState<number>();
   const matchRef = useRef<HTMLDivElement>(null);
@@ -259,7 +259,7 @@ export const Match: FunctionComponent<MatchProps> = ({
     );
   }
 
-  if (!selectedMarket) return null;
+  if (!selectedMarket) return;
 
   return (
     <div

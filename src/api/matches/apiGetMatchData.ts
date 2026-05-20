@@ -1,7 +1,6 @@
-import { Live } from "@/shared/utils/types";
 import { instance } from "../instance";
-import { tEvent } from "@/types/tEvent";
 import { getAppConfig } from "@/shared/config/appConfig";
+import type { SidebarMarketRef } from "@/state/summarySports";
 
 export type MatchDataResponse = {
   eventInfo: {
@@ -69,6 +68,8 @@ export type MatchDataResponse = {
     };
     isBetBuilderSupported: boolean;
   }[];
+  /** Market type metadata and group tabs for the event detail UI. */
+  marketsRef?: SidebarMarketRef[];
   scoreboard: any;
   betCancellations: any[];
   time: number;

@@ -1,11 +1,15 @@
 import { Fragment, FunctionComponent } from "preact";
-import { useEffect, useState, useCallback } from "preact/hooks";
+import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { Select, SelectItem } from "@/app/components/Select/index";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { outRightSummarySports, summarySports } from "@/state/summarySports";
+import {
+  marketsRef,
+  outRightSummarySports,
+  summarySports,
+} from "@/state/summarySports";
 import { Match } from "./components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
 import {
@@ -19,12 +23,18 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MatchesGroup } from "./components/MatchesGroup";
 import { Breadcrumbs } from "../Breadcrumbs";
 import { storeEvent } from "@/helpers/storeEvent";
+import { storeState } from "@/state/storeState";
+import {
+  isMoneylineSport,
+  marketOptionsFromRef,
+} from "@/helpers/sidebarMarketNavigation";
 
 const switchCategory = (
   category: string,
   eventIds: number[],
   outrightEventIds: number[],
-  selectedMarketSlug: string,
+  marketType: number | undefined,
+  allowAutoSelect: boolean,
 ) => {
   switch (category) {
     case "Hot":
@@ -44,7 +54,13 @@ const switchCategory = (
         </div>
       );
     case "Matches":
-      return <MatchesGroup events={eventIds} marketSlug={selectedMarketSlug} />;
+      return (
+        <MatchesGroup
+          events={eventIds}
+          marketType={marketType}
+          allowAutoSelect={allowAutoSelect}
+        />
+      );
     case "Outright":
       return (
         <div className="flex flex-col w-full gap-4 py-4">
@@ -71,13 +87,9 @@ export const MatchesBoard: FunctionComponent = () => {
     leagueIdParam,
   } = useRouteParams();
   const [, setLocation] = useLocation();
-  const [selectedMarketSlug, setSelectedMarketSlug] =
-    useState<string>("Winner");
-  const [selectedMarkets, setSelectedMarkets] = useState<
-    Record<string, string[]>
-  >({});
-
   const [loading, setLoading] = useState(true);
+  const [selectedMarketType, setSelectedMarketType] = useState(1);
+  const sportId = Number(sportIdParam) || 0;
   const sportRegions =
     summarySports.value.data?.find((s) => s[0] === Number(sportIdParam))?.[2] ||
     undefined;
@@ -92,7 +104,50 @@ export const MatchesBoard: FunctionComponent = () => {
       ?.find((r) => r[0] === Number(regionIdParam))?.[2]
       ?.find((l) => l[0] === Number(leagueIdParam))?.[2] || [];
 
-  console.log("outrightEventIds", outrightEventIds);
+  const marketOptions = useMemo(() => {
+    if (loading || !sportId || isMoneylineSport(sportId, sportName)) return [];
+
+    const refs = marketsRef.value[String(sportId)];
+    const options = marketOptionsFromRef(refs);
+    if (!options.length) return [];
+
+    const events = eventIds
+      .map((id) => storeState.value[id]?.value)
+      .filter(Boolean);
+    if (!events.length) return [];
+
+    return options.filter((opt) =>
+      events.some((ev) =>
+        Object.values(
+          (ev as { markets?: Record<string, { value?: { type?: number } }> })
+            .markets ?? {},
+        ).some((sig) => sig?.value?.type === opt.id),
+      ),
+    );
+  }, [
+    loading,
+    sportId,
+    sportName,
+    eventIds,
+    storeState.value,
+    marketsRef.value,
+  ]);
+
+  const showMarketNav =
+    !loading &&
+    selectedCategory === "Matches" &&
+    marketOptions.length > 0 &&
+    !isMoneylineSport(sportId, sportName);
+
+  const matchMarketType = showMarketNav ? selectedMarketType : undefined;
+  const allowAutoSelect = !showMarketNav;
+
+  useEffect(() => {
+    if (!marketOptions.length) return;
+    if (!marketOptions.some((o) => o.id === selectedMarketType)) {
+      setSelectedMarketType(marketOptions[0].id);
+    }
+  }, [marketOptions, selectedMarketType]);
 
   const selectValue =
     regionName || (regionIdParam && leagueName) || leagueIdParam
@@ -118,7 +173,6 @@ export const MatchesBoard: FunctionComponent = () => {
           .find((r) => r[0] === Number(regionIdParam))?.[2]
           ?.find((l) => l[0] === Number(leagueIdParam))?.[2] ||
         ([] as number[]);
-      console.log("eventIds", eventIds);
       const [res, resOutright] = await Promise.all([
         apiGetMatches(eventIds),
         // apiGetMatchesAuto(eventIds),
@@ -135,7 +189,6 @@ export const MatchesBoard: FunctionComponent = () => {
           new Date(a.eventInfo.startTime).getTime() -
           new Date(b.eventInfo.startTime).getTime(),
       );
-      console.log("newEvents", newEvents);
       // const tempMarkets: Record<string, string[]> = {};
       // tempMarkets["Matches"] = res.marketsMeta;
       // tempMarkets["Outright"] = resOutright.marketsMeta;
@@ -230,11 +283,12 @@ export const MatchesBoard: FunctionComponent = () => {
           <div className="flex items-center justify-center bg-white/90 rounded-[6px] h-8 w-8 py-2">
             <img
               src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(sportName || "")}/${encodeURIComponent(regionName || "")}/${encodeURIComponent(leagueName || "")}.webp`}
-              onError={(e) => {
-                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/leagues/default.webp`;
-              }}
               alt="arrow-left"
               className="w-6 h-6 object-contain"
+              onError={(e) => {
+                e.currentTarget.src = `${getFlagIconFromregionName(regionName || "")}`;
+                e.currentTarget.className = "w-6 h-6 rounded-full";
+              }}
             />
           </div>
           <Select
@@ -298,12 +352,14 @@ export const MatchesBoard: FunctionComponent = () => {
             </button>
           ))}
         </HorizontalTabs>
-        <MarketNavigation
-          options={selectedMarkets[selectedCategory] || []}
-          selectedValue={selectedMarketSlug}
-          onSelect={setSelectedMarketSlug}
-          className="text-[var(--text-notheme-color)]"
-        />
+        {showMarketNav ? (
+          <MarketNavigation
+            options={marketOptions}
+            selectedValue={selectedMarketType}
+            onSelect={setSelectedMarketType}
+            className="text-[var(--text-notheme-color)]"
+          />
+        ) : null}
       </div>
 
       <div className="flex flex-col w-full h-full rounded-lg overflow-hidden gap-4">
@@ -318,7 +374,8 @@ export const MatchesBoard: FunctionComponent = () => {
             selectedCategory,
             eventIds,
             outrightEventIds,
-            selectedMarketSlug,
+            matchMarketType,
+            allowAutoSelect,
           )
         )}
       </div>

@@ -12,13 +12,8 @@ import { MarketBoardLoader } from "@/app/components/Loading/MarketBoardLoader";
 import { stateScoreBoardId } from "@/state/summarySports";
 import { isMobile } from "@/state/isMobile";
 import { StateScoreBoard } from "../StateScoreBoard";
-import {
-  betBuilderCombinable,
-  betBuilderPrice,
-  betBuilderRejectMessage,
-  isBuilding,
-  selectedOdds,
-} from "@/state/betState";
+import { isBuilding } from "@/state/betState";
+import { setBetBuilderMode } from "@/helpers/setBetBuilderMode";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { apiGetMatchData } from "@/api/matches/apiGetMatchData";
@@ -33,6 +28,11 @@ import { HorizontalTabs } from "../HorizontalTabs";
 import { Switch } from "@/app/components/Switch";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
+import {
+  collectMarketGroupTabs,
+  filterMarketsByGroupTab,
+  sortMarketsByMarketsRefOrder,
+} from "@/helpers/eventMarketGroups";
 
 /**
  * Read a competitor's score from the scoreboard shape.
@@ -76,12 +76,33 @@ export const MarketsBoard: FunctionComponent = () => {
   const markets =
     Object.values(eventData?.markets ?? {}).map((sig) => sig.value) || [];
 
-  const mergedMarkets = useMemo(() => {
-    const list = isBuilding.value
-      ? markets.filter((m) => m.isBetBuilderSupported)
-      : markets;
-    return groupMarketsByNameAndType(list);
-  }, [markets, isBuilding.value]);
+  const betBuilderMarkets = useMemo(
+    () => markets.filter((m) => m.isBetBuilderSupported),
+    [markets],
+  );
+
+  const poolMarkets = isBuilding.value ? betBuilderMarkets : markets;
+
+  const groupTabs = useMemo(
+    () => collectMarketGroupTabs(eventData?.marketsRef, poolMarkets),
+    [eventData?.marketsRef, poolMarkets],
+  );
+
+  const marketsForActiveTab = useMemo(() => {
+    if (activeTab > 0 && groupTabs[activeTab - 1]) {
+      return filterMarketsByGroupTab(
+        poolMarkets,
+        eventData?.marketsRef,
+        groupTabs[activeTab - 1].id,
+      );
+    }
+    return sortMarketsByMarketsRefOrder(poolMarkets, eventData?.marketsRef);
+  }, [poolMarkets, activeTab, groupTabs, eventData?.marketsRef]);
+
+  const mergedMarkets = useMemo(
+    () => groupMarketsByNameAndType(marketsForActiveTab),
+    [marketsForActiveTab],
+  );
 
   const mergedSearchResults = useMemo(() => {
     const list = isBuilding.value
@@ -89,6 +110,14 @@ export const MarketsBoard: FunctionComponent = () => {
       : searchResultMarkets;
     return groupMarketsByNameAndType(list);
   }, [searchResultMarkets, isBuilding.value]);
+
+  const displayGroups =
+    searchQuery.length > 0 ? mergedSearchResults : mergedMarkets;
+
+  const emptyMarketsMessage =
+    isBuilding.value && betBuilderMarkets.length === 0
+      ? tMarkets("noBetBuilderMarketsAvailable")
+      : tMarkets("noMarketsAvailable");
 
   const scoreboard = eventData?.scoreboard;
   const homeGoals = getCompetitorScore(scoreboard, 1);
@@ -131,6 +160,22 @@ export const MarketsBoard: FunctionComponent = () => {
       setLoading(false);
     })();
   }, [sportName, eventId]);
+
+  useEffect(() => {
+    setActiveTab(0);
+  }, [eventId]);
+
+  useEffect(() => {
+    if (activeTab > 0 && activeTab > groupTabs.length) {
+      setActiveTab(0);
+    }
+  }, [activeTab, groupTabs.length, isBuilding.value]);
+
+  useEffect(() => {
+    if (isBuilding.value && activeTab !== 0) {
+      setActiveTab(0);
+    }
+  }, [isBuilding.value]);
 
   useEffect(() => {
     if (!searchQuery) {
@@ -272,9 +317,11 @@ export const MarketsBoard: FunctionComponent = () => {
                 />
               </div>
             ) : (
-              <div className="flex items-center gap-0 w-full bg-[var(--sub-element-color)] overflow-hidden rounded-lg px-2 py-1 justify-between">
-                <HorizontalTabs>
+              <div className="flex items-center w-full min-w-0 gap-2 bg-[var(--sub-element-color)] rounded-lg px-2 py-1">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <HorizontalTabs>
                   <button
+                    type="button"
                     onClick={() => setActiveTab(0)}
                     className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
                       activeTab === 0
@@ -286,36 +333,31 @@ export const MarketsBoard: FunctionComponent = () => {
                       {tMarkets("all")}
                     </span>
                   </button>
-                  {/*
-                    Group tabs intentionally omitted: the new `tMarketModel`
-                    has no `groups[]` field to bucket markets by. The "All"
-                    tab covers the full list until a group identifier is
-                    re-introduced on the server side.
-                  */}
-                </HorizontalTabs>
-                <div
-                  className={`flex items-center gap-2 px-3 h-9 ml-1 shrink-0 transition-colors`}
-                >
-                  <span
-                    className={`text-[14px] leading-[36px] ${
-                      activeTab === -1 ? "text-[var(--text-basic-color)]" : ""
-                    }`}
-                  >
+                  {groupTabs.map((group, index) => (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => setActiveTab(index + 1)}
+                      className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
+                        activeTab === index + 1
+                          ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
+                          : ""
+                      }`}
+                    >
+                      <span className="text-[14px] leading-[36px] truncate max-w-[140px]">
+                        {group.name}
+                      </span>
+                    </button>
+                  ))}
+                  </HorizontalTabs>
+                </div>
+                <div className="flex items-center gap-2 h-9 shrink-0 pl-2 border-l border-[var(--primary-border-color)]">
+                  <span className="text-[14px] leading-[36px] whitespace-nowrap">
                     {tMarkets("betBuilderShort")}
                   </span>
                   <Switch
                     checked={isBuilding.value}
-                    onChange={(checked: boolean) => {
-                      isBuilding.value = checked;
-                      if (!checked) {
-                        selectedOdds.value = selectedOdds.value.filter(
-                          (o) => !o.isBuilding,
-                        );
-                        betBuilderPrice.value = null;
-                        betBuilderCombinable.value = false;
-                        betBuilderRejectMessage.value = null;
-                      }
-                    }}
+                    onChange={setBetBuilderMode}
                     className="bg-[#C2CEE5]"
                   />
                 </div>
@@ -327,14 +369,17 @@ export const MarketsBoard: FunctionComponent = () => {
             {isCoverageLost || !eventData ? (
               <div className="flex items-center justify-center w-full py-4 bg-[var(--sub-element-secondary)] rounded-[4px]">
                 <span className="text-[14px] w-full text-center text-[var(--text-basic-color)]">
-                  There is no available market for this event
+                  {tMarkets("noMarketsAvailable")}
+                </span>
+              </div>
+            ) : displayGroups.length === 0 ? (
+              <div className="flex items-center justify-center w-full py-8 px-4 bg-[var(--sub-element-secondary)] rounded-[4px]">
+                <span className="text-[14px] w-full text-center text-[var(--text-sub-color)]">
+                  {emptyMarketsMessage}
                 </span>
               </div>
             ) : (
-              (searchQuery.length > 0
-                ? mergedSearchResults
-                : mergedMarkets
-              )?.map((group) => (
+              displayGroups.map((group) => (
                 <MarketComponent
                   key={group.key}
                   marketId={group.ids.length === 1 ? group.ids[0] : group.ids}

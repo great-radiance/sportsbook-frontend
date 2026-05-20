@@ -1,8 +1,8 @@
 import type {
   SidebarFeaturedLeagueRow,
   SidebarFeaturedMatches,
+  SidebarFetchedSummary,
   SidebarMarketsRef,
-  summaryData,
 } from "@/state/summarySports";
 import { instance } from "../instance";
 import { getAppConfig } from "@/shared/config/appConfig";
@@ -136,7 +136,7 @@ export const apiGetSidebar = async ({
   tradingStatus = 0,
   isOutright = false,
   isBetBuilderSupported,
-}: tProps): Promise<summaryData> => {
+}: tProps): Promise<SidebarFetchedSummary> => {
   const params = new URLSearchParams();
   params.append("status", status.join(","));
   params.append("tradingStatus", tradingStatus.toString());
@@ -189,20 +189,10 @@ export const apiGetSidebar = async ({
   };
 };
 
-/**
- * Prematch and live `/sidebar` responses both repeat the same tuple prefix
- * (`featuredMatches`, `featuredLeagues`). After the parallel fetches, copy
- * those fields from prematch onto live/outright so consumers read one source
- * of truth (and we can later strip duplicate parsing if the API adds flags).
- */
+/** @deprecated Featured data lives in `featuredSummaryData` / `marketsRef` signals. */
 export function withPrematchSidebarFeatured(
-  prematch: summaryData,
-  other: summaryData,
-): summaryData {
-  return {
-    ...other,
-    featuredMatches: prematch.featuredMatches ?? other.featuredMatches,
-    featuredLeagues: prematch.featuredLeagues ?? other.featuredLeagues,
-    marketsRef: prematch.marketsRef ?? other.marketsRef,
-  };
+  prematch: SidebarFetchedSummary,
+  other: SidebarFetchedSummary,
+): SidebarFetchedSummary {
+  return other;
 }

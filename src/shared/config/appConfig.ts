@@ -1,4 +1,4 @@
-import { setPlayerSessionHeaders } from "@/api/instance";
+import { setLanguageId, setPlayerSessionHeaders } from "@/api/instance";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
 import { baseColorTheme } from "@/state/baseColorTheme";
 
@@ -31,6 +31,7 @@ export function setAppConfig(cfg: AppConfig) {
   bottomLayoutHeight.value = cfg.bottomLayoutHeight ?? 64;
   const operatorId = cfg.xOperatorId ?? cfg.xApiId;
   setPlayerSessionHeaders(cfg.xUserId, operatorId, cfg.currency);
+  setLanguageId(cfg.lang);
   baseColorTheme.value = cfg.baseTheme === "light" ? "light" : "dark";
 }
 

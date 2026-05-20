@@ -6,8 +6,14 @@ import { useLocation } from "wouter-preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { buildFeaturedLeaguesFromSummary } from "@/helpers/featuredLeaguesFromSummary";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
+import { prematchPathForLeagueNames } from "@/helpers/buildPrematchPath";
 
-type LeagueItem = { sport: string; region: string; league: string };
+type LeagueItem = {
+  sport: string;
+  region: string;
+  league: string;
+  path: string;
+};
 
 export const TopLeagueMenu = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -45,15 +51,22 @@ export const TopLeagueMenu = () => {
   const leagueItems = useMemo((): LeagueItem[] => {
     const items: LeagueItem[] = [];
     const state = popularLeaguesState.value;
+    const summary = summarySports.value;
     for (const sport of Object.keys(state)) {
       for (const region of Object.keys(state[sport] ?? {})) {
         for (const league of state[sport][region] ?? []) {
-          items.push({ sport, region, league });
+          const path = prematchPathForLeagueNames(
+            summary,
+            sport,
+            region,
+            league,
+          );
+          if (path) items.push({ sport, region, league, path });
         }
       }
     }
     return items;
-  }, [popularLeaguesState.value]);
+  }, [popularLeaguesState.value, summarySports.value.data]);
 
   const onLeagueClick = (e: MouseEvent, path: string) => {
     e.stopPropagation();
@@ -106,16 +119,11 @@ export const TopLeagueMenu = () => {
           gridAutoColumns: "minmax(140px, 1fr)",
         }}
       >
-        {leagueItems.map(({ sport, region, league }) => (
+        {leagueItems.map(({ sport, region, league, path }) => (
           <button
             key={`${sport}-${region}-${league}`}
             type="button"
-            onClick={(e) =>
-              onLeagueClick(
-                e,
-                `/event-view/pre-match/${sport}/${region}/${league}`,
-              )
-            }
+            onClick={(e) => onLeagueClick(e, path)}
             className="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-white/10"
           >
             <div className="flex items-center justify-center rounded-md border border-[#FFFFFF20] p-1">

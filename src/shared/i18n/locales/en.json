@@ -85,6 +85,7 @@
     "Special_Bets": "Special Bets",
     "Odds-on_coupon": "Odds-on Coupon",
     "FAVOURITE_COMPETITIONS": "Favourite Competitions",
+    "betBuilderModeHint": "Combine multiple picks from the same event",
     "top_matches": "Top Matches"
   },
   "results": {
@@ -119,7 +120,9 @@
     "position": "Position",
     "points": "Points",
     "outRight": "Outright",
-    "betBuilderShortLabel": "BB"
+    "betBuilderShortLabel": "BB",
+    "noMarketsAvailable": "No markets available for this event",
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
   },
   "betslip": {
     "multi": "multiple",

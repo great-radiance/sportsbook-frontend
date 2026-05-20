@@ -37,17 +37,21 @@ export const Switch: FunctionComponent<SwitchProps> = ({
       disabled={disabled}
       onClick={handleClick}
       className={`
-        relative w-[36px] h-[20px] rounded-full transition-all duration-500 ease-out
-        focus:outline-none
-        ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-        ${checked ? "#2d374d" : "#C2CEE5"}
+        relative h-[22px] w-[42px] shrink-0 rounded-full border-2 transition-all duration-300 ease-out
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color)]/50
+        ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+        ${
+          checked
+            ? "border-[var(--primary-color)] bg-[var(--primary-color)]"
+            : "border-[#9aa8bc] bg-[#c5d0de]"
+        }
         ${className}
       `}
     >
       <span
         className={`
-          absolute top-[2px] w-[16px] h-[16px] rounded-full transition-all duration-500 ease-out
-          ${checked ? "right-[2px] bg-[var(--primary-color)]" : "left-[2px] bg-[var(--sub-element-color)]"}
+          absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out
+          ${checked ? "left-[22px]" : "left-[2px]"}
         `}
       />
     </button>

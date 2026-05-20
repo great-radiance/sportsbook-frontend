@@ -9,6 +9,14 @@ export const instance = axios.create({
  * Required: `x-user-id`, `x-operator-id`. Optional: `x-currency`.
  * No `Authorization` header for platform player routes.
  */
+export function setLanguageId(languageId: string | null | undefined) {
+  if (languageId) {
+    instance.defaults.headers["accept-language"] = languageId;
+  } else {
+    delete instance.defaults.headers["accept-language"];
+  }
+}
+
 export function setPlayerSessionHeaders(
   playerId: string | null | undefined,
   operatorId: string | null | undefined,

@@ -15,6 +15,10 @@ import {
   balance,
   currency,
 } from "@/state/betState";
+import {
+  normalizeSelectedOddRow,
+  type SelectedOddType,
+} from "@/shared/utils/bet";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
 import {
@@ -106,10 +110,14 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     if (slipRaw) {
       try {
         const parsed = JSON.parse(slipRaw);
+        const normalizeSlip = (rows: unknown[]) =>
+          rows.map((row) =>
+            normalizeSelectedOddRow(row as SelectedOddType),
+          );
         if (Array.isArray(parsed)) {
-          selectedOdds.value = parsed;
+          selectedOdds.value = normalizeSlip(parsed);
         } else if (parsed?.selectedOdds && Array.isArray(parsed.selectedOdds)) {
-          selectedOdds.value = parsed.selectedOdds;
+          selectedOdds.value = normalizeSlip(parsed.selectedOdds);
           selectedBetType.value = parsed.selectedBetType ?? "single";
           multipleBetAmount.value = parsed.multipleBetAmount ?? 0;
           buildingBetAmount.value = parsed.buildingBetAmount ?? 0;

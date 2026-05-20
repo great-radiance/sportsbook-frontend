@@ -22,6 +22,11 @@ function readIsBetBuilderSupported(source: BetBuilderSupportIn): boolean {
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
+  if (
+    new Date(event.eventInfo.startTime).getTime() <
+    Date.now() - 1000 * 60 * 60 * 24
+  )
+    return;
   if (!storeState.value[event.eventInfo.id]) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,

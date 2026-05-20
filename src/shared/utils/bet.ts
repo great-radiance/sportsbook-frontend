@@ -1,10 +1,16 @@
 import { tParticipant } from "@/types/tEvent";
 import { Competition, Participant, Region, Sport } from "./types";
 
+/** Sport / region / league reference on betslip selections. */
+export type BetContextRef = {
+  id: number;
+  name: string;
+};
+
 export type SelectedOddType = {
-  sport: string;
-  region: string;
-  league: string;
+  sport: BetContextRef;
+  region: BetContextRef;
+  league: BetContextRef;
   oddsId: string;
   name: string;
   marketId: string;
@@ -26,9 +32,9 @@ export type SelectedOddType = {
 export type betType = "single" | "multi" | "system" | "betbuilder";
 
 export type betSelectionType = {
-  sport: string;
-  region: string;
-  league: string;
+  sport: BetContextRef;
+  region: BetContextRef;
+  league: BetContextRef;
   eventId: number;
   marketId: string;
   oddsId: string;
@@ -87,3 +93,28 @@ export type BetItemType = {
   providerResponse: ProviderResponseType;
   metadata: Record<string, any>;
 };
+
+function normalizeBetContextRef(
+  value: unknown,
+  fallbackId = 0,
+): BetContextRef {
+  if (value && typeof value === "object" && "name" in value) {
+    const o = value as { id?: number; name?: string };
+    return {
+      id: Number(o.id) || fallbackId,
+      name: String(o.name ?? ""),
+    };
+  }
+  return { id: fallbackId, name: String(value ?? "") };
+}
+
+/** Restores selections persisted before sport/region/league became objects. */
+export function normalizeSelectedOddRow(row: SelectedOddType): SelectedOddType {
+  const sportSlugId = Number(row.sportSlug) || 0;
+  return {
+    ...row,
+    sport: normalizeBetContextRef(row.sport, sportSlugId),
+    region: normalizeBetContextRef(row.region),
+    league: normalizeBetContextRef(row.league),
+  };
+}

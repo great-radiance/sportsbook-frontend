@@ -194,6 +194,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
   eventId,
 }) => {
   const event = storeState.value[eventId]?.value;
+  console.log("event", event);
   const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();
   const clockRef = useRef<HTMLSpanElement>(null);
@@ -422,11 +423,11 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
         <div className="flex gap-[2px] h-full text-[11px] items-center justify-start truncate text-ellipsis overflow-hidden">
           <div className="flex relative items-center w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${event.sport?.name}.png`}
+              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${event.sport?.id}.svg`}
               onError={(e) => {
-                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
               }}
-              className={`w-[12px] h-[12px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"} object-contain shrink-0`}
+              className={`w-[12px] h-[12px] ${baseTheme === "dark" ? "invert" : ""} object-contain shrink-0`}
               alt=""
             />
           </div>

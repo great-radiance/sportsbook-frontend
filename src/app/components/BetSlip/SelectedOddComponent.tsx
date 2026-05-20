@@ -81,11 +81,11 @@ export const SelectedOddComponent: FunctionComponent<
         <div className="flex items-center justify-between w-full text-[14px] font-bold">
           <div className="flex items-center gap-2">
             <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${bet.sport}.png`}
+              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${bet.sport.id}.svg`}
               onError={(e) => {
-                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/sportsicons/default.png`;
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
               }}
-              className={`w-5 h-5 ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+              className={`w-5 h-5 ${baseTheme === "dark" ? "invert" : ""}`}
             />
             {bet.name || ""}
           </div>
@@ -137,8 +137,7 @@ export const SelectedOddComponent: FunctionComponent<
         </div>
         {/* Event name */}
         <div className="text-[12px] font-normal">
-          {bet.participants[0]?.name || ""} -{" "}
-          {bet.participants[1]?.name || ""}
+          {bet.participants[0]?.name || ""} - {bet.participants[1]?.name || ""}
         </div>
         {/* Stake input - only show for single bets */}
         {selectedBetType === "single" && !bet.isBuilding && (

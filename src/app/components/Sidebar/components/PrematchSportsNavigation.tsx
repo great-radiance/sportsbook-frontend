@@ -162,12 +162,13 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                   <div className="flex gap-[10px] flex-1 min-w-0 items-center">
                     <div className="w-[24px] h-full shrink-0">
                       <img
-                        src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sportName}.png`}
-                        onError={(ev) => {
-                          ev.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
-                        }}
-                        className={`w-[24px] h-[24px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                        className={`w-[24px] h-[24px] ${baseTheme === "dark" ? "invert" : ""}`}
                         alt=""
+                        src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportId}.svg`}
+                        onError={(ev) => {
+                          ev.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                          ev.currentTarget.className = "w-[24px] h-[24px]";
+                        }}
                       />
                     </div>
                     <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[14px]">
@@ -192,48 +193,46 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                   <div className="hidden md:flex flex-col rounded-md bg-white/5 gap-0 overflow-hidden">
                     {featuredSummaryData.value.featuredLeaguesBySport?.[
                       sportId
-                    ]?.map(
-                      (featuredLeague) => {
-                        const leagueId = featuredLeague[0] as number;
-                        const leagueName = String(featuredLeague[1] ?? "");
-                        const regionId = featuredLeague[4] as number;
-                        const leagueSportId =
-                          (featuredLeague[5] as number) ?? sportId;
-                        const leagueSport =
-                          sports.find((s) => s[0] === leagueSportId) ?? sport;
-                        const pathSportName = String(leagueSport[1] ?? sportName);
-                        const regionName = regionNameForSport(
-                          leagueSport,
-                          regionId,
-                        );
-                        return (
-                          <button
-                            key={k("l", sportId, leagueId)}
-                            type="button"
-                            onClick={(e) => {
-                              linkButtonOnClick(
-                                e,
-                                buildPrematchPath(
-                                  pathSportName,
-                                  leagueSportId,
-                                  regionName,
-                                  regionId,
-                                  leagueName,
-                                  leagueId,
-                                ),
-                                setLocation,
-                              );
-                            }}
-                            style={{ paddingLeft: 18 }}
-                            className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
-                          >
-                            <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[12px]">
-                              {leagueName}
-                            </span>
-                          </button>
-                        );
-                      },
-                    )}
+                    ]?.map((featuredLeague) => {
+                      const leagueId = featuredLeague[0] as number;
+                      const leagueName = String(featuredLeague[1] ?? "");
+                      const regionId = featuredLeague[4] as number;
+                      const leagueSportId =
+                        (featuredLeague[5] as number) ?? sportId;
+                      const leagueSport =
+                        sports.find((s) => s[0] === leagueSportId) ?? sport;
+                      const pathSportName = String(leagueSport[1] ?? sportName);
+                      const regionName = regionNameForSport(
+                        leagueSport,
+                        regionId,
+                      );
+                      return (
+                        <button
+                          key={k("l", sportId, leagueId)}
+                          type="button"
+                          onClick={(e) => {
+                            linkButtonOnClick(
+                              e,
+                              buildPrematchPath(
+                                pathSportName,
+                                leagueSportId,
+                                regionName,
+                                regionId,
+                                leagueName,
+                                leagueId,
+                              ),
+                              setLocation,
+                            );
+                          }}
+                          style={{ paddingLeft: 18 }}
+                          className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
+                        >
+                          <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[12px]">
+                            {leagueName}
+                          </span>
+                        </button>
+                      );
+                    })}
                     {regions.map((region) => {
                       const regionId = region[0] as number;
                       const regionName = String(region[1] ?? "");

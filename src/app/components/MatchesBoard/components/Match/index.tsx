@@ -79,6 +79,7 @@ export const Match: FunctionComponent<MatchProps> = ({
   allowRounded = false,
 }) => {
   const event = storeState.value[eventId]?.value;
+  console.log("event", event);
   if (!event) return null;
 
   const showLeague =
@@ -218,8 +219,6 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event?.sport.name}/${event?.sport.id}/${event?.region.name}/${event?.region.id}/${event?.league.name}/${event?.league.id}/${event?.id}`;
 
-  // const eventSig = storeState.value?.[match[0]];
-  //                           const markets = eventSig?.value.markets;
   if (event?.isOutright) {
     if (!markets)
       return (
@@ -350,11 +349,11 @@ export const Match: FunctionComponent<MatchProps> = ({
                 <div className="flex gap-[2px] h-full text-[11px] items-center justify-start truncate text-ellipsis overflow-hidden">
                   <div className="flex relative items-center w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${event?.sport}.png`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${event?.sport.id}.svg`}
                       onError={(e) => {
-                        e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                        e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                       }}
-                      className={`w-[12px] h-[12px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"} object-contain shrink-0`}
+                      className={`w-[12px] h-[12px] ${baseTheme === "dark" ? "invert" : ""} object-contain shrink-0`}
                       alt=""
                     />
                   </div>

@@ -74,11 +74,10 @@ export const PreMatchPanel: FunctionComponent = () => {
    * the same tuple shape — only the source changes by `matchView`.
    */
   const flatList: SummaryEventRef[] = useMemo(() => {
-    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
-
     if (selectedSport === POPULAR_SPORT_ID) {
       return popularTabEventRefs();
     }
+    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
 
     const sportTuple = summary.data?.find((s) => s[0] === selectedSport);
     if (!sportTuple) return [];

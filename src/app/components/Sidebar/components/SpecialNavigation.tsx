@@ -55,7 +55,7 @@ function prematchPathFromFeaturedRow(
   const sportName = sport ? String(sport[1] ?? "").trim() : "";
   if (!sportName) return prematchPathForFeaturedLeague(sportsData, leagueId);
   let regionName = "";
-  for (const region of sport[2] ?? []) {
+  for (const region of sport?.[2] ?? []) {
     if (region[0] === regionId) {
       regionName = String(region[1] ?? "").trim();
       break;
@@ -241,11 +241,11 @@ export const SpecialNavigation: FunctionComponent<
                         }`}
                       >
                         <img
-                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sportIcon}.png`}
+                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportIcon}.svg`}
                           onError={(e) => {
-                            e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                            e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                           }}
-                          className={`w-[24px] h-[24px] shrink-0 ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                          className={`w-[24px] h-[24px] shrink-0 ${baseTheme === "dark" ? "invert" : ""}`}
                           alt=""
                         />
                         <div className="flex flex-1 flex-col min-w-0">

@@ -1,6 +1,6 @@
 import type { tSportResponse } from "@/api/sidebar/apiGetSummaryArray";
 
-type RegionTuple = tSportResponse[2][number];
+type RegionTuple = tSportResponse[2];
 
 export type LeagueLabel = {
   regionName: string;
@@ -17,7 +17,10 @@ export function resolveLeagueLabel(
   if (!region) return null;
   const league = (region[2] ?? []).find((l) => l[0] === leagueId);
   if (!league) return null;
-  return { regionName: String(region[1] ?? ""), leagueName: String(league[1] ?? "") };
+  return {
+    regionName: String(region[1] ?? ""),
+    leagueName: String(league[1] ?? ""),
+  };
 }
 
 export function buildLeagueLabelMap(

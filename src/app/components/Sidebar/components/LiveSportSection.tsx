@@ -52,9 +52,7 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
   const sportId = sportTuple?.[0];
   const regions = sportTuple?.[2] ?? [];
   const matchCount =
-    sportId != null
-      ? (summarySportsLive.value.counts[sportId]?.total ?? 0)
-      : 0;
+    sportId != null ? (summarySportsLive.value.counts[sportId]?.total ?? 0) : 0;
 
   useEffect(() => {
     pendingDeleteRef.current = [];
@@ -168,12 +166,12 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
           <div className="flex items-center gap-2 flex-1">
             <div className="w-[20px] h-full text-[16px]">
               <img
-                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${selectedSportName}.png`}
+                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportId}.svg`}
                 onError={(e) => {
-                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                 }}
                 alt={selectedSportName}
-                className={`w-[20px] h-[20px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                className={`w-[20px] h-[20px] ${baseTheme === "dark" ? "invert" : ""}`}
               />
             </div>
             <span className="flex-1 text-left">{selectedSportName}</span>

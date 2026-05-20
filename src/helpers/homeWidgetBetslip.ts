@@ -1,5 +1,4 @@
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
-import { storeEvent } from "@/helpers/storeEvent";
+import { ensureEventsInStore } from "@/helpers/ensureEventsInStore";
 import {
   isBetslipSelectionSelected,
   toggleBetslipSelection,
@@ -24,17 +23,6 @@ export type WidgetSelectionInput = {
   outcomeName: string;
   odds: number;
 };
-
-async function ensureEventsInStore(eventIds: number[]): Promise<void> {
-  const unique = [...new Set(eventIds)].filter((id) => Number.isFinite(id) && id > 0);
-  const missing = unique.filter((id) => {
-    const ev = storeState.value[id]?.value;
-    return !ev?.markets || Object.keys(ev.markets).length === 0;
-  });
-  if (missing.length === 0) return;
-  const events = await apiGetMatches(missing);
-  (events ?? []).forEach((event) => storeEvent(event));
-}
 
 function marketKeyForId(event: tEventModel, marketId: number): string {
   for (const key of Object.keys(event.markets ?? {})) {

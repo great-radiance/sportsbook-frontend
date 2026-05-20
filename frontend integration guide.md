@@ -10,7 +10,13 @@
 
 1. [Player Headers](#player-headers)
 2. [Public Data](#public-data)
+   - [Events](#events)
+     - [List Events](#list-events)
+     - [Get Single Event](#get-single-event)
    - [Event Search](#event-search)
+   - [Live Events (odds88)](#live-events-odds88)
+     - [List Live Events](#list-live-events)
+     - [Get Single Live Event](#get-single-live-event)
 3. [Real-Time Odds (WebSocket)](#real-time-odds-websocket)
 4. [Player Session](#player-session)
 5. [Betting](#betting)
@@ -64,10 +70,117 @@ No headers needed for any of these.
 
 ```
 GET /sidebar
-GET /sidebar?lang=en&status=1
+GET /sidebar?lang=en&status=1&tradingStatus=1&isOutright=false
 ```
 
-Returns a compact navigation tree.
+| Param                   | Type      | Description                                                    |
+| ----------------------- | --------- | -------------------------------------------------------------- |
+| `status`                | `number`  | Filter to events with this status code (e.g. `1` = live)       |
+| `tradingStatus`         | `number`  | Filter by trading status                                       |
+| `isOutright`            | `boolean` | `true` for outright events only, `false` for match events only |
+| `isBetBuilderSupported` | `boolean` | Filter to bet-builder-eligible events                          |
+| `lang`                  | `string`  | Language for translated sport / region / league names          |
+
+Returns a compact navigation tree **plus** `marketsRef` — the full market type reference data for every market type pre-configured by the admin for each sport.
+
+**Response:**
+
+```json
+{
+  "data": [
+    [2, [5001, 5002]],
+    [[101, "Premier League", 3, [5001, 5002, 5003], 10, 1]],
+    [
+      1,
+      "Soccer",
+      12,
+      [[204, "Premier League", 3, [5001, 5002, 5003], 10, 1]],
+      [
+        [
+          10,
+          "England",
+          3,
+          [[204, "Premier League", 3, [5001, 5002, 5003], 10, 1]]
+        ]
+      ]
+    ]
+  ],
+  "marketsRef": {
+    "1": [
+      {
+        "id": 1,
+        "name": "Match Winner",
+        "groups": [{ "id": 10, "name": "Main", "order": 1, "sportId": 1 }],
+        "isMultilineMarket": false,
+        "isFreeText": false
+      },
+      {
+        "id": 2,
+        "name": "Over/Under 2.5",
+        "groups": [{ "id": 10, "name": "Main", "order": 2, "sportId": 1 }],
+        "isMultilineMarket": false,
+        "isFreeText": false
+      }
+    ],
+    "3": [
+      {
+        "id": 5,
+        "name": "Moneyline",
+        "groups": [{ "id": 20, "name": "Main", "order": 1, "sportId": 3 }],
+        "isMultilineMarket": false,
+        "isFreeText": false
+      }
+    ]
+  },
+  "cached": false,
+  "ms": 18
+}
+```
+
+**`data` array format:**
+
+```
+data[0]  = FeaturedMatchesArr  → [eventCount, eventIds[]]
+data[1]  = FeaturedLeaguesArr  → [[leagueId, name, eventCount, eventIds[], regionId, sportId], ...]
+data[2+] = SportArr            → [sportId, name, eventCount, famousLeagues: LeagueArr[], regions: RegionArr[]]
+
+RegionArr = [regionId, name, eventCount, leagues: LeagueArr[]]
+LeagueArr = [leagueId, name, eventCount, eventIds[], regionId, sportId]
+```
+
+**`marketsRef` — keyed by `sportId`:**
+
+Each key is a sport ID (as a string). The value is an array of market type reference objects for the market types the admin has configured for that sport. Use it to render market tabs or filter buttons when displaying events.
+
+```js
+const { data, marketsRef } = await fetch(
+  "/api/v1/sidebar?lang=en&status=1",
+).then((r) => r.json());
+
+// data[2+] are sport entries
+for (const sport of data.slice(2)) {
+  const [sportId, sportName, eventCount, famousLeagues, regions] = sport;
+  const markets = marketsRef[sportId] ?? [];
+  // render market tab strip: markets.map(m => m.name)
+
+  for (const region of regions) {
+    const [regionId, regionName, regionEventCount, leagues] = region;
+    for (const league of leagues) {
+      const [
+        leagueId,
+        leagueName,
+        leagueEventCount,
+        eventIds,
+        leagueRegionId,
+        leagueSportId,
+      ] = league;
+      // leagueRegionId === regionId, leagueSportId === sportId
+    }
+  }
+}
+```
+
+> `marketsRef` is `{}` when no market types have been configured for any sport yet (run admin sidebar market setup first).
 
 ### Sports / Leagues / Regions / Markets
 
@@ -83,41 +196,176 @@ GET /markets
 
 ### Events
 
+#### List Events
+
 ```
-GET /events?sportId=1&leagueId=101
-GET /events/:eventId
+GET /events
+GET /events?sportId=1&leagueId=101&status=1
 ```
 
-| Param      | Description                   |
-| ---------- | ----------------------------- |
-| `sportId`  | Filter by sport               |
-| `leagueId` | Filter by league              |
-| `regionId` | Filter by region              |
-| `status`   | Event status code             |
-| `lang`     | Language for translated names |
+| Param      | Type     | Description                         |
+| ---------- | -------- | ----------------------------------- |
+| `sportId`  | `number` | Filter by sport ID                  |
+| `leagueId` | `number` | Filter by league ID                 |
+| `regionId` | `number` | Filter by region ID                 |
+| `status`   | `number` | Event status code (e.g. `1` = live) |
 
-**Response:**
+**Response (200):**
 
 ```json
 {
+  "source": "db",
+  "total": 1,
   "data": [
     {
       "eventId": 5001,
+      "sportId": 1,
+      "leagueId": 101,
       "eventInfo": {
-        "id":        5001,
-        "name":      "Arsenal vs Chelsea",
-        "status":    1,
+        "id": 5001,
+        "name": "Arsenal vs Chelsea",
+        "status": 1,
+        "tradingStatus": 1,
         "startTime": "2026-05-18T15:00:00.000Z",
-        "sport":       { "id": 1,   "name": "Soccer" },
+        "sport": { "id": 1, "name": "Soccer" },
         "competition": { "id": 101, "name": "Premier League" },
         "competitors": [
-          { "id": 201, "name": "Arsenal", "type": "home" },
-          { "id": 202, "name": "Chelsea", "type": "away" }
+          { "id": 201, "name": "Arsenal" },
+          { "id": 202, "name": "Chelsea" }
         ]
       },
-      "markets": [...]
+      "markets": [
+        {
+          "id": 9001,
+          "name": "Match Winner",
+          "tradingStatus": 1,
+          "type": 1,
+          "isBestLine": true,
+          "selections": [
+            {
+              "id": 501,
+              "name": "Arsenal",
+              "price": 2.2,
+              "probability": 0.45,
+              "status": 1
+            },
+            {
+              "id": 502,
+              "name": "Draw",
+              "price": 3.5,
+              "probability": 0.28,
+              "status": 1
+            },
+            {
+              "id": 503,
+              "name": "Chelsea",
+              "price": 2.8,
+              "probability": 0.27,
+              "status": 1
+            }
+          ]
+        }
+      ]
     }
   ]
+}
+```
+
+---
+
+#### Get Single Event
+
+Returns one event from the database, with a `marketsRef` array attached. `marketsRef` contains the static market type metadata for every market on the event, matched by `marketsRef[n].id === market.type`.
+
+```
+GET /events/:eventId
+```
+
+**Response (200):**
+
+```json
+{
+  "source": "db",
+  "data": {
+    "eventId": 5001,
+    "sportId": 1,
+    "leagueId": 101,
+    "eventInfo": {
+      "id": 5001,
+      "name": "Arsenal vs Chelsea",
+      "status": 1,
+      "tradingStatus": 1,
+      "startTime": "2026-05-18T15:00:00.000Z",
+      "sport": { "id": 1, "name": "Soccer" },
+      "competition": { "id": 101, "name": "Premier League" },
+      "competitors": [
+        { "id": 201, "name": "Arsenal" },
+        { "id": 202, "name": "Chelsea" }
+      ]
+    },
+    "markets": [
+      {
+        "id": 9001,
+        "name": "Match Winner",
+        "tradingStatus": 1,
+        "type": 1,
+        "isBestLine": true,
+        "selections": [
+          {
+            "id": 501,
+            "name": "Arsenal",
+            "price": 2.2,
+            "probability": 0.45,
+            "status": 1
+          },
+          {
+            "id": 502,
+            "name": "Draw",
+            "price": 3.5,
+            "probability": 0.28,
+            "status": 1
+          },
+          {
+            "id": 503,
+            "name": "Chelsea",
+            "price": 2.8,
+            "probability": 0.27,
+            "status": 1
+          }
+        ]
+      }
+    ],
+    "marketsRef": [
+      {
+        "id": 1,
+        "name": "Match Winner",
+        "groups": [{ "id": 10, "name": "Main", "order": 1, "sportId": 1 }],
+        "isMultilineMarket": false,
+        "isFreeText": false
+      }
+    ]
+  }
+}
+```
+
+**Error (404):**
+
+```json
+{ "error": "Event not found" }
+```
+
+**Using `marketsRef`:**
+
+```js
+// Build a lookup map so you can enrich each market with its type metadata
+const refMap = new Map(data.marketsRef.map((r) => [r.id, r]));
+
+for (const market of data.markets) {
+  const ref = refMap.get(market.type);
+  if (ref) {
+    market.groupName = ref.groups[0]?.name;
+    market.isMultiline = ref.isMultilineMarket;
+  }
 }
 ```
 
@@ -194,6 +442,294 @@ const { data } = await fetch(
 ```
 
 **Empty results:** Returns `data: []` and `total: 0` — never an error. Always render a "No events found" state.
+
+---
+
+### Live Events (odds88)
+
+These endpoints serve data straight from the Redis delta feed — always fresh, no database round-trip.
+
+#### List Live Events
+
+The main endpoint for powering your odds board. Returns events filtered and translated, with markets limited to the types configured per sport in the admin sidebar.
+
+```
+GET /odds88/events/selected
+GET /odds88/events/selected?sportId=1&status=1&tradingStatus=1&lang=en
+GET /odds88/events/selected?sportId=1&marketIds=1,2&sort=ASC&lang=en
+```
+
+| Param                   | Type                 | Description                                                                                 |
+| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| `sportId`               | `number \| number[]` | Filter by sport. Comma-separated or repeated param                                          |
+| `regionId`              | `number \| number[]` | Filter by region/country                                                                    |
+| `leagueId`              | `number \| number[]` | Filter by league                                                                            |
+| `status`                | `number \| number[]` | Event status code(s)                                                                        |
+| `tradingStatus`         | `number \| number[]` | Trading status code(s)                                                                      |
+| `isOutright`            | `boolean`            | `true` for outrights only, `false` for match events only                                    |
+| `isBetBuilderSupported` | `boolean`            | Bet-builder-eligible events only                                                            |
+| `eventIds`              | `number \| number[]` | Fetch specific event IDs                                                                    |
+| `marketIds`             | `number \| number[]` | Return only these market type IDs per event; keeps `isBestLine` market, falls back to first |
+| `sort`                  | `"ASC" \| "DESC"`    | Sort by start time. Default: `ASC`                                                          |
+| `lang`                  | `string`             | Language code for translated names (`en`, `zh`, `th`, …)                                    |
+
+**Response format:**
+
+Each element in `data` is a 3-item tuple `[eventInfo, markets, scoreboard]` — compact arrays instead of objects to minimise payload.
+
+```
+eventInfo:
+  [id, name, status, tradingStatus, [sportId, sportName], [countryId, countryName],
+   [leagueId, leagueName], season, [[competitorId, competitorName], ...],
+   startTime, isOutright, isBetBuilderSupported]
+
+market:
+  [id, name, tradingStatus, type, isBestLine, parameters, extraParameters,
+   isBetBuilderSupported, [selections]]
+
+selection:
+  [id, name, probability, price, originalPrice, status, settlement,
+   deadHeatFactor, extraParameters, isBetBuilderSupported, competitorId, startingPrice]
+```
+
+**Example:**
+
+```json
+{
+  "data": [
+    [
+      [
+        5001,
+        "Arsenal vs Chelsea",
+        1,
+        1,
+        [1, "Soccer"],
+        [41, "England"],
+        [101, "Premier League"],
+        null,
+        [
+          [201, "Arsenal"],
+          [202, "Chelsea"]
+        ],
+        "2026-05-18T15:00:00.000Z",
+        false,
+        true
+      ],
+      [
+        [
+          9001,
+          "Match Winner",
+          1,
+          1,
+          true,
+          null,
+          null,
+          false,
+          [
+            [
+              501,
+              "Arsenal",
+              0.45,
+              2.2,
+              2.2,
+              1,
+              null,
+              null,
+              null,
+              false,
+              201,
+              null
+            ],
+            [
+              502,
+              "Draw",
+              0.28,
+              3.5,
+              3.5,
+              1,
+              null,
+              null,
+              null,
+              false,
+              null,
+              null
+            ],
+            [
+              503,
+              "Chelsea",
+              0.27,
+              2.8,
+              2.8,
+              1,
+              null,
+              null,
+              null,
+              false,
+              202,
+              null
+            ]
+          ]
+        ]
+      ],
+      null
+    ]
+  ],
+  "ms": 9
+}
+```
+
+**Decoding the tuple:**
+
+```js
+const [eventInfo, markets, scoreboard] = event;
+const [
+  id,
+  name,
+  status,
+  tradingStatus,
+  sport,
+  country,
+  competition,
+  season,
+  competitors,
+  startTime,
+  isOutright,
+  isBetBuilderSupported,
+] = eventInfo;
+
+for (const market of markets) {
+  const [
+    mId,
+    mName,
+    mTradingStatus,
+    mType,
+    isBestLine,
+    params,
+    extraParams,
+    isBetBuilder,
+    selections,
+  ] = market;
+
+  for (const sel of selections) {
+    const [
+      sId,
+      sName,
+      probability,
+      price,
+      originalPrice,
+      sStatus,
+      settlement,
+      deadHeat,
+      sExtraParams,
+      sBetBuilder,
+      competitorId,
+      sp,
+    ] = sel;
+  }
+}
+```
+
+---
+
+#### Get Single Live Event
+
+Returns a single event from the Redis delta feed, fully translated, with competitor logos and `marketsRef` (static market type metadata matched by `marketsRef[n].id === market.type`).
+
+```
+GET /odds88/events/:eventId
+GET /odds88/events/:eventId?lang=zh
+```
+
+| Param     | Type     | Description                        |
+| --------- | -------- | ---------------------------------- |
+| `eventId` | `number` | The event ID                       |
+| `lang`    | `string` | Language code for translated names |
+
+**Response (200):**
+
+```json
+{
+  "data": {
+    "eventId": 5001,
+    "sportId": 1,
+    "leagueId": 101,
+    "version": 882,
+    "eventInfo": {
+      "id": 5001,
+      "name": "Arsenal vs Chelsea",
+      "status": 1,
+      "tradingStatus": 1,
+      "sport": { "id": 1, "name": "Soccer" },
+      "country": { "id": 41, "name": "England" },
+      "competition": { "id": 101, "name": "Premier League" },
+      "competitors": [
+        {
+          "id": 201,
+          "name": "Arsenal",
+          "logo": "https://cdn.example.com/arsenal.png"
+        },
+        {
+          "id": 202,
+          "name": "Chelsea",
+          "logo": "https://cdn.example.com/chelsea.png"
+        }
+      ],
+      "startTime": "2026-05-18T15:00:00.000Z",
+      "isOutright": false,
+      "isBetBuilderSupported": true
+    },
+    "markets": [
+      {
+        "id": 9001,
+        "name": "Match Winner",
+        "tradingStatus": 1,
+        "type": 1,
+        "isBestLine": true,
+        "selections": [
+          {
+            "id": 501,
+            "name": "Arsenal",
+            "price": 2.2,
+            "probability": 0.45,
+            "status": 1
+          },
+          {
+            "id": 502,
+            "name": "Draw",
+            "price": 3.5,
+            "probability": 0.28,
+            "status": 1
+          },
+          {
+            "id": 503,
+            "name": "Chelsea",
+            "price": 2.8,
+            "probability": 0.27,
+            "status": 1
+          }
+        ]
+      }
+    ],
+    "marketsRef": [
+      {
+        "id": 1,
+        "name": "Match Winner",
+        "groups": [{ "id": 10, "name": "Main", "order": 1, "sportId": 1 }],
+        "isMultilineMarket": false,
+        "isFreeText": false
+      }
+    ],
+    "scoreboard": null
+  },
+  "ms": 7
+}
+```
+
+**Error (404):**
+
+```json
+{ "error": "Event not found" }
+```
 
 ---
 
@@ -437,8 +973,10 @@ The platform validates that the `odds` you send still match the live value. If t
       "selectionId": 10234,
       "eventId": 5001,
       "marketId": 1,
-      "oddsAtPlacement": 2.5,
-      "status": "pending"
+      "eventName": "Arsenal vs Chelsea",
+      "marketName": "Match Winner",
+      "selectionName": "Arsenal",
+      "odds": 2.5
     }
   ]
 }
@@ -515,16 +1053,27 @@ Headers: x-user-id, x-operator-id
       "createdAt": "2026-05-18T10:01:00.000Z",
       "settledAt": "2026-05-18T17:05:00.000Z",
       "selectionCount": 1,
-      "firstEventName": "Arsenal vs Chelsea",
-      "sportName": "Soccer",
-      "leagueName": "Premier League",
-      "shortResult": "Won USD 125.00"
+      "shortResult": "Won USD 125.00",
+      "selections": [
+        {
+          "selectionId": 10234,
+          "eventId": 5001,
+          "marketId": 1,
+          "eventName": "Arsenal vs Chelsea",
+          "marketName": "Match Winner",
+          "selectionName": "Arsenal",
+          "oddsAtPlacement": 2.5,
+          "status": "won"
+        }
+      ]
     }
   ]
 }
 ```
 
 `shortResult` is pre-formatted for display: `"Pending"`, `"Won USD 125.00"`, `"Lost"`, `"Voided"`, `"Cashed Out USD 37.50"`, `"Cancelled"`.
+
+Each item in `selections` contains the human-readable names frozen at placement time — use `eventName` as the primary label and `selectionName` as the outcome label when rendering the history list.
 
 ### Bet Detail
 
@@ -555,22 +1104,29 @@ Headers: x-user-id, x-operator-id
         "selectionId": 10234,
         "eventId": 5001,
         "marketId": 1,
+        "eventName": "Arsenal vs Chelsea",
+        "marketName": "Match Winner",
+        "selectionName": "Arsenal",
         "status": "pending",
         "oddsAtPlacement": 2.5,
+        "stakePortion": 50.0,
+        "potentialPayout": 125.0,
+        "actualPayout": null,
+        "settledAt": null,
         "eventSnapshot": {
           "id": 5001,
           "name": "Arsenal vs Chelsea",
           "...": "..."
         },
-        "marketSnapshot": { "id": 1, "name": "Match Result" },
-        "selectionSnapshot": { "id": 10234, "name": "Arsenal", "odds": 2.5 }
+        "marketSnapshot": { "id": 1, "name": "Match Winner" },
+        "selectionSnapshot": { "id": 10234, "name": "Arsenal", "price": 2.5 }
       }
     ]
   }
 }
 ```
 
-`eventSnapshot`, `marketSnapshot`, and `selectionSnapshot` are frozen at placement time. Use them to render the bet receipt — they won't change even after the event ends.
+`eventName`, `marketName`, and `selectionName` are the primary labels — use these to render the bet receipt and detail view. The full `eventSnapshot`, `marketSnapshot`, and `selectionSnapshot` objects are also provided, frozen at placement time, for any additional context you may need (scores, competitor details, etc.).
 
 **Bet status flow:**
 

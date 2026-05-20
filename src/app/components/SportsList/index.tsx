@@ -239,11 +239,11 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
               >
                 <div className="w-[34px] h-[24px] flex items-center justify-center">
                   <img
-                    src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sport.name}.png`}
+                    src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sport.id}.svg`}
                     onError={(e) => {
-                      e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                      e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                     }}
-                    className={`w-[28px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                    className={`w-[28px] ${baseTheme === "dark" ? "invert" : ""}`}
                     alt={sport.name}
                   />
                 </div>

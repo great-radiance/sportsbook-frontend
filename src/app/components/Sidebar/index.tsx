@@ -55,7 +55,6 @@ export const Sidebar: FunctionComponent = () => {
       } finally {
         setLoading(false);
         loadedSidebarState.value = true;
-        loadedSportsbookState.value = true;
       }
     })();
   }, []);
@@ -91,15 +90,15 @@ export const Sidebar: FunctionComponent = () => {
     }
   }, [loading]);
 
-  useEffect(() => {
-    const interval = setInterval(
-      () => {
-        fetchSidebar();
-      },
-      60 * 1000 * 5,
-    );
-    return () => clearInterval(interval);
-  }, [fetchSidebar]);
+  // useEffect(() => {
+  //   const interval = setInterval(
+  //     () => {
+  //       fetchSidebar();
+  //     },
+  //     60 * 1000 * 5,
+  //   );
+  //   return () => clearInterval(interval);
+  // }, [fetchSidebar]);
 
   if (isMobile.value && !isOpenedSidebar.value) return null;
 

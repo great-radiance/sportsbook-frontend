@@ -179,7 +179,7 @@ export function sortLeagues(
     const regionCompare = regionA.localeCompare(regionB);
     if (regionCompare !== 0) return regionCompare;
 
-    return a.league.localeCompare(b.league);
+    return a.league?.localeCompare(b.league ?? "") ?? 0;
   });
 }
 

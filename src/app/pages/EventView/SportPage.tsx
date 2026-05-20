@@ -1,5 +1,11 @@
 import { FunctionComponent } from "preact";
-import { useEffect, useState, useCallback, useMemo, useRef } from "preact/hooks";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { outRightSummarySports, summarySports } from "@/state/summarySports";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
@@ -94,7 +100,9 @@ export const SportPage: FunctionComponent = () => {
 
         return leagues.map((league) => {
           const leagueId = league[0];
-          const eventIds = (league[2] ?? []).map((id) => Number(id)).filter(Number.isFinite);
+          const eventIds = (league[2] ?? [])
+            .map((id) => Number(id))
+            .filter(Number.isFinite);
 
           const outrightLeague = outrightLeaguesForRegion.find(
             (l) => l[0] === leagueId,
@@ -173,7 +181,11 @@ export const SportPage: FunctionComponent = () => {
   const selectedLeagueEntry = useMemo(() => {
     const regionId = Number(regionIdParam);
     const leagueId = Number(leagueIdParam);
-    if (Number.isFinite(regionId) && Number.isFinite(leagueId) && leagueId > 0) {
+    if (
+      Number.isFinite(regionId) &&
+      Number.isFinite(leagueId) &&
+      leagueId > 0
+    ) {
       return leagueEntries.find(
         (entry) => entry.regionId === regionId && entry.leagueId === leagueId,
       );
@@ -205,7 +217,11 @@ export const SportPage: FunctionComponent = () => {
 
     const regionId = Number(regionIdParam);
     const leagueId = Number(leagueIdParam);
-    if (Number.isFinite(regionId) && Number.isFinite(leagueId) && leagueId > 0) {
+    if (
+      Number.isFinite(regionId) &&
+      Number.isFinite(leagueId) &&
+      leagueId > 0
+    ) {
       const targetKey = leagueBucketKey({
         sportId: sportIdNum,
         regionId,
@@ -264,7 +280,6 @@ export const SportPage: FunctionComponent = () => {
         );
         sortedMatches.forEach((event) => storeEvent(event));
       }
-
     } catch (error) {
       console.error("Error fetching sport league matches:", error);
     } finally {
@@ -399,10 +414,7 @@ export const SportPage: FunctionComponent = () => {
     >
       <section className="rounded-[24px]">
         <Breadcrumbs
-          items={[
-            { label: "Home", href: "/event-view" },
-            { label: sportName },
-          ]}
+          items={[{ label: "Home", href: "/event-view" }, { label: sportName }]}
         />
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
@@ -412,11 +424,11 @@ export const SportPage: FunctionComponent = () => {
             <div className={`flex gap-[4px] flex-1 min-w-0 items-center`}>
               <div className="w-[24px] h-full shrink-0">
                 <img
-                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sportName}.png`}
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportIdNum}.svg`}
                   onError={(e) => {
-                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                   }}
-                  className={`w-[24px] h-[24px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                  className={`w-[24px] h-[24px] ${baseTheme === "dark" ? "invert" : ""}`}
                   alt=""
                 />
               </div>

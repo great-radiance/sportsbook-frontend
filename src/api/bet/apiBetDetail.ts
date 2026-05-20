@@ -3,7 +3,6 @@ import { unwrapApiData } from "../unwrapApiData";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { mapBetDetailToBetItem } from "./mapBetDetail";
 import type { BetItemType } from "@/shared/utils/bet";
-import { apiCashoutSubscribe } from "./cashout";
 
 export type BetDetailSelection = {
   selectionId: number;
@@ -90,15 +89,6 @@ async function fetchBetDetailForUi(betId: string): Promise<BetItemType | null> {
   try {
     const detail = await apiGetBetDetail(betId);
     const bet = mapBetDetailToBetItem(detail);
-
-    if (detail.status === "accepted") {
-      const playerId = getAppConfig().xUserId;
-      if (playerId) {
-        void apiCashoutSubscribe(betId, playerId).catch((err) => {
-          console.warn("cashout subscribe failed:", err);
-        });
-      }
-    }
 
     return bet;
   } catch (error) {

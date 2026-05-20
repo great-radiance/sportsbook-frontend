@@ -208,11 +208,11 @@ export const MarketsBoard: FunctionComponent = () => {
           >
             <div className="flex items-center gap-2">
               <img
-                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${sportName_}.png`}
+                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${eventData?.sport.id}.svg`}
                 onError={(e) => {
-                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/icons/all-sports.png`;
+                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                 }}
-                className={`w-[20px] h-[20px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                className={`w-[20px] h-[20px] ${baseTheme === "dark" ? "invert" : ""}`}
               />
               <span className="text-[12px] font-normal">
                 {regionName_} - {leagueName_}
@@ -320,35 +320,35 @@ export const MarketsBoard: FunctionComponent = () => {
               <div className="flex items-center w-full min-w-0 gap-2 bg-[var(--sub-element-color)] rounded-lg px-2 py-1">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <HorizontalTabs>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(0)}
-                    className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
-                      activeTab === 0
-                        ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
-                        : ""
-                    }`}
-                  >
-                    <span className="text-[14px] leading-[36px]">
-                      {tMarkets("all")}
-                    </span>
-                  </button>
-                  {groupTabs.map((group, index) => (
                     <button
-                      key={group.id}
                       type="button"
-                      onClick={() => setActiveTab(index + 1)}
+                      onClick={() => setActiveTab(0)}
                       className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
-                        activeTab === index + 1
+                        activeTab === 0
                           ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
                           : ""
                       }`}
                     >
-                      <span className="text-[14px] leading-[36px] truncate max-w-[140px]">
-                        {group.name}
+                      <span className="text-[14px] leading-[36px]">
+                        {tMarkets("all")}
                       </span>
                     </button>
-                  ))}
+                    {groupTabs.map((group, index) => (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => setActiveTab(index + 1)}
+                        className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
+                          activeTab === index + 1
+                            ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
+                            : ""
+                        }`}
+                      >
+                        <span className="text-[14px] leading-[36px] truncate max-w-[140px]">
+                          {group.name}
+                        </span>
+                      </button>
+                    ))}
                   </HorizontalTabs>
                 </div>
                 <div className="flex items-center gap-2 h-9 shrink-0 pl-2 border-l border-[var(--primary-border-color)]">

@@ -12,7 +12,9 @@ import {
   loadHomeWidgetsBatch,
   trendingAccasCache,
 } from "@/state/homeWidgetsCache";
+import { baseColorTheme } from "@/state/baseColorTheme";
 
+const baseTheme = baseColorTheme.value;
 const formatDate = (iso: string) => {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return "";
@@ -25,7 +27,9 @@ const formatDate = (iso: string) => {
     .padStart(2, "0")}`;
 };
 
-function legToInput(leg: TrendingAccaCouponResponse["legs"][0]): WidgetSelectionInput {
+function legToInput(
+  leg: TrendingAccaCouponResponse["legs"][0],
+): WidgetSelectionInput {
   return {
     eventId: leg.eventId,
     marketId: leg.marketId,
@@ -42,7 +46,7 @@ const TrendingAccas = () => {
 
   const load = useCallback(async () => {
     try {
-      await loadHomeWidgetsBatch({ accaLimit: 3 });
+      await loadHomeWidgetsBatch();
       if (!mountedRef.current) return;
       setCoupons(trendingAccasCache.value ?? []);
     } catch {
@@ -62,7 +66,7 @@ const TrendingAccas = () => {
     };
   }, []);
 
-  useHomeWidgetPolling(load);
+  // useHomeWidgetPolling(load);
 
   if (coupons.length === 0) return null;
 
@@ -113,9 +117,12 @@ const TrendingAccas = () => {
                     >
                       <div className="flex gap-2 min-w-0 flex-1">
                         <img
-                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${bet.sport.name}.png`}
+                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${bet.sport.id}.svg`}
+                          onError={(e) => {
+                            e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                          }}
                           alt="icon"
-                          className="w-4 h-4 mt-1 brightness-0 invert"
+                          className={`w-4 h-4 mt-1 ${baseTheme === "dark" ? "invert" : ""}`}
                         />
                         <div className="flex flex-col min-w-0 flex-1">
                           <span className="text-xs font-semibold text-[var(--text-basic-color)] break-words whitespace-normal">
@@ -140,7 +147,9 @@ const TrendingAccas = () => {
                           color: "var(--text-primary-color)",
                           backgroundColor: "var(--primary-soft-bg)",
                         }}
-                        onClick={() => void addSingleWidgetPickToSlip(legToInput(bet))}
+                        onClick={() =>
+                          void addSingleWidgetPickToSlip(legToInput(bet))
+                        }
                       >
                         {bet.odds.toFixed(2)}
                       </button>

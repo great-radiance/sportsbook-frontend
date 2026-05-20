@@ -4,8 +4,28 @@ import {
   type StarPlayerCardResponse,
   type TrendingAccaCouponResponse,
 } from "@/api/home/homeWidgets";
+import { ensureEventsInStore } from "@/helpers/ensureEventsInStore";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { signal } from "@preact/signals";
+
+function collectHomeWidgetEventIds(
+  starPlayers: StarPlayerCardResponse[],
+  accas: TrendingAccaCouponResponse[],
+): number[] {
+  const ids: number[] = [];
+  for (const card of starPlayers) {
+    if (card.eventId > 0) ids.push(card.eventId);
+    for (const pick of card.picks ?? []) {
+      if (pick.eventId > 0) ids.push(pick.eventId);
+    }
+  }
+  for (const acca of accas) {
+    for (const leg of acca.legs ?? []) {
+      if (leg.eventId > 0) ids.push(leg.eventId);
+    }
+  }
+  return ids;
+}
 
 export const starPlayersCache = signal<StarPlayerCardResponse[] | null>(null);
 export const trendingAccasCache = signal<TrendingAccaCouponResponse[] | null>(
@@ -33,6 +53,13 @@ export async function loadHomeWidgetsBatch(
     apiGetTrendingAccas({ ...base, limit: options?.accaLimit ?? 3 }),
   ]);
 
-  starPlayersCache.value = starRes?.data ?? [];
-  trendingAccasCache.value = accaRes?.data ?? [];
+  const starPlayers = starRes?.data ?? [];
+  const trendingAccas = accaRes?.data ?? [];
+
+  await ensureEventsInStore(
+    collectHomeWidgetEventIds(starPlayers, trendingAccas),
+  );
+
+  starPlayersCache.value = starPlayers;
+  trendingAccasCache.value = trendingAccas;
 }

@@ -10,11 +10,7 @@ import {
 import { useLocation } from "wouter-preact";
 import debounce from "lodash.debounce";
 import { showSearchState } from "@/state/showSearchState";
-import {
-  baseUrl,
-  BASE_ASSET_PUBLIC_URL,
-  getAppConfig,
-} from "@/shared/config/appConfig";
+import { baseUrl, BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./style.css";
@@ -28,7 +24,7 @@ import { baseColorTheme } from "@/state/baseColorTheme";
 import { isMobile } from "@/state/isMobile";
 
 const PAGE_SIZE = 5;
-
+const baseTheme = baseColorTheme.value;
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -422,13 +418,12 @@ export const Search: FunctionComponent = () => {
                           className="flex items-start gap-2 w-full text-left rounded-lg p-3 hover:bg-[var(--highlight-background)] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] transition-colors"
                         >
                           <img
-                            src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${m.sportName}.png`}
-                            alt=""
-                            className="w-5 h-5 object-contain flex-shrink-0 mt-0.5 brightness-0 invert"
+                            src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${m.sportId}.svg`}
                             onError={(e) => {
-                              (e.target as HTMLImageElement).style.display =
-                                "none";
+                              e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                             }}
+                            alt=""
+                            className={`w-5 h-5 object-contain flex-shrink-0 mt-0.5 ${baseTheme === "dark" ? "invert" : ""}`}
                           />
                           <div className="flex flex-col min-w-0 flex-1">
                             <span className="text-[12px] text-[var(--text-sub-color)] truncate">
@@ -542,13 +537,12 @@ export const Search: FunctionComponent = () => {
                               className="flex items-start gap-2 w-full text-left rounded-lg p-3 hover:bg-[var(--highlight-background)] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] transition-colors"
                             >
                               <img
-                                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportsicons/${mm.sport}.png`}
-                                alt=""
-                                className="w-5 h-5 object-contain flex-shrink-0 mt-0.5 brightness-0 invert"
+                                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${mm.sportId}.svg`}
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
+                                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                                 }}
+                                alt=""
+                                className={`w-5 h-5 object-contain flex-shrink-0 mt-0.5 ${baseTheme === "dark" ? "invert" : ""}`}
                               />
                               <div className="flex flex-col min-w-0 flex-1">
                                 <span className="text-[12px] text-[var(--text-sub-color)] truncate">

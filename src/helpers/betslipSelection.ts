@@ -103,9 +103,9 @@ export function toggleBetslipSelection({
   }));
 
   const row: SelectedOddType = {
-    sport: ev.sport.name,
-    region: ev.region.name,
-    league: ev.league.name,
+    sport: { id: ev.sport.id, name: ev.sport.name },
+    region: { id: ev.region.id, name: ev.region.name },
+    league: { id: ev.league.id, name: ev.league.name },
     oddsId,
     name: selection.name,
     marketId: marketKey,

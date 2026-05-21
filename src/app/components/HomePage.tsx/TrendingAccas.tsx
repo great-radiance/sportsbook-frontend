@@ -90,7 +90,7 @@ const TrendingAccas = () => {
           return (
             <div
               key={coupon.couponId}
-              className="w-[300px] border border-[var(--border-color)] rounded-xl overflow-hidden bg-[var(--background-element)]"
+              className="flex flex-col w-[300px] border border-[var(--border-color)] rounded-xl overflow-hidden bg-[var(--background-element)]"
             >
               <div
                 className="flex justify-between items-center px-4 py-1 bg-[var(--primary-soft-bg)]"
@@ -107,8 +107,8 @@ const TrendingAccas = () => {
                 </span>
               </div>
 
-              <div className="bg-[var(--primary-soft-bg)]">
-                <div className="bg-[var(--sub-element-secondary)] rounded-t-xl overflow-hidden">
+              <div className="flex flex-col flex-1 justify-between bg-[var(--primary-soft-bg)]">
+                <div className="flex flex-col flex-1 bg-[var(--sub-element-secondary)] rounded-t-xl overflow-hidden">
                   {coupon.legs.map((bet, betIndex) => (
                     <div
                       key={`${bet.eventId}-${bet.selectionId}-${betIndex}`}
@@ -158,7 +158,7 @@ const TrendingAccas = () => {
                 </div>
 
                 <div
-                  className="p-3 text-center border-t border-dashed"
+                  className="flex p-3 text-center border-t border-dashed"
                   style={{ borderColor: "var(--border-color)" }}
                 >
                   {typeof betCount === "number" && betCount > 0 && (

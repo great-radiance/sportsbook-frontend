@@ -12,7 +12,7 @@ import { tMarketModel } from "@/types/typesForSocket.ts/tEventModel";
  */
 export const groupMarketsByNameAndType = (
   markets: tMarketModel[],
-): { ids: string[]; key: string }[] => {
+): { ids: string[]; key: string; type: number }[] => {
   const sorted = [...markets].sort((a, b) => a.type - b.type);
   const groups: { ids: string[]; key: string; name: string; type: number }[] =
     [];
@@ -29,5 +29,24 @@ export const groupMarketsByNameAndType = (
       });
     }
   }
-  return groups.map(({ ids, key }) => ({ ids, key }));
+  return groups.map(({ ids, key, type }) => ({
+    ids: marketIdSort(ids, markets),
+    key,
+    type,
+  }));
+};
+
+export const marketIdSort = (
+  ids: string[],
+  markets: tMarketModel[],
+): string[] => {
+  return ids.sort((a, b) => {
+    const aSelections = markets.find((m) => m.id === parseInt(a))?.selections;
+    const bSelections = markets.find((m) => m.id === parseInt(b))?.selections;
+    return (
+      aSelections?.[0]?.value?.name?.localeCompare(
+        bSelections?.[0]?.value?.name ?? "",
+      ) ?? 0
+    );
+  });
 };

@@ -27,6 +27,24 @@ function collectHomeWidgetEventIds(
   return ids;
 }
 
+function collectHomeWidgetMarketTypeIds(
+  starPlayers: StarPlayerCardResponse[],
+  accas: TrendingAccaCouponResponse[],
+): number[] {
+  const ids: number[] = [];
+  for (const card of starPlayers) {
+    for (const pick of card.picks ?? []) {
+      if (pick.marketId > 0) ids.push(pick.marketId);
+    }
+  }
+  for (const acca of accas) {
+    for (const leg of acca.legs ?? []) {
+      if (leg.marketId > 0) ids.push(leg.marketId);
+    }
+  }
+  return ids;
+}
+
 export const starPlayersCache = signal<StarPlayerCardResponse[] | null>(null);
 export const trendingAccasCache = signal<TrendingAccaCouponResponse[] | null>(
   null,
@@ -58,6 +76,9 @@ export async function loadHomeWidgetsBatch(
 
   await ensureEventsInStore(
     collectHomeWidgetEventIds(starPlayers, trendingAccas),
+    {
+      marketIds: collectHomeWidgetMarketTypeIds(starPlayers, trendingAccas),
+    },
   );
 
   starPlayersCache.value = starPlayers;

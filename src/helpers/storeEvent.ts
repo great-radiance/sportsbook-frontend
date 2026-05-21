@@ -69,13 +69,12 @@ export const storeEvent = (event: MatchDataResponse) => {
     // });
     const marketData: tMarketModel = {
       id: market.id,
-      name: market.name,
-      // completeName(
-      //   market.name,
-      //   competitors,
-      //   market.parameters,
-      //   market.extraParameters,
-      // ),
+      name: completeName(
+        market.name,
+        competitors,
+        market.parameters,
+        market.extraParameters,
+      ),
       tradingStatus: market.tradingStatus,
       type: market.type,
       isBestLine: market.isBestLine,

@@ -59,36 +59,36 @@ export const Sidebar: FunctionComponent = () => {
     })();
   }, []);
 
-  const fetchSidebar = useCallback(async () => {
-    if (loading) return;
-    try {
-      const [res, res2, res3] = await Promise.all([
-        apiGetSidebar({
-          status: [1, 2],
-          tradingStatus: 0,
-          isOutright: false,
-        }),
-        apiGetSidebar({
-          status: [3],
-          tradingStatus: 0,
-          isOutright: false,
-        }),
-        apiGetSidebar({
-          status: [1, 2],
-          tradingStatus: 0,
-          isOutright: true,
-        }),
-      ]);
-      summarySports.value = toSummaryTree(res);
-      summarySportsLive.value = toSummaryTree(res2);
-      outRightSummarySports.value = toSummaryTree(res3);
-      syncFeaturedFromSidebars(res, res2, res3);
-    } catch (error) {
-      console.error("Error fetching summary or oders:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [loading]);
+  // const fetchSidebar = useCallback(async () => {
+  //   if (loading) return;
+  //   try {
+  //     const [res, res2, res3] = await Promise.all([
+  //       apiGetSidebar({
+  //         status: [1, 2],
+  //         tradingStatus: 0,
+  //         isOutright: false,
+  //       }),
+  //       apiGetSidebar({
+  //         status: [3],
+  //         tradingStatus: 0,
+  //         isOutright: false,
+  //       }),
+  //       apiGetSidebar({
+  //         status: [1, 2],
+  //         tradingStatus: 0,
+  //         isOutright: true,
+  //       }),
+  //     ]);
+  //     summarySports.value = toSummaryTree(res);
+  //     summarySportsLive.value = toSummaryTree(res2);
+  //     outRightSummarySports.value = toSummaryTree(res3);
+  //     syncFeaturedFromSidebars(res, res2, res3);
+  //   } catch (error) {
+  //     console.error("Error fetching summary or oders:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [loading]);
 
   // useEffect(() => {
   //   const interval = setInterval(

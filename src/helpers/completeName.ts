@@ -1,5 +1,58 @@
 import { competitor } from "@/types/typesForSocket.ts/tEventModel";
 
+const HANDICAP_PARAM_KEYS = new Set([
+  "hcp",
+  "handicap",
+  "hcp_for_the_rest",
+]);
+
+function resolveHandicapRaw(
+  parameters?: Record<string, string>,
+  extraParameters?: Record<string, string>,
+): string | undefined {
+  const raw =
+    extraParameters?.hcp_for_the_rest ??
+    parameters?.hcp ??
+    parameters?.handicap ??
+    extraParameters?.hcp ??
+    extraParameters?.handicap;
+  return raw != null && raw !== "" ? String(raw) : undefined;
+}
+
+function applyHandicapPlaceholders(result: string, hcpRaw: string): string {
+  const tokens = ["hcp", "handicap"] as const;
+
+  if (hcpRaw.includes(":")) {
+    for (const token of tokens) {
+      result = result
+        .replace(new RegExp(`\\{${token}\\}`, "g"), hcpRaw)
+        .replace(new RegExp(`\\{\\+${token}\\}`, "g"), hcpRaw)
+        .replace(new RegExp(`\\{-${token}\\}`, "g"), hcpRaw);
+    }
+    return result;
+  }
+
+  for (const token of tokens) {
+    result = result.replace(new RegExp(`\\{${token}\\}`, "g"), hcpRaw);
+  }
+
+  const num = parseFloat(hcpRaw);
+  if (Number.isNaN(num)) return result;
+
+  for (const token of tokens) {
+    if (num >= 0) {
+      result = result
+        .replace(new RegExp(`\\{\\+${token}\\}`, "g"), `+${hcpRaw}`)
+        .replace(new RegExp(`\\{-${token}\\}`, "g"), `-${hcpRaw}`);
+    } else {
+      result = result
+        .replace(new RegExp(`\\{\\+${token}\\}`, "g"), hcpRaw)
+        .replace(new RegExp(`\\{-${token}\\}`, "g"), `+${Math.abs(num)}`);
+    }
+  }
+  return result;
+}
+
 /**
  * Replace placeholders in a market or selection name with concrete
  * values derived from the event's competitors and the market's
@@ -10,12 +63,11 @@ import { competitor } from "@/types/typesForSocket.ts/tEventModel";
  *       Team names from `competitors`. If `extraParameters.competitorId`
  *       is set, BOTH placeholders resolve to that single team
  *       (used by team-specific markets/selections).
- *   - {hcp}        Handicap value as-is. Supports plain (e.g. "0.5",
- *                  "-0.25") and split formats (e.g. "0:1").
- *   - {+hcp}       Handicap shown for the "plus" side. Positive values
- *                  get a leading "+", negative values stay as-is.
- *   - {-hcp}       Handicap shown for the "minus" side. Positive values
- *                  get a leading "-", negative values flip to positive.
+ *   - {hcp}, {handicap}        Handicap line as-is (plain or "0:1" split).
+ *   - {+hcp}, {+handicap}      Plus-side handicap display.
+ *   - {-hcp}, {-handicap}      Minus-side handicap display.
+ *       Value from `parameters.hcp`, `parameters.handicap`, or
+ *       `extraParameters.hcp_for_the_rest`.
  *   - {total}      Total points/goals line.
  *   - Any other {key} or {!key} that matches a key in `parameters` or
  *     `extraParameters` (generic fallback for {goalnr}, {variant}, ...).
@@ -48,28 +100,9 @@ export const completeName = (
     .replace(/\{\$competitor1\}/g, competitor1)
     .replace(/\{\$competitor2\}/g, competitor2);
 
-  const hcpRaw = extraParameters?.hcp_for_the_rest ?? parameters?.hcp;
+  const hcpRaw = resolveHandicapRaw(parameters, extraParameters);
   if (hcpRaw !== undefined) {
-    if (hcpRaw.includes(":")) {
-      result = result
-        .replace(/\{hcp\}/g, hcpRaw)
-        .replace(/\{\+hcp\}/g, hcpRaw)
-        .replace(/\{-hcp\}/g, hcpRaw);
-    } else {
-      result = result.replace(/\{hcp\}/g, hcpRaw);
-      const num = parseFloat(hcpRaw);
-      if (!Number.isNaN(num)) {
-        if (num >= 0) {
-          result = result
-            .replace(/\{\+hcp\}/g, `+${hcpRaw}`)
-            .replace(/\{-hcp\}/g, `-${hcpRaw}`);
-        } else {
-          result = result
-            .replace(/\{\+hcp\}/g, hcpRaw)
-            .replace(/\{-hcp\}/g, `+${Math.abs(num)}`);
-        }
-      }
-    }
+    result = applyHandicapPlaceholders(result, hcpRaw);
   }
 
   const merged: Record<string, string> = {
@@ -78,7 +111,7 @@ export const completeName = (
   };
   for (const [key, val] of Object.entries(merged)) {
     if (val == null) continue;
-    if (key === "competitorId" || key === "hcp_for_the_rest" || key === "hcp") {
+    if (key === "competitorId" || HANDICAP_PARAM_KEYS.has(key)) {
       continue;
     }
     const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

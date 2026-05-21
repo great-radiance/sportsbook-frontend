@@ -385,6 +385,7 @@ export const MarketsBoard: FunctionComponent = () => {
                   marketId={group.ids.length === 1 ? group.ids[0] : group.ids}
                   eventId={eventId ? parseInt(eventId) : 0}
                   Collapsed={allCollapsed}
+                  type={group.type}
                 />
               ))
             )}

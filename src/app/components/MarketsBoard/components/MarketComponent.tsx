@@ -30,12 +30,14 @@ interface MarketProps {
    */
   marketId: string | string[];
   eventId: number;
+  type: number;
 }
 
 export const MarketComponent: FunctionComponent<MarketProps> = ({
   Collapsed = false,
   marketId,
   eventId,
+  type,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(Collapsed);
 
@@ -58,11 +60,14 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
     marketIds.length === 1
       ? primarySelections.map((sig) => ({ sig, mid: primaryId }))
       : marketIds.flatMap((mid) =>
-          (event?.markets?.[mid]?.value.selections ?? []).map((sig) => ({
-            sig,
-            mid,
-          })),
+          (event?.markets?.[mid]?.value.selections ?? [])
+            .sort((a, b) => a.value.id - b.value.id)
+            .map((sig) => ({
+              sig,
+              mid,
+            })),
         );
+  console.log("selectionsRaw", selectionsRaw);
   const selections = isBuilding.value
     ? selectionsRaw.filter(({ sig }) => sig.value.isBetBuilderSupported)
     : selectionsRaw;
@@ -73,7 +78,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
     selections.map(({ sig }) => sig.value.mv),
   );
   const columns = Math.min(
-    4,
+    3,
     Math.max(
       1,
       isBuilding.value ? selections.length || 1 : primarySelections.length,
@@ -105,6 +110,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
     <div
       key={`market-component-${marketIds.join("_")}-${eventId}`}
       className="flex flex-col w-full rounded-[12px] border bg-[var(--sub-element-color)] text-[var(--text-basic-color)] border-[var(--border-color)]"
+      style={{ order: type }}
     >
       <div className={`flex flex-col w-full justify-center rounded-[8px] p-3`}>
         <div

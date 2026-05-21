@@ -35,7 +35,7 @@ async function addWidgetPick(
   pick: WidgetSelectionInput,
   opts: { building: boolean; betType: "single" | "multi" },
 ): Promise<boolean> {
-  await ensureEventsInStore([pick.eventId]);
+  await ensureEventsInStore([pick.eventId], { marketIds: [pick.marketId] });
   const event = storeState.value[pick.eventId]?.value;
   if (!event) {
     notify("Event is no longer available", "warning", "exclamation-triangle", 2800);
@@ -89,7 +89,8 @@ export async function addStarPlayerBundleToSlip(
 ): Promise<void> {
   if (picks.length === 0) return;
   const eventIds = [...new Set(picks.map((p) => p.eventId))];
-  await ensureEventsInStore(eventIds);
+  const marketIds = [...new Set(picks.map((p) => p.marketId).filter((id) => id > 0))];
+  await ensureEventsInStore(eventIds, { marketIds });
 
   selectedOdds.value = selectedOdds.value.filter((o) => !o.isBuilding);
   isBuilding.value = true;
@@ -118,7 +119,8 @@ export async function addTrendingAccaToSlip(
   multipleBetAmount.value = 0;
 
   const eventIds = legs.map((l) => l.eventId);
-  await ensureEventsInStore(eventIds);
+  const marketIds = [...new Set(legs.map((l) => l.marketId).filter((id) => id > 0))];
+  await ensureEventsInStore(eventIds, { marketIds });
 
   let added = 0;
   for (const leg of legs) {

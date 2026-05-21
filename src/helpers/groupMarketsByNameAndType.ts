@@ -36,17 +36,40 @@ export const groupMarketsByNameAndType = (
   }));
 };
 
+/** First signed number in a selection label (e.g. "over 9.5" → 9.5, "Team -11.5" → -11.5). */
+function lineNumberFromSelectionName(name: string | undefined): number | null {
+  if (!name) return null;
+  const trailing = name.match(/([+-]?\d+(?:\.\d+)?)\s*$/);
+  if (trailing) {
+    const n = parseFloat(trailing[1]);
+    if (Number.isFinite(n)) return n;
+  }
+  const matches = [...name.matchAll(/([+-]?\d+(?:\.\d+)?)/g)];
+  if (matches.length === 0) return null;
+  const n = parseFloat(matches[matches.length - 1][1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function compareBySelectionLine(
+  aName: string | undefined,
+  bName: string | undefined,
+): number {
+  const aLine = lineNumberFromSelectionName(aName);
+  const bLine = lineNumberFromSelectionName(bName);
+  if (aLine !== null && bLine !== null) return aLine - bLine;
+  if (aLine !== null) return -1;
+  if (bLine !== null) return 1;
+  return (aName ?? "").localeCompare(bName ?? "");
+}
+
 export const marketIdSort = (
   ids: string[],
   markets: tMarketModel[],
 ): string[] => {
-  return ids.sort((a, b) => {
-    const aSelections = markets.find((m) => m.id === parseInt(a))?.selections;
-    const bSelections = markets.find((m) => m.id === parseInt(b))?.selections;
-    return (
-      aSelections?.[0]?.value?.name?.localeCompare(
-        bSelections?.[0]?.value?.name ?? "",
-      ) ?? 0
-    );
+  const marketById = new Map(markets.map((m) => [m.id, m]));
+  return [...ids].sort((a, b) => {
+    const aName = marketById.get(parseInt(a, 10))?.selections?.[0]?.value?.name;
+    const bName = marketById.get(parseInt(b, 10))?.selections?.[0]?.value?.name;
+    return compareBySelectionLine(aName, bName);
   });
 };

@@ -251,6 +251,7 @@ export const Match: FunctionComponent<MatchProps> = ({
               key={group.key}
               marketId={group.ids.length === 1 ? group.ids[0] : group.ids}
               eventId={eventId}
+              type={group.type}
             />
           ))}
         </div>

@@ -34,6 +34,10 @@ export function mapBetDetailToBetItem(detail: BetDetail): BetItemType {
       currency: detail.currency,
       potentialPayout: detail.potentialPayout,
       actualPayout: detail.actualPayout,
+      shortResult: detail.shortResult,
+      selectionCount: detail.selectionCount,
+      walletReserveRef: detail.walletReserveRef,
+      acceptedAt: detail.acceptedAt,
       apiCashoutAmount:
         detail.cashoutAmount != null && detail.cashoutAmount > 0
           ? detail.cashoutAmount

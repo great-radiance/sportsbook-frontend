@@ -21,6 +21,8 @@ import {
   isMoneylineSport,
 } from "@/helpers/sidebarMarketNavigation";
 import { MoneylineMatch } from "./components/Match/MoneylineMatch";
+import { RacingMatch } from "./components/Match/RacingMatch";
+import { isRacingSport } from "@/helpers/isRacingSport";
 
 const CATEGORIES = ["Matches", "Outright"] as const;
 
@@ -131,7 +133,6 @@ export const RegionMatchesBoard: FunctionComponent = () => {
           ?.find((l) => l[0] === league?.[0])?.[2];
         return leagueOutrights || [];
       });
-      console.log("outrightEventIds", outrightEventIds);
 
       const [matchResults, outrightResults] = await Promise.all([
         Promise.all(matchPromises),
@@ -267,9 +268,13 @@ export const RegionMatchesBoard: FunctionComponent = () => {
         ) : selectedCategory === "Matches" ? (
           eventIdsForSelectedLeague.map((eventId: number) => {
             const stored = storeState.value[eventId]?.value;
+            const isRacing =
+              stored &&
+              isRacingSport(stored.sport?.id ?? sportId, stored.sport?.name);
             if (
               showMarketNav &&
               stored &&
+              !isRacing &&
               !isMoneylineSport(sportId, sportName) &&
               !eventHasMarketType(stored, selectedMarketType)
             ) {
@@ -277,13 +282,12 @@ export const RegionMatchesBoard: FunctionComponent = () => {
             }
             const isMoneyline =
               stored &&
-              isMoneylineSport(
-                stored.sport?.id ?? sportId,
-                stored.sport?.name,
-              );
+              isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name);
             return (
               <div key={eventId}>
-                {isMoneyline ? (
+                {isRacing ? (
+                  <RacingMatch eventId={eventId} />
+                ) : isMoneyline ? (
                   <MoneylineMatch eventId={eventId} />
                 ) : (
                   <Match

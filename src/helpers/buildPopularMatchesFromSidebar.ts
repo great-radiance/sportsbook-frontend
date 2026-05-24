@@ -113,27 +113,6 @@ export function allEventIdsFromBuckets(
   return [...ids];
 }
 
-/** Legacy shape for Banner carousel — region/league keys are numeric ids. */
-export function bucketsToPopularMatchesState(
-  buckets: PopularSportBucket[],
-): Record<string, Record<string, Record<string, number[]>>> {
-  const tree: Record<string, Record<string, Record<string, number[]>>> = {};
-  for (const bucket of buckets) {
-    for (const ref of bucket.eventRefs) {
-      const sk = String(ref.sportId);
-      const rk = String(ref.regionId);
-      const lk = String(ref.leagueId);
-      tree[sk] ??= {};
-      tree[sk][rk] ??= {};
-      tree[sk][rk][lk] ??= [];
-      if (!tree[sk][rk][lk].includes(ref.eventId)) {
-        tree[sk][rk][lk].push(ref.eventId);
-      }
-    }
-  }
-  return tree;
-}
-
 export function isDisplayablePopularEvent(event?: {
   startTime?: string;
   status?: string | number;

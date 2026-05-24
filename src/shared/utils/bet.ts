@@ -13,7 +13,7 @@ export type SelectedOddType = {
   league: BetContextRef;
   oddsId: string;
   name: string;
-  marketId: string;
+  marketId: number;
   eventId: number;
   sportSlug: string;
   // market: Market;
@@ -36,7 +36,7 @@ export type betSelectionType = {
   region: BetContextRef;
   league: BetContextRef;
   eventId: number;
-  marketId: string;
+  marketId: number;
   oddsId: string;
   oddsValue: number;
 };
@@ -48,6 +48,13 @@ export type betRequestType = {
   betKind: betType;
   systemSpecifier?: string;
   acceptChangedOdds?: boolean;
+};
+
+export type BetBuilderBetItemDisplay = {
+  marketId: number;
+  selectionId: number;
+  marketName?: string;
+  selectionName?: string;
 };
 
 export type BetLegType = {
@@ -65,6 +72,14 @@ export type BetLegType = {
     currentValue: number;
     settlement: any;
   }[];
+  isBetBuilder?: boolean;
+  betBuilderBetItems?: BetBuilderBetItemDisplay[];
+  eventName?: string;
+  selectionDisplayName?: string;
+  selectionStatus?: string;
+  settlementResult?: string | null;
+  eventStartTime?: string;
+  legPotentialPayout?: number;
 };
 
 export type ProviderResponseType = {

@@ -1,5 +1,6 @@
 import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import { completeName } from "@/helpers/completeName";
+import { syncSelectionsStoreForEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
 import type {
   tMarketModel,
@@ -32,7 +33,7 @@ export function patchEventMarkets(event: MatchDataResponse): void {
   let touched = false;
 
   for (const market of event.markets ?? []) {
-    const mKey = String(market.id);
+    const mKey = market.id;
     const marketSig = evSig.value.markets?.[mKey];
 
     if (!marketSig) {
@@ -165,4 +166,6 @@ export function patchEventMarkets(event: MatchDataResponse): void {
   } else if (touched) {
     evSig.value = { ...evSig.value };
   }
+
+  syncSelectionsStoreForEvent(eventId);
 }

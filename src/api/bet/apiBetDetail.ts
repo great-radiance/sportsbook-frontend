@@ -4,11 +4,23 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { mapBetDetailToBetItem } from "./mapBetDetail";
 import type { BetItemType } from "@/shared/utils/bet";
 
+export type BetBuilderBetItem = {
+  marketId: number;
+  selectionId: number;
+  marketName?: string;
+  selectionName?: string;
+};
+
 export type BetDetailSelection = {
   selectionId: number;
   eventId: number;
   marketId: number;
   status: string;
+  isBetBuilder?: boolean;
+  betBuilderBetItems?: BetBuilderBetItem[];
+  eventName?: string;
+  marketName?: string;
+  selectionName?: string;
   settlementResult?: string | null;
   oddsAtPlacement: number;
   currentOdds?: number;
@@ -45,12 +57,14 @@ export type BetDetail = {
   betId: string;
   betType: string;
   status: string;
+  shortResult?: string;
   stakeAmount: number;
   potentialPayout: number;
   actualPayout: number | null;
   combinedOdds: number;
   currency: string;
   selectionCount?: number;
+  walletReserveRef?: string | null;
   createdAt: string;
   acceptedAt?: string | null;
   settledAt?: string | null;

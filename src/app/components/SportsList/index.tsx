@@ -215,26 +215,10 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
                     : ""
                 } rounded-full px-2 py-1 gap-1 items-center justify-center cursor-pointer`}
                 style={{
-                  order: sport.id || 999,
-                  display: "flex", // (summarySportsLive.value.config.find(
-                  //     (s) =>
-                  //       s.sportSlug ===
-                  //       slugify(sport.name, {
-                  //         lower: true,
-                  //         trim: true,
-                  //         strict: true,
-                  //       }),
-                  //   )?.order ?? 999)
-                  // :
-                  //  (summarySports.value.config.find(
-                  //     (s) =>
-                  //       s.sport ===
-                  //       slugify(sport.name, {
-                  //         lower: true,
-                  //         trim: true,
-                  //         strict: true,
-                  //       }),
-                  //   )?.order ?? 999),
+                  order:
+                    summarySports.value.data.findIndex(
+                      (s) => s?.[0] === sport.id,
+                    ) + 1 || 999,
                 }}
               >
                 <div className="w-[34px] h-[24px] flex items-center justify-center">
@@ -242,6 +226,7 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
                     src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sport.id}.svg`}
                     onError={(e) => {
                       e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                      e.currentTarget.className = "w-[28px]";
                     }}
                     className={`w-[28px] ${baseTheme === "dark" ? "invert" : ""}`}
                     alt={sport.name}

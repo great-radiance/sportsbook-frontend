@@ -28,6 +28,7 @@ import {
   isMoneylineSport,
   marketOptionsFromRef,
 } from "@/helpers/sidebarMarketNavigation";
+import { isRacingSport } from "@/helpers/isRacingSport";
 
 const switchCategory = (
   category: string,
@@ -133,11 +134,13 @@ export const MatchesBoard: FunctionComponent = () => {
     marketsRef.value,
   ]);
 
+  const isRacingLeague = isRacingSport(sportId, sportName);
   const showMarketNav =
     !loading &&
     selectedCategory === "Matches" &&
     marketOptions.length > 0 &&
-    !isMoneylineSport(sportId, sportName);
+    !isMoneylineSport(sportId, sportName) &&
+    !isRacingLeague;
 
   const matchMarketType = showMarketNav ? selectedMarketType : undefined;
   const allowAutoSelect = !showMarketNav;
@@ -274,7 +277,7 @@ export const MatchesBoard: FunctionComponent = () => {
         ]}
       />
       <div
-        className="flex flex-col w-full p-2 rounded-b-[16px] sticky top-0 z-[200] gap-2"
+        className="flex flex-col w-full p-2 rounded-b-[16px] sticky top-0 z-[40] gap-2"
         style={{
           background: `linear-gradient(to right, transparent, #00109E 0%, #0041C2 100%)`,
         }}

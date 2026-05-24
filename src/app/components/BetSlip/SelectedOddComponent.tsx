@@ -1,15 +1,22 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
+import { useEffect } from "preact/hooks";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { selectedOdds } from "@/state/betState";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { getOddsMv, getOddsValue } from "@/helpers/getOddsValue";
+import {
+  getOddsMv,
+  getOddsValue,
+  hasSelectionOddsSource,
+} from "@/helpers/getOddsValue";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 import { computed } from "@preact/signals";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
+import { selectionStoreKey } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 
 interface SelectedOddComponentProps {
   bet: SelectedOddType;
@@ -35,10 +42,10 @@ export const SelectedOddComponent: FunctionComponent<
   const { t } = useTranslate("betslip");
   const baseTheme = baseColorTheme.value;
   const oddsValue = computed(() => {
-    return getOddsValue(bet.eventId, bet.marketId, bet.oddsId);
+    return getOddsValue(bet.eventId, bet.marketId, Number(bet.oddsId));
   });
   const oddsMv = computed(() =>
-    getOddsMv(bet.eventId, bet.marketId, bet.oddsId),
+    getOddsMv(bet.eventId, bet.marketId, Number(bet.oddsId)),
   );
 
   const calculatePossibleWin = (stake: number, odds: number): number => {
@@ -47,7 +54,9 @@ export const SelectedOddComponent: FunctionComponent<
 
   const onRemove = (id: string) => {
     selectedOdds.value = selectedOdds.value.filter((bet) => bet.oddsId !== id);
-    removeFromOddsStore([id]);
+    removeFromOddsStore([
+      selectionStoreKey(bet.eventId, bet.marketId, Number(id)),
+    ]);
   };
 
   const handleCopyStakeToAll = (stake: number) => {
@@ -57,18 +66,30 @@ export const SelectedOddComponent: FunctionComponent<
     });
     // Force re-render to update input values
     selectedOdds.value = [...selectedOdds.value];
+    rotateBetSlipIdempotencyKey();
     setForceUpdate((prev) => prev + 1);
   };
 
   const possibleWin = calculatePossibleWin(bet.amount, oddsValue.value);
 
-  if (oddsValue.value === -1 || oddsValue.value === 1) {
+  const oddsUnavailable = !hasSelectionOddsSource(
+    bet.eventId,
+    bet.marketId,
+    Number(bet.oddsId),
+  );
+
+  useEffect(() => {
+    if (!oddsUnavailable) return;
+    if (!selectedOdds.value.some((o) => o.oddsId === bet.oddsId)) return;
     selectedOdds.value = selectedOdds.value.filter(
       (o) => o.oddsId !== bet.oddsId,
     );
-    selectedOdds.value = [...selectedOdds.value];
-    return null;
-  }
+    removeFromOddsStore([
+      selectionStoreKey(bet.eventId, bet.marketId, Number(bet.oddsId)),
+    ]);
+  }, [oddsUnavailable, bet.oddsId, bet.eventId, bet.marketId]);
+
+  if (oddsUnavailable) return null;
 
   return (
     <div
@@ -102,7 +123,7 @@ export const SelectedOddComponent: FunctionComponent<
             </button>
             <span className="relative inline-flex text-[var(--primary-color)] text-[12px] font-normal">
               {oddsValue.value.toFixed(2)}
-              <OddsMoveIndicator mv={oddsMv.value} />
+              {/* <OddsMoveIndicator mv={oddsMv.value} /> */}
             </span>
           </div>
         </div>
@@ -145,7 +166,7 @@ export const SelectedOddComponent: FunctionComponent<
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <input
-                  key={`${bet.oddsId}-${forceUpdate}`}
+                  key={`${selectionStoreKey(bet.eventId, bet.marketId, Number(bet.oddsId))}-${forceUpdate}`}
                   type="number"
                   min={minStake}
                   max={maxStake}
@@ -155,6 +176,7 @@ export const SelectedOddComponent: FunctionComponent<
                     if (/^\d*\.?\d*$/.test(value)) {
                       bet.amount = parseFloat(value) || 0;
                       selectedOdds.value = [...selectedOdds.value];
+                      rotateBetSlipIdempotencyKey();
                     }
                   }}
                   disabled={oddsValue.value === 0}

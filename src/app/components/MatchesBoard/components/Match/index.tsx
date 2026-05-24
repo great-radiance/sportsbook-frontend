@@ -9,10 +9,11 @@ import {
 } from "@/state/panelCompactState";
 import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { popularMatchesState } from "@/state/popularMatchesState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { MoneylineMatch } from "./MoneylineMatch";
+import { RacingMatch } from "./RacingMatch";
+import { isRacingSport } from "@/helpers/isRacingSport";
 import { getRegionNameById } from "@/shared/utils/Resion";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
@@ -28,27 +29,9 @@ interface MatchProps {
   allowRounded?: boolean;
 }
 
-export const formatStartTime = (timestamp: number): string => {
-  try {
-    const date = new Date(timestamp);
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
-  } catch {
-    return "00:00";
-  }
-};
+import { formatStartDate, formatStartTime } from "@/helpers/formatEventTime";
 
-export const formatStartDate = (timestamp: number): string => {
-  try {
-    const date = new Date(timestamp);
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    return `${day}/${month}`;
-  } catch {
-    return "00/00";
-  }
-};
+export { formatStartDate, formatStartTime };
 
 /**
  * Read a competitor's score from the new scoreboard shape.
@@ -79,7 +62,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   allowRounded = false,
 }) => {
   const event = storeState.value[eventId]?.value;
-  console.log("event", event);
   if (!event) return null;
 
   const showLeague =
@@ -259,18 +241,25 @@ export const Match: FunctionComponent<MatchProps> = ({
     );
   }
 
+  // console.log("Match", event);
+  if (isRacingSport(event.sport?.id, event.sport?.name)) {
+    return <RacingMatch eventId={eventId} allowRounded={allowRounded} />;
+  }
+
   if (!selectedMarket) return;
 
   return (
     <div
       ref={matchRef}
       className={`flex flex-col md:flex-row w-full cursor-pointer text-[14px] font-bold py-[10px] px-3 border-[1px] bg-[var(--sub-element-color)] border-[var(--border-color)] text-[var(--text-basic-color)] ${allowRounded ? "rounded-[8px]" : ""}`}
-      style={{
-        order: event?.league?.id ?? 999,
-        // popularMatchesState.value?.[event?.sport]?.[event?.region]?.[
-        //   event?.league
-        // ]?.indexOf(event.id) ?? 999,
-      }}
+      style={
+        {
+          // order: event?.league?.id ?? 999,
+          // popularMatchesState.value?.[event?.sport]?.[event?.region]?.[
+          //   event?.league
+          // ]?.indexOf(event.id) ?? 999,
+        }
+      }
     >
       <span
         className={`text-[var(--text-sub-color)] w-[60px] text-[12px] flex shrink-0 gap-1 md:gap-0 md:flex-col md:h-full p-[4px] items-center justify-start md:justify-center md:text-right`}
@@ -316,25 +305,27 @@ export const Match: FunctionComponent<MatchProps> = ({
             <div className="flex flex-col min-w-0 h-full flex-1">
               <div className="flex gap-2 h-full items-center justify-start truncate text-ellipsis overflow-hidden">
                 {/* Team logo omitted — names only. */}
-                {/*
+
                 <img
                   key={`${event?.sport}-${homeTeam}`}
                   src={
-                    cachedTeamLogoUrl(event?.sport.name, homeTeam) ||
+                    `${event?.competitors[0]?.logo || ""}` ||
                     `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                   }
+                  onError={(e) => {
+                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
+                  }}
                   className="w-[14px] h-[14px] object-contain shrink-0"
                   alt=""
                 />
-                */}
+
                 {homeTeam}
               </div>
               <div className="flex gap-2 h-full items-center justify-start truncate text-ellipsis overflow-hidden">
-                {/*
                 <img
                   key={`${event?.sport}-${awayTeam}`}
                   src={
-                    cachedTeamLogoUrl(event?.sport.name, awayTeam) ||
+                    `${event.competitors[1].logo || ""}` ||
                     `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                   }
                   onError={(e) => {
@@ -343,7 +334,7 @@ export const Match: FunctionComponent<MatchProps> = ({
                   className="w-[14px] h-[14px] object-contain shrink-0"
                   alt=""
                 />
-                */}
+
                 {awayTeam}
               </div>
               {showLeague && (

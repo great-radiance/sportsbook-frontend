@@ -5,7 +5,6 @@ import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { SportsList } from "../SportsList";
 import { apiGetMatches } from "@/api/matches/apiGetMatches";
-import { popularMatchesState } from "@/state/popularMatchesState";
 import { MarketNavigation } from "../marketNavigation";
 import { storeEvent } from "@/helpers/storeEvent";
 import { Match } from "../MatchesBoard/components/Match";
@@ -19,17 +18,13 @@ import {
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import {
   allEventIdsFromBuckets,
-  bucketsToPopularMatchesState,
   isDisplayablePopularEvent,
 } from "@/helpers/buildPopularMatchesFromSidebar";
 import {
   featuredBucketForSport,
   featuredSportBuckets,
 } from "@/state/featuredMatchesState";
-import {
-  POPULAR_SPORT_ID,
-  SOCCER_SPORT_ID,
-} from "@/helpers/summaryIds";
+import { POPULAR_SPORT_ID, SOCCER_SPORT_ID } from "@/helpers/summaryIds";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 
 const BATCH_SIZE = 25;
@@ -105,7 +100,6 @@ export const PopularMatches: FunctionComponent = () => {
 
     const eventIds = allEventIdsFromBuckets(sportTabs);
     if (eventIds.length === 0) {
-      popularMatchesState.value = {};
       setHydrated(true);
       setLoading(false);
       return;
@@ -126,12 +120,10 @@ export const PopularMatches: FunctionComponent = () => {
 
         if (cancelled) return;
 
-        popularMatchesState.value = bucketsToPopularMatchesState(sportTabs);
         setHydrated(true);
       } catch (error) {
         console.error("Error fetching popular featured matches:", error);
         if (!cancelled) {
-          popularMatchesState.value = {};
           setHydrated(true);
         }
       } finally {

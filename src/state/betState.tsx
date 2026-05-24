@@ -44,6 +44,23 @@ export const betBuilderCombinable = signal<boolean>(false);
 export const betBuilderRejectMessage = signal<string | null>(null);
 export const betBuilderPriceLoading = signal<boolean>(false);
 
+export type EventBetBuilderPriceState = {
+  price: number | null;
+  combinable: boolean;
+  loading: boolean;
+  rejectMessage: string | null;
+  /** Selection set this price was fetched for — avoids duplicate API calls. */
+  selectionKey?: string;
+};
+
+/** Combined BB prices keyed by eventId (multi-slip / implicit bet builders). */
+export const betBuilderPricesByEvent = signal<
+  Record<number, EventBetBuilderPriceState>
+>({});
+
+/** Stable idempotency key per bet attempt (integration guide § Step 4). */
+export const betSlipIdempotencyKey = signal<string>(crypto.randomUUID());
+
 export const isRepeatConfirmOpen = signal<boolean>(false);
 export const selectedRepeatBet = signal<BetItemType | null>(null);
 

@@ -64,7 +64,7 @@ export type tEventModel = {
     feedId: number;
     id: string;
   }[];
-  markets: Record<string, Signal<tMarketModel>>; //marketSlug to marketId (uuid)
+  markets: Record<number, Signal<tMarketModel>>; //marketId to marketModel
   /** From `GET /odds88/events/:eventId` — groups markets by tab in MarketsBoard. */
   marketsRef?: SidebarMarketRef[];
   scoreboard?: any;
@@ -81,6 +81,7 @@ export type tBetOddsModel = {
 export type competitor = {
   id: number;
   name: string;
+  logo?: string;
 };
 
 // export type tBetMarketModel = {

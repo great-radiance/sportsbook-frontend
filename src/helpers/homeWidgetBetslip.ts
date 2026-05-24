@@ -1,7 +1,7 @@
-import { ensureEventsInStore } from "@/helpers/ensureEventsInStore";
 import {
   isBetslipSelectionSelected,
   toggleBetslipSelection,
+  type WidgetEventContext,
 } from "@/helpers/betslipSelection";
 import { notify } from "@/shared/toast";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
@@ -12,8 +12,12 @@ import {
   selectedBetType,
   selectedOdds,
 } from "@/state/betState";
-import { storeState } from "@/state/storeState";
-import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
+import {
+  selectionStoreKey,
+  selectionsStoreState,
+  storeState,
+} from "@/state/storeState";
+import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
 
 export type WidgetSelectionInput = {
   eventId: number;
@@ -22,35 +26,137 @@ export type WidgetSelectionInput = {
   marketName: string;
   outcomeName: string;
   odds: number;
+  sport?: { id: number; name: string };
+  region?: { id: number; name: string };
+  league?: { id: number; name: string };
+  startTime?: string;
+  matchName?: string;
 };
 
-function marketKeyForId(event: tEventModel, marketId: number): string {
-  for (const key of Object.keys(event.markets ?? {})) {
-    if (event.markets[key]?.value?.id === marketId) return key;
-  }
-  return String(marketId);
+function widgetEventFromPick(
+  pick: WidgetSelectionInput,
+): WidgetEventContext | undefined {
+  if (!pick.sport || !pick.region || !pick.league) return undefined;
+  return {
+    sport: pick.sport,
+    region: pick.region,
+    league: pick.league,
+    startTime: pick.startTime,
+    matchName: pick.matchName,
+  };
 }
 
-async function addWidgetPick(
+/** Selection exists in live event store or widget odds cache (no extra API). */
+function isPickInStore(pick: WidgetSelectionInput): boolean {
+  const key = selectionStoreKey(pick.eventId, pick.marketId, pick.selectionId);
+  if (selectionsStoreState.value[key]) return true;
+
+  const event = storeState.value[pick.eventId]?.value;
+  if (!event) return false;
+
+  const market = event.markets?.[pick.marketId]?.value;
+  return !!market?.selections?.some((sig) => sig.value.id === pick.selectionId);
+}
+
+function addWidgetPick(
   pick: WidgetSelectionInput,
   opts: { building: boolean; betType: "single" | "multi" },
-): Promise<boolean> {
-  await ensureEventsInStore([pick.eventId], { marketIds: [pick.marketId] });
-  const event = storeState.value[pick.eventId]?.value;
-  if (!event) {
-    notify("Event is no longer available", "warning", "exclamation-triangle", 2800);
+): boolean {
+  if (!isPickInStore(pick)) {
+    notify(
+      "Event is no longer available",
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
     return false;
   }
 
-  const marketKey = marketKeyForId(event, pick.marketId);
-  const market = event.markets[marketKey]?.value;
+  const event = storeState.value[pick.eventId]?.value;
+  const selectionData =
+    selectionsStoreState.value[
+      selectionStoreKey(pick.eventId, pick.marketId, pick.selectionId)
+    ]?.value;
+  if (event && event.tradingStatus !== 0) {
+    notify(
+      "Event is no longer available",
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+
+  if (selectionData && selectionData.etradingStatus !== 0) {
+    notify(
+      "Selection is no longer available",
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+
+  const market = event?.markets?.[pick.marketId]?.value;
   const selection = market?.selections?.find(
     (sig) => sig.value.id === pick.selectionId,
   )?.value;
+  const marketTradingStatus =
+    market?.tradingStatus ?? selectionData?.mtradingStatus;
 
-  if (!market || !selection) {
+  if (marketTradingStatus === 1) {
     notify(
-      "This selection is no longer available",
+      `This market is suspended.${pick.eventId} ${pick.marketName}`,
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+  if (
+    marketTradingStatus != null &&
+    marketTradingStatus !== 0 &&
+    marketTradingStatus !== 1
+  ) {
+    notify(
+      `This market is no longer available.${pick.eventId} ${pick.marketName}`,
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+
+  const selectionStatus = selection?.status ?? selectionData?.status;
+
+  if (selectionStatus === 1) {
+    notify(
+      `This selection is suspended.${pick.eventId} ${pick.marketName} - ${pick.outcomeName}`,
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+
+  if (
+    selectionStatus != null &&
+    selectionStatus !== 0 &&
+    selectionStatus !== 1
+  ) {
+    notify(
+      `This selection is no longer available.${pick.eventId} ${pick.marketName} - ${pick.outcomeName}`,
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+
+  const widgetEvent = widgetEventFromPick(pick);
+  if (!event && !widgetEvent) {
+    notify(
+      "Unable to add selection to betslip. Please try again.",
       "warning",
       "exclamation-triangle",
       2800,
@@ -61,36 +167,58 @@ async function addWidgetPick(
   isBuilding.value = opts.building;
   selectedBetType.value = opts.betType;
 
-  if (!isBetslipSelectionSelected(pick.eventId, marketKey, pick.selectionId)) {
-    toggleBetslipSelection({
-      eventId: pick.eventId,
-      marketKey,
-      marketName: pick.marketName,
-      selection,
-      apiMarketId: pick.marketId,
-    });
+  if (
+    isBetslipSelectionSelected(pick.eventId, pick.marketId, pick.selectionId)
+  ) {
+    return true;
   }
 
-  return true;
+  const cachedPrice = selectionData?.price;
+  const selectTemp: tSelectionValue = selection
+    ? selection
+    : {
+        id: pick.selectionId,
+        name: pick.outcomeName,
+        probability: 0,
+        price: cachedPrice ?? pick.odds,
+        originalPrice: cachedPrice ?? pick.odds,
+        status: selectionData?.status ?? 0,
+        settlement: 0,
+        deadHeatFactor: 0,
+        extraParameters: {},
+        isBetBuilderSupported: false,
+        competitionId: 0,
+        startingPrice: 0,
+        mv: selectionData?.mv ?? 0,
+      };
+  toggleBetslipSelection({
+    eventId: pick.eventId,
+    marketId: pick.marketId,
+    marketName: pick.marketName,
+    selection: selectTemp,
+    apiMarketId: pick.marketId,
+    widgetEvent,
+  });
+
+  return isBetslipSelectionSelected(
+    pick.eventId,
+    pick.marketId,
+    pick.selectionId,
+  );
 }
 
 /** One leg as a single bet. */
-export async function addSingleWidgetPickToSlip(
-  pick: WidgetSelectionInput,
-): Promise<void> {
+export function addSingleWidgetPickToSlip(pick: WidgetSelectionInput): void {
   isBuilding.value = false;
-  const ok = await addWidgetPick(pick, { building: false, betType: "single" });
-  if (ok) betSlipExpanded.value = true;
+  selectedBetType.value = "single";
+  if (addWidgetPick(pick, { building: false, betType: "single" })) {
+    betSlipExpanded.value = true;
+  }
 }
 
 /** Star player card — three legs on the same event (bet builder / same-game parlay). */
-export async function addStarPlayerBundleToSlip(
-  picks: WidgetSelectionInput[],
-): Promise<void> {
+export function addStarPlayerBundleToSlip(picks: WidgetSelectionInput[]): void {
   if (picks.length === 0) return;
-  const eventIds = [...new Set(picks.map((p) => p.eventId))];
-  const marketIds = [...new Set(picks.map((p) => p.marketId).filter((id) => id > 0))];
-  await ensureEventsInStore(eventIds, { marketIds });
 
   selectedOdds.value = selectedOdds.value.filter((o) => !o.isBuilding);
   isBuilding.value = true;
@@ -99,36 +227,58 @@ export async function addStarPlayerBundleToSlip(
 
   let added = 0;
   for (const pick of picks) {
-    const ok = await addWidgetPick(pick, { building: true, betType: "single" });
-    if (ok) added++;
+    if (addWidgetPick(pick, { building: true, betType: "single" })) {
+      added += 1;
+    }
   }
 
   if (added > 0) {
     betSlipExpanded.value = true;
+  } else {
+    notify(
+      "Unable to add selections to betslip. Please try again.",
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
   }
 }
 
 /** Trending acca — parlay across distinct events. */
-export async function addTrendingAccaToSlip(
-  legs: WidgetSelectionInput[],
-): Promise<void> {
+export function addTrendingAccaToSlip(legs: WidgetSelectionInput[]): void {
   if (legs.length === 0) return;
 
   isBuilding.value = false;
   selectedBetType.value = "multi";
   multipleBetAmount.value = 0;
 
-  const eventIds = legs.map((l) => l.eventId);
-  const marketIds = [...new Set(legs.map((l) => l.marketId).filter((id) => id > 0))];
-  await ensureEventsInStore(eventIds, { marketIds });
+  selectedOdds.value = selectedOdds.value.filter((o) => o.isBuilding);
 
-  let added = 0;
+  let failed = 0;
   for (const leg of legs) {
-    const ok = await addWidgetPick(leg, { building: false, betType: "multi" });
-    if (ok) added++;
+    if (!addWidgetPick(leg, { building: false, betType: "multi" })) {
+      failed += 1;
+    }
   }
 
-  if (added > 0) {
+  const allLegsOnSlip = legs.every((leg) =>
+    isBetslipSelectionSelected(leg.eventId, leg.marketId, leg.selectionId),
+  );
+
+  if (allLegsOnSlip) {
+    selectedBetType.value = "multi";
     betSlipExpanded.value = true;
+    return;
+  }
+
+  if (failed > 0) {
+    notify(
+      failed === legs.length
+        ? "Unable to add acca to betslip. Please try again."
+        : "Some acca legs could not be added. Check your bet slip.",
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
   }
 }

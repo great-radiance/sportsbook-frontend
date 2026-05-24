@@ -27,17 +27,25 @@ import {
   getBetStatusLabel,
   isCashoutableStatus,
 } from "@/helpers/betStatus";
+import { BetHistoryLegRow } from "./BetHistoryLegRow";
 
 interface BetComponentProps {
   bet: BetItemType;
   onCashoutSuccess?: () => void;
   isMyBet?: boolean;
+  isSettledView?: boolean;
+}
+
+function shortBetId(betId: string): string {
+  if (betId.length <= 8) return betId;
+  return betId.slice(-8);
 }
 
 export const BetComponent: FunctionComponent<BetComponentProps> = ({
   bet,
   onCashoutSuccess,
   isMyBet,
+  isSettledView = false,
 }) => {
   const { t } = useTranslate("betslip");
   const [loading, setLoading] = useState(true);
@@ -47,11 +55,12 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   const displayBet = detailBet ?? bet;
   const status = displayBet.status;
 
-  const selectedOddsByLeg = useMemo(() => {
-    return displayBet.legs.map(
-      (leg) => leg.odds.find((o) => o.selected) ?? leg.odds[0] ?? null,
-    );
-  }, [displayBet.legs]);
+  const currencyCode =
+    typeof displayBet.metadata?.currency === "string"
+      ? displayBet.metadata.currency
+      : undefined;
+
+  const fmt = (amount: number) => formatCurrency(amount, currencyCode);
 
   const stakeAmount = displayBet.stakeAmount;
   const startingOdds = displayBet.startingOdds;
@@ -60,6 +69,12 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
     displayBet.metadata?.canCashout === false ? false : true;
   const canCashout =
     isCashoutableStatus(status) && canCashoutExplicit && availableCashout > 0;
+
+  const legCount = useMemo(() => {
+    const fromMeta = displayBet.metadata?.selectionCount;
+    if (typeof fromMeta === "number" && fromMeta > 0) return fromMeta;
+    return displayBet.legs.length || 1;
+  }, [displayBet.legs.length, displayBet.metadata?.selectionCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +110,27 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   };
 
   const statusLabel = getBetStatusLabel(status, t);
+  const shortResult =
+    typeof displayBet.metadata?.shortResult === "string"
+      ? displayBet.metadata.shortResult
+      : null;
+
+  const payoutAmount = (() => {
+    if (status === "cashed_out" && displayBet.cashoutAmount != null) {
+      return displayBet.cashoutAmount;
+    }
+    if (typeof displayBet.metadata?.actualPayout === "number") {
+      return displayBet.metadata.actualPayout;
+    }
+    if (typeof displayBet.metadata?.potentialPayout === "number") {
+      return displayBet.metadata.potentialPayout;
+    }
+    return stakeAmount * startingOdds;
+  })();
+
   const baseTheme = baseColorTheme.value;
+  const showCashoutButton =
+    !isSettledView && isCashoutableStatus(status);
 
   return (
     <div
@@ -104,7 +139,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div className="flex items-center justify-center gap-2">
-            <span className="w-5 h-5 flex items-center justify-center rounded-full border-[2px] text-[12px] border-[var(--background-element-light)]">
+            <div className="w-5 h-5 flex items-center justify-center rounded-full border-[2px] text-[12px] border-[var(--background-element-light)]">
               {displayBet.betType === "single" ? (
                 1
               ) : (
@@ -114,13 +149,14 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
                   className="w-4 h-4"
                 />
               )}
-            </span>
+            </div>
             <div className="flex flex-col text-[11px]">
-              <span>{t(displayBet.betType)}</span>
+              <div>
+                {t(displayBet.betType)}
+                {legCount > 1 ? ` (${legCount})` : ""}
+              </div>
               <div className="flex items-center gap-1">
-                <span>
-                  ID: {displayBet.betId.split("_")[1] || displayBet.betId}
-                </span>
+                <div>ID: {shortBetId(displayBet.betId)}</div>
                 <img
                   src={`${BASE_ASSET_PUBLIC_URL}/icons/save.png`}
                   alt={t("copy")}
@@ -132,13 +168,13 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
           </div>
         </div>
         <div className="flex flex-col h-full items-end justify-center">
-          <span className="text-[var(--primary-color)] uppercase">
-            {statusLabel}
-          </span>
-          <span>
+          <div className="text-[var(--primary-color)] uppercase">
+            {shortResult || statusLabel}
+          </div>
+          <div>
             {formatDate(displayBet.placedAt)},{" "}
             {formatTime(new Date(displayBet.placedAt).getTime())}
-          </span>
+          </div>
         </div>
       </div>
 
@@ -146,27 +182,31 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
 
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span>{t("stakePlaceholder")}</span>
-          <span>{formatCurrency(stakeAmount)}</span>
+          <div>{t("stakePlaceholder")}</div>
+          <div>{fmt(stakeAmount)}</div>
         </div>
         <div className="flex items-center justify-between">
-          <span>{t("oddsDecimal")}</span>
-          <span className="text-[var(--primary-color)]">
+          <div>{t("oddsDecimal")}</div>
+          <div className="text-[var(--primary-color)]">
             {Number(startingOdds).toFixed(2)}
-          </span>
+          </div>
         </div>
       </div>
 
       <div className="w-full h-[1px] bg-[var(--border-color)]" />
 
       <div className="flex items-center justify-between w-full">
-        <span>{t("possibleWin")}</span>
-        <span className="text-[var(--primary-color)]">
-          {formatCurrency(stakeAmount * startingOdds)}
-        </span>
+        <div>
+          {isSettledView || !isCashoutableStatus(status)
+            ? t("result")
+            : t("possibleWin")}
+        </div>
+        <div className="text-[var(--primary-color)]">
+          {fmt(payoutAmount)}
+        </div>
       </div>
 
-      {isCashoutableStatus(status) && (
+      {showCashoutButton && (
         <button
           type="button"
           onClick={handleCashoutClick}
@@ -178,16 +218,9 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
               <Loader />
             </div>
           )}
-          <span>{t("cashout")}</span>
-          <span className="text-black">{formatCurrency(availableCashout)}</span>
+          <div>{t("cashout")}</div>
+          <div className="text-black">{fmt(availableCashout)}</div>
         </button>
-      )}
-
-      {!isCashoutableStatus(status) && (
-        <div className="flex items-center justify-between w-full bg-white/10 px-3 py-2 rounded-[4px]">
-          <span>{t("cashout")}</span>
-          <span>{formatCurrency(0)}</span>
-        </div>
       )}
 
       <div className="w-full h-[1px] bg-[var(--border-color)]" />
@@ -197,66 +230,26 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
         className="flex w-full px-3 py-2 pr-2 items-center justify-between rounded-[4px] border-[var(--border-color)] border-[1px] text-[11px] transition-colors cursor-pointer bg-[var(--sub-element-color)]"
         onClick={() => setShowDetail(!showDetail)}
       >
-        <span className="uppercase">{t("betDetails")}</span>
-        <span className="flex items-center gap-1">
-          <span>{displayBet.legs.length || 1}</span>
+        <div className="uppercase">{t("betDetails")}</div>
+        <div className="flex items-center gap-1">
+          <div>{legCount}</div>
           <img
             src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
             alt="arrow-right"
             className={`w-6 transition-transform duration-300 ${showDetail ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
           />
-        </span>
+        </div>
       </button>
 
       {showDetail &&
         displayBet.legs.map((leg, i) => (
-          <div
-            key={`${leg.eventId}-${i}`}
-            className="flex w-full items-start justify-between gap-2 border-[1px] border-[var(--border-color)] bg-[var(--sub-element-color)] p-2"
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-[4px] pr-1 text-left">
-              <span className="break-words text-[11px] leading-snug">
-                {formatDate(displayBet.placedAt)},{" "}
-                {formatTime(new Date(displayBet.placedAt).getTime())}
-              </span>
-              <span className="break-words text-[11px] leading-snug">
-                {leg.league.name || ""}
-              </span>
-              <div className="flex min-w-0 items-start gap-1">
-                <img
-                  src={`${BASE_ASSET_PUBLIC_URL}/sportsicons/${leg.sport.name}.png`}
-                  alt="sport"
-                  className="mt-0.5 h-4 w-4 shrink-0 brightness-0 invert"
-                />
-                <span className="min-w-0 break-words text-[11px] leading-snug">
-                  {leg.participants[0]?.name ||
-                    leg.participants[0]?.providerName ||
-                    ""}{" "}
-                  -{" "}
-                  {leg.participants[1]?.name ||
-                    leg.participants[1]?.providerName ||
-                    ""}
-                </span>
-              </div>
-              <span className="break-words text-[11px] leading-snug text-[var(--primary-color)]">
-                {statusLabel}
-              </span>
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col items-end gap-[4px] pl-1 text-right">
-              <span className="line-clamp-3 w-full max-w-full break-words text-right text-[11px] leading-snug">
-                {leg.market.name || ""}
-              </span>
-              <span className="line-clamp-3 w-full max-w-full break-words text-right text-[11px] leading-snug">
-                {selectedOddsByLeg[i]?.name}
-              </span>
-              <span className="w-full shrink-0 whitespace-normal break-words text-[11px] leading-snug">
-                {t("startOdds")}: {selectedOddsByLeg[i]?.value}
-              </span>
-              <span className="w-full shrink-0 whitespace-normal break-words text-[11px] leading-snug text-[var(--primary-color)]">
-                {t("currentOdds")}: {selectedOddsByLeg[i]?.currentValue}
-              </span>
-            </div>
-          </div>
+          <BetHistoryLegRow
+            key={`${leg.eventId}-${leg.isBetBuilder ? "bb" : "reg"}-${i}`}
+            leg={leg}
+            legIndex={i}
+            betStatusLabel={statusLabel}
+            t={t}
+          />
         ))}
     </div>
   );

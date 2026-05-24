@@ -162,9 +162,7 @@ export const Market: FunctionComponent<MarketProps> = ({
 }) => {
   const evSig = storeState.value[eventId];
   const event = evSig?.value;
-  const marketKey = String(marketId);
-
-  const market = event?.markets?.[marketKey]?.value;
+  const market = event?.markets?.[marketId]?.value;
   const tradingStatus = market?.tradingStatus;
   const name = market?.name;
   const lowerName = name?.toLowerCase() || "";
@@ -285,7 +283,7 @@ export const Market: FunctionComponent<MarketProps> = ({
 
           const selected = isBetslipSelectionSelected(
             eventId,
-            marketKey,
+            marketId,
             selectionId as number,
           );
 
@@ -305,10 +303,10 @@ export const Market: FunctionComponent<MarketProps> = ({
                 if (selectionId == null || !selection?.value) return;
                 toggleBetslipSelection({
                   eventId,
-                  marketKey,
+                  marketId,
                   marketName: name ?? "",
                   selection: selection.value,
-                  apiMarketId: market?.id ?? Number(marketId),
+                  apiMarketId: market?.id ?? marketId,
                 });
               }}
             >

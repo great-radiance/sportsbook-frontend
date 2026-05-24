@@ -28,6 +28,7 @@ import { baseColorTheme } from "@/state/baseColorTheme";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { isBuilding } from "@/state/betState";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
+import { Match } from ".";
 
 interface MoneylineMatchProps {
   eventId: number;
@@ -194,10 +195,11 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
   eventId,
 }) => {
   const event = storeState.value[eventId]?.value;
-  console.log("event", event);
   const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();
   const clockRef = useRef<HTMLSpanElement>(null);
+  if (event?.isOutright) return null;
+  // return <Match eventId={eventId} marketType={1} allowAutoSelect={true} allowRounded={true} />;
 
   const isLive = event?.status === 3;
 
@@ -337,7 +339,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     const lineText = oddLabel(market, odd, index, kind);
     const selected = isBetslipSelectionSelected(
       eventId,
-      String(market.id),
+      market.id,
       odd.id,
     );
 
@@ -377,7 +379,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
           e.stopPropagation();
           toggleBetslipSelection({
             eventId,
-            marketKey: String(market.id),
+            marketId: market.id,
             marketName: market.name,
             selection: odd,
             apiMarketId: market.id,

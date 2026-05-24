@@ -17,6 +17,7 @@ import {
 
 function pickToInput(
   pick: StarPlayerCardResponse["picks"][0],
+  card: StarPlayerCardResponse,
 ): WidgetSelectionInput {
   return {
     eventId: pick.eventId,
@@ -25,6 +26,11 @@ function pickToInput(
     marketName: pick.marketName,
     outcomeName: pick.outcomeName,
     odds: pick.odds,
+    sport: card.sport,
+    region: card.region,
+    league: card.league,
+    startTime: card.startTime,
+    matchName: card.matchName,
   };
 }
 
@@ -57,7 +63,7 @@ export const StarPlayers: FunctionComponent = () => {
   useHomeWidgetPolling(load);
 
   const handleAddBundle = useCallback((card: StarPlayerCardResponse) => {
-    void addStarPlayerBundleToSlip(card.picks.map(pickToInput));
+    void addStarPlayerBundleToSlip(card.picks.map((pick) => pickToInput(pick, card)));
   }, []);
 
   if (players.length === 0) return null;

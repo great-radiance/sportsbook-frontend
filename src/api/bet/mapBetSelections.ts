@@ -6,7 +6,10 @@ type EventSnapshot = NonNullable<BetDetailSelection["eventSnapshot"]>;
 
 type SelectionSnapshot = NonNullable<BetDetailSelection["selectionSnapshot"]>;
 
-function participantsFromEvent(ev?: EventSnapshot): Participant[] {
+function participantsFromEvent(
+  ev?: EventSnapshot,
+  eventName?: string,
+): Participant[] {
   if (ev?.competitors?.length) {
     return ev.competitors.map((c, i) => ({
       seqId: i,
@@ -18,7 +21,7 @@ function participantsFromEvent(ev?: EventSnapshot): Participant[] {
     }));
   }
 
-  const title = ev?.name?.trim() || "";
+  const title = (eventName ?? ev?.name ?? "").trim();
   const parts = title
     ? title.split(/\s+vs\s+/i).map((s) => s.trim()).filter(Boolean)
     : [];
@@ -48,21 +51,22 @@ function participantsFromEvent(ev?: EventSnapshot): Participant[] {
 function oddsFromSelection(sel: BetDetailSelection) {
   const snap = sel.selectionSnapshot as SelectionSnapshot | undefined;
   const placement =
-    sel.oddsAtPlacement ??
-    snap?.price ??
-    snap?.odds ??
-    0;
+    sel.oddsAtPlacement ?? snap?.price ?? snap?.odds ?? 0;
   const current = sel.currentOdds ?? placement;
+  const label =
+    sel.selectionName?.trim() ||
+    snap?.name?.trim() ||
+    (sel.isBetBuilder ? "Bet Builder" : "—");
 
   return {
     id: String(sel.selectionId),
-    name: snap?.name ?? "—",
+    name: label,
     value: placement,
     currentValue: current,
   };
 }
 
-/** Map `GET /bets/:betId` selections (with snapshots) to bet-slip legs. */
+/** Map history/detail selections (with or without snapshots) to bet-slip legs. */
 export function mapSelectionsToBetLegs(
   selections?: BetDetailSelection[],
 ): BetLegType[] {
@@ -71,6 +75,7 @@ export function mapSelectionsToBetLegs(
   return selections.map((sel) => {
     const ev = sel.eventSnapshot as EventSnapshot | undefined;
     const odd = oddsFromSelection(sel);
+    const eventTitle = sel.eventName?.trim() || ev?.name?.trim() || "";
 
     return {
       eventId: sel.eventId,
@@ -85,13 +90,31 @@ export function mapSelectionsToBetLegs(
         id: ev?.competition?.id ?? null,
         name: ev?.competition?.name ?? null,
       },
-      participants: participantsFromEvent(ev),
-      market: { name: sel.marketSnapshot?.name ?? "" },
+      participants: participantsFromEvent(ev, eventTitle),
+      market: {
+        name:
+          sel.marketName?.trim() ||
+          sel.marketSnapshot?.name?.trim() ||
+          (sel.isBetBuilder ? "Bet Builder" : ""),
+      },
+      isBetBuilder: Boolean(sel.isBetBuilder),
+      betBuilderBetItems: (sel.betBuilderBetItems ?? []).map((item) => ({
+        marketId: item.marketId,
+        selectionId: item.selectionId,
+        marketName: item.marketName,
+        selectionName: item.selectionName,
+      })),
+      eventName: eventTitle || undefined,
+      selectionDisplayName: odd.name,
+      selectionStatus: sel.status,
+      settlementResult: sel.settlementResult ?? null,
+      eventStartTime: ev?.startTime,
+      legPotentialPayout: sel.potentialPayout,
       odds: [
         {
           ...odd,
           selected: true,
-          settlement: null,
+          settlement: sel.settlementResult ?? null,
         },
       ],
     };

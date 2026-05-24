@@ -1,4 +1,6 @@
+import axios from "axios";
 import { instance } from "../instance";
+import { useCopyToClipboard } from "usehooks-ts";
 
 /** One leg — integration guide "selection" (event + market + selection + odds). */
 export type PlaceBetSelectionPayload = {
@@ -6,6 +8,10 @@ export type PlaceBetSelectionPayload = {
   marketId: number;
   selectionId: number;
   odds: number;
+  betBuilderBetItems?: Array<{
+    marketId: number;
+    selectionId: number;
+  }>;
 };
 
 export type PlaceBetPayload = {
@@ -35,6 +41,13 @@ export type PlaceBetRejected = {
 
 export type PlaceBetResult = PlaceBetAccepted | PlaceBetRejected;
 
+export type PlaceBetCallResult = {
+  httpStatus: number;
+  result: PlaceBetResult | null;
+  /** HTTP 502 — bet accepted server-side but provider registration failed. */
+  providerRegistrationFailed?: boolean;
+};
+
 function unwrapPlaceBetResponse(body: unknown): PlaceBetResult {
   if (body && typeof body === "object" && "data" in body) {
     return (body as { data: PlaceBetResult }).data;
@@ -44,21 +57,48 @@ function unwrapPlaceBetResponse(body: unknown): PlaceBetResult {
 
 export async function apiPlaceBet(
   payload: PlaceBetPayload,
-): Promise<PlaceBetResult> {
-  const { data } = await instance.post<PlaceBetResult | { data: PlaceBetResult }>(
-    "/bets/place",
-    payload,
-  );
-  return unwrapPlaceBetResponse(data);
+): Promise<PlaceBetCallResult> {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(payload));
+    const { data, status } = await instance.post<
+      PlaceBetResult | { data: PlaceBetResult }
+    >("/bets/place", payload);
+    return {
+      httpStatus: status,
+      result: unwrapPlaceBetResponse(data),
+    };
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response) {
+      const status = err.response.status;
+      if (status === 502) {
+        return {
+          httpStatus: 502,
+          result: null,
+          providerRegistrationFailed: true,
+        };
+      }
+      if (status === 409) {
+        const body = err.response.data as
+          | PlaceBetResult
+          | { data?: PlaceBetResult };
+        const result =
+          body && typeof body === "object" && "data" in body
+            ? (body.data ?? null)
+            : (body as PlaceBetResult);
+        return { httpStatus: 409, result: result ?? null };
+      }
+    }
+    throw err;
+  }
 }
 
 /**
  * Places a bet with a stable `idempotencyKey`. On network/timeout failure,
- * retries once with the **same** key (integration guide idempotency rules).
+ * retries once with the **same** key (integration guide § Step 9).
  */
 export async function apiPlaceBetWithRetry(
   payload: PlaceBetPayload,
-): Promise<PlaceBetResult> {
+): Promise<PlaceBetCallResult> {
   try {
     return await apiPlaceBet(payload);
   } catch (firstError) {

@@ -12,47 +12,8 @@ import { StarPlayers } from "@/app/components/StarPlayers";
 import { loadHomeWidgetsBatch } from "@/state/homeWidgetsCache";
 
 export const HomePage: FunctionComponent = () => {
-  const [shouldRenderLive, setShouldRenderLive] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-
-  const sentinelRef = useCallback((el: HTMLDivElement | null) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-    if (!el) return;
-
-    let root: Element | null = null;
-    let parent = el.parentElement;
-    while (parent) {
-      const { overflowY, overflow } = getComputedStyle(parent);
-      if (
-        overflowY === "auto" ||
-        overflowY === "scroll" ||
-        overflow === "auto"
-      ) {
-        root = parent;
-        break;
-      }
-      parent = parent.parentElement;
-    }
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setShouldRenderLive(true);
-        }
-      },
-      { root, rootMargin: "200px 0px", threshold: 0 },
-    );
-    observerRef.current.observe(el);
-  }, []);
-
   useEffect(() => {
     void loadHomeWidgetsBatch({ starLimit: 20, accaLimit: 3 });
-    return () => {
-      observerRef.current?.disconnect();
-    };
   }, []);
 
   return (
@@ -68,7 +29,7 @@ export const HomePage: FunctionComponent = () => {
       {/* {loadedPrematchState.value && <LiveMatchesPanel />} */}
       {/* <PopularMatches /> */}
       <StarPlayers />
-      {/* <UpcomingMatches /> */}
+      <UpcomingMatches />
     </div>
   );
 };

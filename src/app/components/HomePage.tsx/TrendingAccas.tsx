@@ -37,6 +37,11 @@ function legToInput(
     marketName: leg.marketName,
     outcomeName: leg.outcomeName,
     odds: leg.odds,
+    sport: leg.sport,
+    region: leg.region,
+    league: leg.league,
+    startTime: leg.startTime,
+    matchName: leg.matchName,
   };
 }
 
@@ -57,16 +62,17 @@ const TrendingAccas = () => {
 
   useEffect(() => {
     mountedRef.current = true;
+    void load();
     const unsub = trendingAccasCache.subscribe((v) => {
-      if (v && mountedRef.current) setCoupons(v);
+      if (v != null && mountedRef.current) setCoupons(v);
     });
     return () => {
       mountedRef.current = false;
       unsub();
     };
-  }, []);
+  }, [load]);
 
-  // useHomeWidgetPolling(load);
+  useHomeWidgetPolling(load);
 
   if (coupons.length === 0) return null;
 
@@ -168,6 +174,7 @@ const TrendingAccas = () => {
                   )}
 
                   <button
+                    type="button"
                     className="w-full py-2 rounded-md font-semibold text-sm cursor-pointer hover:opacity-90 transition-opacity"
                     style={{
                       backgroundColor: "var(--primary-strong-bg)",

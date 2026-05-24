@@ -1,6 +1,15 @@
 import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
-import { storeEvent } from "@/helpers/storeEvent";
-import { storeState, willBeDeletedEventIds } from "@/state/storeState";
+import {
+  storeEvent,
+  syncSelectionsStoreForEvent,
+  syncSelectionsStoreFromIncomingMarkets,
+} from "@/helpers/storeEvent";
+import {
+  storeState,
+  selectionStoreKey,
+  selectionsStoreState,
+  willBeDeletedEventIds,
+} from "@/state/storeState";
 import { addEventIdToSummaries } from "./addEventToSummaries";
 import { normalizeWsEventPayload } from "./normalizeWsEventPayload";
 import { patchEventMarkets } from "./patchEventMarkets";
@@ -132,14 +141,35 @@ function applyEventSnapshot(change: WsDelta, ctx: Odds88WsContext): void {
   } else {
     storeEvent({ ...event, eventId: id });
   }
+  syncSelectionsStoreForEvent(id);
 }
 
 function applyMarketsChanged(change: WsDelta): void {
   const eventId = Number(change.eventId);
-  if (!eventId || !hasEvent(eventId)) return;
+  if (!eventId) return;
 
   const event = normalizeWsEventPayload(change);
-  if (event) patchEventMarkets({ ...event, eventId });
+  const markets = (event?.markets ?? []).map((m) => ({
+    id: m.id,
+    tradingStatus: m.tradingStatus,
+    selections: (m.selections ?? []).map((s) => ({
+      id: s.id,
+      price: s.price,
+      originalPrice: s.originalPrice,
+      status: s.status,
+    })),
+  }));
+
+  if (hasEvent(eventId)) {
+    if (event) patchEventMarkets({ ...event, eventId });
+    syncSelectionsStoreForEvent(eventId);
+  } else if (markets.length) {
+    syncSelectionsStoreFromIncomingMarkets(
+      eventId,
+      markets,
+      event?.eventInfo?.tradingStatus,
+    );
+  }
 }
 
 function applyEventStatus(change: WsDelta, ctx: Odds88WsContext): void {
@@ -168,6 +198,7 @@ function applyEventStatus(change: WsDelta, ctx: Odds88WsContext): void {
     startTime: (change.startTime as string) ?? prev.startTime,
     name: (change.name as string) ?? prev.name,
   };
+  syncSelectionsStoreForEvent(eventId);
 }
 
 function applyEventChanged(change: WsDelta): void {
@@ -196,19 +227,36 @@ function applyScoreboard(change: WsDelta): void {
 
 function applyBetCancel(change: WsDelta): void {
   const eventId = Number(change.eventId);
-  if (!eventId || !hasEvent(eventId)) return;
+  if (!eventId || !hasEvent(eventId)) {
+    const marketId = change.marketId != null ? Number(change.marketId) : NaN;
+    const selectionId =
+      change.selectionId != null ? Number(change.selectionId) : NaN;
+    if (
+      Number.isFinite(marketId) &&
+      Number.isFinite(selectionId) &&
+      selectionsStoreState.value[
+        selectionStoreKey(eventId, marketId, selectionId)
+      ]
+    ) {
+      const key = selectionStoreKey(eventId, marketId, selectionId);
+      const sig = selectionsStoreState.value[key]!;
+      sig.value = { ...sig.value, status: 3, mv: 0 };
+    }
+    return;
+  }
 
   const evSig = storeState.value[eventId]!;
   const marketId = change.marketId;
   const selectionId = change.selectionId;
-  const mKey = marketId != null ? String(marketId) : null;
-  if (!mKey || !evSig.value.markets[mKey]) return;
+  const mKey = marketId != null ? Number(marketId) : NaN;
+  if (!Number.isFinite(mKey) || !evSig.value.markets[mKey]) return;
 
   const mSig = evSig.value.markets[mKey];
   for (const sel of mSig.value.selections) {
     if (selectionId != null && sel.value.id !== selectionId) continue;
     sel.value = { ...sel.value, status: 3, mv: 0 };
   }
+  syncSelectionsStoreForEvent(eventId);
 }
 
 function applyDelta(change: WsDelta, ctx: Odds88WsContext): void {

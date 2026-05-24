@@ -3,6 +3,7 @@ import { FunctionComponent } from "preact";
 import { useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { setBetBuilderMode } from "@/helpers/setBetBuilderMode";
+import { groupSelectionsByEvent } from "@/helpers/betslipLegs";
 import { isBuilding, selectedOdds } from "@/state/betState";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { isMobile } from "@/state/isMobile";
@@ -87,7 +88,10 @@ export const BetBuilderSidebarToggle: FunctionComponent<
 
   useSignalEffect(() => {
     setActive(isBuilding.value);
-    setPickCount(selectedOdds.value.filter((o) => o.isBuilding).length);
+  const bbSelectionCount = [...groupSelectionsByEvent(selectedOdds.value).values()]
+      .filter((selections) => selections.length >= 2)
+      .reduce((sum, selections) => sum + selections.length, 0);
+    setPickCount(bbSelectionCount);
   });
 
   const isLive = variant === "live";

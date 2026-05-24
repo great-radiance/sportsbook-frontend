@@ -142,7 +142,7 @@ export const SpecialNavigation: FunctionComponent<
       if (isMobile.value) {
         isOpenedSidebar.value = false;
       }
-      setLocation(`/event-view/special/${item.id}`);
+      setLocation(item.link || "");
     }
   };
 
@@ -242,11 +242,13 @@ export const SpecialNavigation: FunctionComponent<
                       >
                         <img
                           src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportIcon}.svg`}
-                          onError={(e) => {
-                            e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
-                          }}
                           className={`w-[24px] h-[24px] shrink-0 ${baseTheme === "dark" ? "invert" : ""}`}
                           alt=""
+                          onError={(e) => {
+                            e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                            e.currentTarget.className =
+                              "w-[24px] h-[24px] shrink-0";
+                          }}
                         />
                         <div className="flex flex-1 flex-col min-w-0">
                           <span className="flex-1 text-left text-[var(--text-primary-color)] truncate">

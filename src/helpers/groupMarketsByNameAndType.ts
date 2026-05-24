@@ -12,17 +12,17 @@ import { tMarketModel } from "@/types/typesForSocket.ts/tEventModel";
  */
 export const groupMarketsByNameAndType = (
   markets: tMarketModel[],
-): { ids: string[]; key: string; type: number }[] => {
+): { ids: number[]; key: string; type: number }[] => {
   const sorted = [...markets].sort((a, b) => a.type - b.type);
-  const groups: { ids: string[]; key: string; name: string; type: number }[] =
+  const groups: { ids: number[]; key: string; name: string; type: number }[] =
     [];
   for (const m of sorted) {
     const last = groups[groups.length - 1];
     if (last && last.name === m.name && last.type === m.type) {
-      last.ids.push(String(m.id));
+      last.ids.push(m.id);
     } else {
       groups.push({
-        ids: [String(m.id)],
+        ids: [m.id],
         key: `${m.type}-${m.name}-${m.id}`,
         name: m.name,
         type: m.type,
@@ -63,13 +63,13 @@ function compareBySelectionLine(
 }
 
 export const marketIdSort = (
-  ids: string[],
+  ids: number[],
   markets: tMarketModel[],
-): string[] => {
+): number[] => {
   const marketById = new Map(markets.map((m) => [m.id, m]));
   return [...ids].sort((a, b) => {
-    const aName = marketById.get(parseInt(a, 10))?.selections?.[0]?.value?.name;
-    const bName = marketById.get(parseInt(b, 10))?.selections?.[0]?.value?.name;
+    const aName = marketById.get(a)?.selections?.[0]?.value?.name;
+    const bName = marketById.get(b)?.selections?.[0]?.value?.name;
     return compareBySelectionLine(aName, bName);
   });
 };

@@ -28,7 +28,7 @@ interface MarketProps {
    * name / trading-status / column-count drive the header, and selections
    * from all listed markets are concatenated.
    */
-  marketId: string | string[];
+  marketId: number | number[];
   eventId: number;
   type: number;
 }
@@ -67,16 +67,11 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
               mid,
             })),
         );
-  console.log("selectionsRaw", selectionsRaw);
   const selections = isBuilding.value
     ? selectionsRaw.filter(({ sig }) => sig.value.isBetBuilderSupported)
     : selectionsRaw;
   // Use the primary market's selection count for column layout so that
   // each "row" stays paired (e.g. Over | Under) when extras are appended.
-  console.log(
-    "selectionsMV",
-    selections.map(({ sig }) => sig.value.mv),
-  );
   const columns = Math.min(
     3,
     Math.max(
@@ -207,11 +202,10 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                 );
               }
 
-              const apiMid =
-                event?.markets?.[String(mid)]?.value.id ?? Number(mid);
+              const apiMid = event?.markets?.[mid]?.value.id ?? mid;
               const selected = isBetslipSelectionSelected(
                 eventId,
-                String(mid),
+                mid,
                 selection.value.id,
               );
 
@@ -226,7 +220,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                   onClick={() => {
                     toggleBetslipSelection({
                       eventId,
-                      marketKey: String(mid),
+                      marketId: mid,
                       marketName: name || "",
                       selection: selection.value,
                       apiMarketId: apiMid,

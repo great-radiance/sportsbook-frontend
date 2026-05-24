@@ -6,15 +6,11 @@ import {
   multipleBetAmount,
   selectedBetType,
   isBonusInfoOpen,
-  buildingBetAmount,
   systemBetSpecifier,
   balance,
   currency,
   selectedBetslipTab,
-  betBuilderCombinable,
-  betBuilderPrice,
-  betBuilderRejectMessage,
-  betBuilderPriceLoading,
+  betBuilderPricesByEvent,
   playerProfile,
   playerLimits,
 } from "@/state/betState";
@@ -33,8 +29,13 @@ import { SelectedOddComponent } from "./SelectedOddComponent";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { formatCurrency } from "@/shared/utils/formatters";
 import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
+import { loadBetDetail } from "@/api/bet/apiBetDetail";
+import {
+  currentBetSlipIdempotencyKey,
+  rotateBetSlipIdempotencyKey,
+} from "@/helpers/betIdempotency";
 import { useEnableBetType } from "@/hooks/useEnableBetType";
-import { useBetBuilderPriceSync } from "@/hooks/useBetBuilderPrice";
+import { useSlipBetBuilderPricesSync } from "@/hooks/useSlipBetBuilderPrices";
 import { canPlayerPlaceBets, playerStatusMessage } from "@/api/user/apiUsersMe";
 import { apiCashoutSubscribe } from "@/api/bet/cashout";
 import {
@@ -43,7 +44,7 @@ import {
   validateStakeAmount,
 } from "@/helpers/betLimits";
 import { Switch } from "../Switch";
-import { storeState } from "@/state/storeState";
+import { selectionStoreKey, storeState } from "@/state/storeState";
 import { getOddsValue } from "@/helpers/getOddsValue";
 import { computed } from "@preact/signals";
 import SystemBetLineComponent from "./SystembetSection";
@@ -58,6 +59,17 @@ import {
   onBetRejectedWithReason,
   type SubmittedSelectionLine,
 } from "@/helpers/betRejection";
+import {
+  allBetBuilderLegsCombinable,
+  betBuilderLegRejectMessage,
+  buildPlaceBetSelections,
+  combinedLegOdds,
+  groupSelectedOddsIntoLegs,
+  legOdds,
+  selectionsForLeg,
+  slipLegCount,
+} from "@/helpers/betslipLegs";
+import { BetBuilderGroupComponent } from "./BetBuilderGroupComponent";
 
 function extractAxiosMessage(err: unknown): string {
   const e = err as {
@@ -70,24 +82,66 @@ function extractAxiosMessage(err: unknown): string {
 }
 
 function toSubmittedLines(odds: SelectedOddType[]): SubmittedSelectionLine[] {
-  return odds.map((o) => ({
-    label: `${o.name} — ${o.marketName}`,
-    eventId: o.eventId,
-    marketId: o.apiMarketId,
-    selectionId: o.apiSelectionId,
-    odds: getOddsValue(o.eventId, o.marketId, o.oddsId),
-  }));
+  const legs = groupSelectedOddsIntoLegs(odds);
+  const bbPrices = currentBbPriceMap();
+  return legs.flatMap((leg) => {
+    if (leg.type === "betbuilder") {
+      const first = leg.selections[0];
+      return [
+        {
+          label: `Bet Builder — ${leg.eventName}`,
+          eventId: leg.eventId,
+          marketId: first.apiMarketId,
+          selectionId: first.apiSelectionId,
+          odds: legOdds(leg, bbPrices),
+        },
+      ];
+    }
+    const s = leg.selection;
+    return [
+      {
+        label: `${s.name} — ${s.marketName}`,
+        eventId: s.eventId,
+        marketId: s.apiMarketId,
+        selectionId: s.apiSelectionId,
+        odds: getOddsValue(s.eventId, s.marketId, Number(s.oddsId)) ?? 1,
+      },
+    ];
+  });
+}
+
+function currentBbPriceMap(): Record<number, number | null> {
+  return Object.fromEntries(
+    Object.entries(betBuilderPricesByEvent.value).map(([eventId, state]) => [
+      Number(eventId),
+      state.price,
+    ]),
+  );
 }
 
 function notifyBetRejected(
   code: string | undefined,
   submitted?: SubmittedSelectionLine[],
+  betId?: string,
 ): void {
   onBetRejectedWithReason(code);
   notify(rejectionReasonMessage(code), "error", "x-circle", 3500);
+  if (code === "DUPLICATE_BET" && betId) {
+    void loadBetDetail(betId);
+  }
   if (code === "ODDS_CHANGED" && submitted?.length) {
     void handleOddsChangedRejection(submitted);
   }
+}
+
+function handleProviderRegistrationFailure(): void {
+  notify(
+    "Bet placed — cashout may be unavailable. Contact support if needed.",
+    "warning",
+    "exclamation-triangle",
+    5000,
+  );
+  rotateBetSlipIdempotencyKey();
 }
 
 function rejectionReasonMessage(code: string | undefined): string {
@@ -109,12 +163,8 @@ function rejectionReasonMessage(code: string | undefined): string {
 }
 
 function slipSelectionsPayload(odds: SelectedOddType[]) {
-  return odds.map((odd) => ({
-    eventId: odd.eventId,
-    marketId: odd.apiMarketId ?? Number(odd.marketId),
-    selectionId: odd.apiSelectionId ?? Number(odd.oddsId),
-    odds: getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
-  }));
+  const legs = groupSelectedOddsIntoLegs(odds);
+  return buildPlaceBetSelections(legs, currentBbPriceMap());
 }
 
 async function subscribeCashoutForBet(betId: string, playerId?: string) {
@@ -129,7 +179,7 @@ async function subscribeCashoutForBet(betId: string, playerId?: string) {
 
 export const BetSlip: FunctionComponent = () => {
   const { t } = useTranslate("betslip");
-  useBetBuilderPriceSync();
+  useSlipBetBuilderPricesSync();
   const [selectedValue, setSelectedValue] = useState("always-ask");
   const [isChanged, setIsChanged] = useState(true);
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -146,8 +196,12 @@ export const BetSlip: FunctionComponent = () => {
   const accountStatusMessage = playerProfile.value
     ? playerStatusMessage(playerProfile.value.status)
     : null;
-  const [buildingOdds, setBuildingOdds] = useState<SelectedOddType[]>([]);
-  const [nonBuildingOdds, setNonBuildingOdds] = useState<SelectedOddType[]>([]);
+  const slipLegs = groupSelectedOddsIntoLegs(selectedOdds.value);
+  const slipLegTotal = slipLegCount(selectedOdds.value);
+  const regularSlipOdds = slipLegs
+    .filter((leg) => leg.type === "regular")
+    .map((leg) => (leg.type === "regular" ? leg.selection : null))
+    .filter((sel): sel is SelectedOddType => sel != null);
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const dragHandleRef = useRef<HTMLDivElement>(null);
@@ -161,20 +215,7 @@ export const BetSlip: FunctionComponent = () => {
     isMobile.value && !isExpanded && selectedOdds.value.length > 0;
   const showContent = isExpanded || isCollapsing;
 
-  const fabTotalOdds = (() => {
-    const list = selectedOdds.value;
-    const building = list.filter((b) => b.isBuilding);
-    const nonBuilding = list.filter((b) => !b.isBuilding);
-    const product = (bets: typeof list) =>
-      bets.reduce(
-        (acc, bet) =>
-          acc * (getOddsValue(bet.eventId, bet.marketId, bet.oddsId) ?? 1),
-        1,
-      );
-    if (building.length > 0) return product(building);
-    if (nonBuilding.length > 0) return product(nonBuilding);
-    return 1;
-  })();
+  const fabTotalOdds = combinedLegOdds(slipLegs, currentBbPriceMap());
   const { multiBetEnabled, systemBetEnabled } = useEnableBetType();
   const [anyOddsChange, setAnyOddsChange] = useState(false);
   const [settedMulti, setSettedMulti] = useState(false);
@@ -210,23 +251,19 @@ export const BetSlip: FunctionComponent = () => {
   }, [isExpanded]);
 
   useEffect(() => {
-    const building = selectedOdds.value.filter((bet) => bet.isBuilding);
-    const nonBuilding = selectedOdds.value.filter((bet) => !bet.isBuilding);
-    setBuildingOdds(building);
-    setNonBuildingOdds(nonBuilding);
     if (
       selectedBetType.value === "single" &&
       !settedMulti &&
-      nonBuilding.length > 1 &&
+      slipLegTotal > 1 &&
       multiBetEnabled
     ) {
       selectedBetType.value = "multi";
       setSettedMulti(true);
-    } else if (settedMulti && nonBuilding.length < 2) {
+    } else if (settedMulti && slipLegTotal < 2) {
       selectedBetType.value = "single";
       setSettedMulti(false);
     }
-  }, [selectedOdds.value, settedMulti, multipleBetAmount.value]);
+  }, [selectedOdds.value, settedMulti, slipLegTotal, multiBetEnabled]);
 
   useEffect(() => {
     const haveUser = Boolean(config.xUserId);
@@ -246,37 +283,35 @@ export const BetSlip: FunctionComponent = () => {
       setBetable(false);
       return;
     }
-    if (buildingOdds.length > 0) {
-      if (
-        buildingBetAmount.value === 0 ||
-        buildingOdds.length < 2 ||
-        betBuilderPriceLoading.value ||
-        !betBuilderCombinable.value
-      ) {
-        setBetable(false);
-        return;
-      }
-    }
 
-    if (nonBuildingOdds.length === 0) {
-      setBetable(true);
+    const bbCombinable = allBetBuilderLegsCombinable(
+      slipLegs,
+      betBuilderPricesByEvent.value,
+    );
+    const bbLoading = slipLegs.some(
+      (leg) =>
+        leg.type === "betbuilder" &&
+        leg.selections.length >= 2 &&
+        betBuilderPricesByEvent.value[leg.eventId]?.loading,
+    );
+    if (bbLoading || !bbCombinable) {
+      setBetable(false);
       return;
     }
 
-    if (
-      selectedBetType.value === "multi" &&
-      nonBuildingOdds.length > maxParlayLegs
-    ) {
+    if (selectedBetType.value === "multi" && slipLegTotal > maxParlayLegs) {
       setBetable(false);
       return;
     }
 
     // Check bet amounts based on bet type
     if (selectedBetType.value === "single") {
-      // For single bets: all bets must have a valid amount > 0
-      const allAmountsValid = selectedOdds.value.every(
-        (bet) => bet.amount && bet.amount > 0,
-      );
+      const allAmountsValid = slipLegs.every((leg) => {
+        if (leg.type === "betbuilder") {
+          return (leg.selections[0]?.amount ?? 0) > 0;
+        }
+        return leg.selection.amount > 0;
+      });
       if (!allAmountsValid) {
         setBetable(false);
         return;
@@ -290,6 +325,20 @@ export const BetSlip: FunctionComponent = () => {
         setBetable(false);
         return;
       }
+      const multiCombined = combinedLegOdds(slipLegs, currentBbPriceMap());
+      if (
+        selectedBetType.value === "multi" &&
+        validateStakeAmount(
+          multipleBetAmount.value,
+          playerLimits.value,
+          "parlay",
+          undefined,
+          multiCombined,
+        )
+      ) {
+        setBetable(false);
+        return;
+      }
     }
 
     setBetable(true);
@@ -298,43 +347,19 @@ export const BetSlip: FunctionComponent = () => {
     balance.value,
     config.xUserBalance,
     playerProfile.value,
-    betBuilderCombinable.value,
-    betBuilderPriceLoading.value,
+    betBuilderPricesByEvent.value,
     config.xUserId,
     selectedBetType.value,
     multipleBetAmount.value,
-    buildingBetAmount.value,
-    buildingOdds.length,
+    slipLegTotal,
     maxParlayLegs,
     playerLimits.value,
+    slipLegs,
   ]);
 
   const combinedMultipleOdds = computed(() =>
-    nonBuildingOdds.length > 0
-      ? nonBuildingOdds.reduce((acc, bet) => {
-          // const odd = storeState.value[bet.eventId].value?.markets[bet.marketId]
-          //   ?.odds[bet.oddsId] as tOdd;
-          return (
-            acc * (getOddsValue(bet.eventId, bet.marketId, bet.oddsId) ?? 1)
-          );
-        }, 1)
-      : 1,
+    combinedLegOdds(slipLegs, currentBbPriceMap()),
   );
-  const combinedBuildingOdds = computed(() => {
-    if (
-      betBuilderCombinable.value &&
-      typeof betBuilderPrice.value === "number" &&
-      betBuilderPrice.value > 1
-    ) {
-      return betBuilderPrice.value;
-    }
-    // if (buildingOdds.length > 0) {
-    //   return buildingOdds.reduce(
-    //     (acc, bet) =>
-    //       acc * (getOddsValue(bet.eventId, bet.marketId, bet.oddsId) ?? 1),
-    // }
-    return 1;
-  });
 
   const handleQuickAmountClick = (amount: number) => {
     if (selectedBetType.value === "single") {
@@ -344,10 +369,12 @@ export const BetSlip: FunctionComponent = () => {
       });
       // Force re-render to update input values
       selectedOdds.value = [...selectedOdds.value];
+      rotateBetSlipIdempotencyKey();
       setForceUpdate((prev) => prev + 1);
     } else {
       // Set amount for multiple bet
       multipleBetAmount.value = amount;
+      rotateBetSlipIdempotencyKey();
       setForceUpdate((prev) => prev + 1);
     }
   };
@@ -357,6 +384,7 @@ export const BetSlip: FunctionComponent = () => {
     selectedBetType.value = "single";
     multipleBetAmount.value = 0;
     window.localStorage.removeItem("selectedOdds");
+    rotateBetSlipIdempotencyKey();
   };
 
   const handleBetNow = async () => {
@@ -374,177 +402,178 @@ export const BetSlip: FunctionComponent = () => {
       }
 
       const cur = userCurrency || currency.value || "USD";
-
-      const buildingStakeErr = validateStakeAmount(
-        buildingBetAmount.value,
-        playerLimits.value,
-        "parlay",
-        cur,
+      const legs = groupSelectedOddsIntoLegs(selectedOdds.value);
+      const bbReject = betBuilderLegRejectMessage(
+        legs,
+        betBuilderPricesByEvent.value,
       );
-      if (buildingOdds.length > 0 && buildingStakeErr) {
-        notify(buildingStakeErr, "error", "x-circle", 3500);
+      if (bbReject) {
+        notify(bbReject, "error", "x-circle", 3500);
         return;
       }
 
-      if (buildingOdds.length > 0 && buildingBetAmount.value > 0) {
-        if (!betBuilderCombinable.value) {
-          notify(
-            betBuilderRejectMessage.value ||
-              "These selections cannot be combined",
-            "error",
-            "x-circle",
-            3500,
-          );
-          return;
-        }
-        try {
-          const d = await apiPlaceBetWithRetry({
-            idempotencyKey: crypto.randomUUID(),
-            betType: "parlay",
-            stake: buildingBetAmount.value,
-            currency: cur,
-            selections: slipSelectionsPayload(buildingOdds),
-          });
-          if (d?.status === "rejected") {
-            notifyBetRejected(
-              (d as { rejectionReason?: string }).rejectionReason,
-              toSubmittedLines(buildingOdds),
-            );
-            buildingOdds.forEach((o) => failedBets.add(o));
-          } else if (d?.status === "accepted") {
-            selectedOdds.value = selectedOdds.value.filter(
-              (o) => !o.isBuilding,
-            );
-            setBuildingOdds([]);
-            buildingBetAmount.value = 0;
-            notify("Bet accepted", "success", "check2-circle", 2500);
-            void refreshAfterWalletAction();
-            void subscribeCashoutForBet(d.betId, xUserId);
-          } else {
-            notify("Unexpected bet response", "error", "x-circle", 2500);
-            buildingOdds.forEach((o) => failedBets.add(o));
-          }
-        } catch (error) {
-          notify(extractAxiosMessage(error), "error", "x-circle", 3500);
-          buildingOdds.forEach((o) => failedBets.add(o));
-        }
-      }
-
-      if (nonBuildingOdds.length > 0 && selectedBetType.value === "single") {
-        for (const odd of nonBuildingOdds) {
+      if (selectedBetType.value === "single") {
+        for (const leg of legs) {
+          const stake =
+            leg.type === "betbuilder"
+              ? (leg.selections[0]?.amount ?? 0)
+              : leg.selection.amount;
+          const legCombinedOdds = legOdds(leg, currentBbPriceMap());
           const stakeErr = validateStakeAmount(
-            odd.amount,
+            stake,
             playerLimits.value,
             "single",
             cur,
+            legCombinedOdds,
           );
           if (stakeErr) {
             notify(stakeErr, "error", "x-circle", 3500);
-            failedBets.add(odd);
+            selectionsForLeg(leg).forEach((o) => failedBets.add(o));
             continue;
           }
           try {
-            const d = await apiPlaceBetWithRetry({
-              idempotencyKey: crypto.randomUUID(),
+            const call = await apiPlaceBetWithRetry({
+              idempotencyKey: currentBetSlipIdempotencyKey(),
               betType: "single",
-              stake: odd.amount,
+              stake,
               currency: cur,
-              selections: slipSelectionsPayload([odd]),
+              selections: buildPlaceBetSelections([leg], currentBbPriceMap()),
             });
+            if (call.providerRegistrationFailed || call.httpStatus === 502) {
+              handleProviderRegistrationFailure();
+              continue;
+            }
+            const d = call.result;
             if (d?.status === "rejected") {
               notifyBetRejected(
-                (d as { rejectionReason?: string }).rejectionReason,
-                toSubmittedLines([odd]),
+                d.rejectionReason,
+                toSubmittedLines(selectionsForLeg(leg)),
+                d.betId,
               );
-              failedBets.add(odd);
+              selectionsForLeg(leg).forEach((o) => failedBets.add(o));
+              rotateBetSlipIdempotencyKey();
             } else if (d?.status === "accepted") {
               notify("Bet accepted", "success", "check2-circle", 2500);
               void refreshAfterWalletAction();
               void subscribeCashoutForBet(d.betId, xUserId);
+              rotateBetSlipIdempotencyKey();
             } else {
               notify("Unexpected bet response", "error", "x-circle", 2500);
-              failedBets.add(odd);
+              selectionsForLeg(leg).forEach((o) => failedBets.add(o));
             }
           } catch (error) {
             notify(extractAxiosMessage(error), "error", "x-circle", 3500);
-            failedBets.add(odd);
+            selectionsForLeg(leg).forEach((o) => failedBets.add(o));
           }
         }
-      } else if (
-        nonBuildingOdds.length > 0 &&
-        selectedBetType.value === "multi"
-      ) {
+      } else if (selectedBetType.value === "multi") {
+        const combinedOdds = combinedLegOdds(legs, currentBbPriceMap());
         const multiStakeErr = validateStakeAmount(
           multipleBetAmount.value,
           playerLimits.value,
           "parlay",
           cur,
+          combinedOdds,
         );
         if (multiStakeErr) {
           notify(multiStakeErr, "error", "x-circle", 3500);
           return;
         }
         try {
-          const d = await apiPlaceBetWithRetry({
-            idempotencyKey: crypto.randomUUID(),
-            betType: "parlay",
+          const call = await apiPlaceBetWithRetry({
+            idempotencyKey: currentBetSlipIdempotencyKey(),
+            betType: legs.length === 1 ? "single" : "parlay",
             stake: multipleBetAmount.value,
             currency: cur,
-            selections: slipSelectionsPayload(nonBuildingOdds),
+            selections: buildPlaceBetSelections(legs, currentBbPriceMap()),
           });
+          if (call.providerRegistrationFailed || call.httpStatus === 502) {
+            handleProviderRegistrationFailure();
+            selectedOdds.value = [];
+            window.localStorage.removeItem("selectedOdds");
+            return;
+          }
+          if (call.httpStatus === 409 && call.result?.betId) {
+            await loadBetDetail(call.result.betId);
+            notify(
+              "This bet was already submitted.",
+              "primary",
+              "info-circle",
+              3500,
+            );
+            selectedOdds.value = [];
+            window.localStorage.removeItem("selectedOdds");
+            rotateBetSlipIdempotencyKey();
+            return;
+          }
+          const d = call.result;
           if (d?.status === "rejected") {
             notifyBetRejected(
-              (d as { rejectionReason?: string }).rejectionReason,
-              toSubmittedLines(nonBuildingOdds),
+              d.rejectionReason,
+              toSubmittedLines(selectedOdds.value),
+              d.betId,
             );
-            nonBuildingOdds.forEach((o) => failedBets.add(o));
+            selectedOdds.value.forEach((o) => failedBets.add(o));
+            rotateBetSlipIdempotencyKey();
           } else if (d?.status === "accepted") {
             selectedOdds.value = [];
             window.localStorage.removeItem("selectedOdds");
             notify("Bet accepted", "success", "check2-circle", 2500);
             void refreshAfterWalletAction();
             void subscribeCashoutForBet(d.betId, xUserId);
+            rotateBetSlipIdempotencyKey();
           } else {
             notify("Unexpected bet response", "error", "x-circle", 2500);
-            nonBuildingOdds.forEach((o) => failedBets.add(o));
+            selectedOdds.value.forEach((o) => failedBets.add(o));
           }
         } catch (error) {
           notify(extractAxiosMessage(error), "error", "x-circle", 3500);
-          nonBuildingOdds.forEach((o) => failedBets.add(o));
+          selectedOdds.value.forEach((o) => failedBets.add(o));
         }
       } else if (selectedBetType.value === "system") {
         await Promise.all(
-          [...Array(Math.min(nonBuildingOdds.length, 5))].map((_, index) => {
+          [...Array(Math.min(regularSlipOdds.length, 5))].map((_, index) => {
             const stake = systemBetSpecifier.value[index + 1] || 0;
             if (stake === 0) return Promise.resolve();
             return (async () => {
               try {
-                const d = await apiPlaceBetWithRetry({
-                  idempotencyKey: crypto.randomUUID(),
+                const call = await apiPlaceBetWithRetry({
+                  idempotencyKey: currentBetSlipIdempotencyKey(),
                   betType: "parlay",
                   stake,
                   currency: cur,
-                  selections: slipSelectionsPayload(nonBuildingOdds),
+                  selections: slipSelectionsPayload(regularSlipOdds),
                 });
+                if (
+                  call.providerRegistrationFailed ||
+                  call.httpStatus === 502
+                ) {
+                  handleProviderRegistrationFailure();
+                  return;
+                }
+                const d = call.result;
                 if (d?.status === "rejected") {
                   notifyBetRejected(
-                    (d as { rejectionReason?: string }).rejectionReason,
-                    toSubmittedLines(nonBuildingOdds),
+                    d.rejectionReason,
+                    toSubmittedLines(regularSlipOdds),
+                    d.betId,
                   );
-                  nonBuildingOdds.forEach((o) => failedBets.add(o));
+                  regularSlipOdds.forEach((o) => failedBets.add(o));
+                  rotateBetSlipIdempotencyKey();
                 } else if (d?.status === "accepted") {
                   selectedOdds.value = [];
                   window.localStorage.removeItem("selectedOdds");
                   notify("Bet accepted", "success", "check2-circle", 2500);
                   void refreshAfterWalletAction();
                   void subscribeCashoutForBet(d.betId, xUserId);
+                  rotateBetSlipIdempotencyKey();
                 } else {
                   notify("Unexpected bet response", "error", "x-circle", 2500);
-                  nonBuildingOdds.forEach((o) => failedBets.add(o));
+                  regularSlipOdds.forEach((o) => failedBets.add(o));
                 }
               } catch (error) {
                 notify(extractAxiosMessage(error), "error", "x-circle", 3500);
-                nonBuildingOdds.forEach((o) => failedBets.add(o));
+                regularSlipOdds.forEach((o) => failedBets.add(o));
               }
             })();
           }),
@@ -770,7 +799,7 @@ export const BetSlip: FunctionComponent = () => {
                       {t("betSlip")}
                     </span>
                     <span className="px-1 py-[2px] rounded-full border-[2px] cursor-default border-[var(--primary-border-color)] text-[10px] font-bold ml-2">
-                      {selectedOdds.value.length}/{maxParlayLegs}
+                      {slipLegTotal}/{maxParlayLegs}
                     </span>
                   </div>
                   <div className="flex gap-2 items-center">
@@ -902,91 +931,45 @@ export const BetSlip: FunctionComponent = () => {
                     ) : (
                       <div className="w-full flex flex-col gap-[2px] px-2">
                         <div className="w-full flex flex-col gap-[2px] transition-[opacity,transform] duration-300 ease-in-out">
-                          {buildingOdds.map((bet, index) => (
-                            <SelectedOddComponent
-                              key={bet.oddsId}
-                              bet={bet}
-                              index={index}
-                              forceUpdate={forceUpdate}
-                              selectedBetType={
-                                selectedBetType.value as "single" | "multi"
-                              }
-                              setForceUpdate={setForceUpdate}
-                            />
-                          ))}
-                        </div>
-
-                        {buildingOdds.length > 0 && (
-                          <>
-                            <div className="w-full flex items-center justify-between px-2 py-2">
-                              <span className=" text-[12px] font-normal">
-                                {t("betbuilderOdds")}
-                              </span>
-                              <span className="text-[var(--primary-color)] text-[14px] font-normal">
-                                {betBuilderPriceLoading.value
-                                  ? "…"
-                                  : combinedBuildingOdds.value.toFixed(3)}
-                              </span>
-                            </div>
-                            {betBuilderRejectMessage.value &&
-                              !betBuilderCombinable.value && (
-                                <p className="px-2 text-[11px] text-red-400">
-                                  {betBuilderRejectMessage.value}
-                                </p>
-                              )}
-
-                            <div className="w-full flex flex-col gap-1 px-2 py-2">
-                              <input
-                                key={`building-${forceUpdate}`}
-                                type="number"
-                                inputMode="numeric"
-                                min={parlayStakeLimits.minStake}
-                                max={parlayStakeLimits.maxStake}
-                                value={
-                                  buildingBetAmount?.value?.toString() || ""
+                          {slipLegs.map((leg) =>
+                            leg.type === "betbuilder" ? (
+                              <BetBuilderGroupComponent
+                                key={`bb-${leg.eventId}`}
+                                leg={leg}
+                                forceUpdate={forceUpdate}
+                                selectedBetType={
+                                  selectedBetType.value as
+                                    | "single"
+                                    | "multi"
+                                    | "system"
                                 }
-                                onInput={(e) => {
-                                  const value = (e.target as HTMLInputElement)
-                                    .value;
-                                  buildingBetAmount.value =
-                                    parseFloat(value) || 0;
-                                }}
-                                placeholder={t("enterStake")}
-                                className="w-full px-2 py-1.5 bg-[var(--sub-element-secondary)] text-[12px] border-[1px] border-[var(--border-color)] rounded-[4px] placeholder: focus:outline-none focus:border-[var(--focused-primary-border-color)]"
+                                setForceUpdate={setForceUpdate}
+                                minStake={singleStakeLimits.minStake}
+                                maxStake={singleStakeLimits.maxStake}
                               />
-
-                              <div className="flex items-center justify-between text-[13px] font-bold">
-                                <span className="">{t("possibleWin")}:</span>
-                                <span className="text-[var(--primary-color)]">
-                                  {formatCurrency(
-                                    buildingBetAmount?.value *
-                                      combinedBuildingOdds.value,
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          </>
-                        )}
-
-                        <div className="w-full flex flex-col gap-[2px]">
-                          {nonBuildingOdds.map((bet, index) => (
-                            <SelectedOddComponent
-                              key={bet.oddsId}
-                              bet={bet}
-                              index={index}
-                              forceUpdate={forceUpdate}
-                              selectedBetType={
-                                selectedBetType.value as "single" | "multi"
-                              }
-                              setForceUpdate={setForceUpdate}
-                              minStake={singleStakeLimits.minStake}
-                              maxStake={singleStakeLimits.maxStake}
-                            />
-                          ))}
+                            ) : (
+                              <SelectedOddComponent
+                                key={selectionStoreKey(
+                                  leg.selection.eventId,
+                                  leg.selection.marketId,
+                                  Number(leg.selection.oddsId),
+                                )}
+                                bet={leg.selection}
+                                index={0}
+                                forceUpdate={forceUpdate}
+                                selectedBetType={
+                                  selectedBetType.value as "single" | "multi"
+                                }
+                                setForceUpdate={setForceUpdate}
+                                minStake={singleStakeLimits.minStake}
+                                maxStake={singleStakeLimits.maxStake}
+                              />
+                            ),
+                          )}
                         </div>
 
                         {selectedBetType.value === "multi" &&
-                          nonBuildingOdds.length > 0 && (
+                          slipLegTotal > 0 && (
                             <>
                               <div className="w-full flex items-center justify-between px-2 py-2">
                                 <span className=" text-[12px] font-normal">
@@ -1012,6 +995,7 @@ export const BetSlip: FunctionComponent = () => {
                                       .value;
                                     multipleBetAmount.value =
                                       parseFloat(value) || 0;
+                                    rotateBetSlipIdempotencyKey();
                                   }}
                                   placeholder={t("enterStake")}
                                   className="w-full px-2 py-1.5 bg-[var(--sub-element-secondary)] text-[12px] border-[1px] border-[var(--border-color)] rounded-[4px] placeholder: focus:outline-none focus:border-[var(--focused-primary-border-color)]"
@@ -1020,9 +1004,9 @@ export const BetSlip: FunctionComponent = () => {
                                 <div className="flex items-center justify-between text-[13px] font-bold">
                                   {/* <span className="">{t("possibleWin")}:</span> */}
                                   <span className="">
-                                    {nonBuildingOdds.length === 2
+                                    {slipLegTotal === 2
                                       ? t("doubleEqualsOne")
-                                      : `${nonBuildingOdds.length}-${t("foldEqualsOne")}`}
+                                      : `${slipLegTotal}-${t("foldEqualsOne")}`}
                                     :
                                   </span>
                                   <span className="text-[var(--primary-color)]">
@@ -1032,6 +1016,14 @@ export const BetSlip: FunctionComponent = () => {
                                     )}
                                   </span>
                                 </div>
+                                {parlayStakeLimits.maxPayout != null && (
+                                  <div className="flex items-center justify-between text-[11px] text-[var(--text-sub-color)]">
+                                    <span>{t("maxPayout")}</span>
+                                    <span>
+                                      {formatCurrency(parlayStakeLimits.maxPayout)}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </>
                           )}
@@ -1042,11 +1034,11 @@ export const BetSlip: FunctionComponent = () => {
                                 System Bet lines
                               </div>
                               {[
-                                ...Array(Math.min(nonBuildingOdds.length, 5)),
+                                ...Array(Math.min(regularSlipOdds.length, 5)),
                               ].map((_, i) => (
                                 <SystemBetLineComponent
                                   key={i} // Always add a key for list items in React
-                                  selections={nonBuildingOdds}
+                                  selections={regularSlipOdds}
                                   systemSpecifier={i + 1} // Starts at 2, based on your original loop logic
                                 />
                               ))}
@@ -1057,20 +1049,19 @@ export const BetSlip: FunctionComponent = () => {
                     )}
                   </div>
 
-                  {selectedBetType.value === "multi" &&
-                    nonBuildingOdds.length > 1 && (
-                      <div
-                        className="flex items-center gap-2 mt-1 px-2 cursor-pointer"
-                        onClick={() => (isBonusInfoOpen.value = true)}
-                      >
-                        <img
-                          src={`${BASE_ASSET_PUBLIC_URL}/icons/info.png`}
-                          alt="bonus"
-                          className="w-4 h-4 brightness-0 invert"
-                        />
-                        <span className=" text-[12px]">{t("bonusInfo")}</span>
-                      </div>
-                    )}
+                  {selectedBetType.value === "multi" && slipLegTotal > 1 && (
+                    <div
+                      className="flex items-center gap-2 mt-1 px-2 cursor-pointer"
+                      onClick={() => (isBonusInfoOpen.value = true)}
+                    >
+                      <img
+                        src={`${BASE_ASSET_PUBLIC_URL}/icons/info.png`}
+                        alt="bonus"
+                        className="w-4 h-4 brightness-0 invert"
+                      />
+                      <span className=" text-[12px]">{t("bonusInfo")}</span>
+                    </div>
+                  )}
 
                   <div className="flex flex-col w-full h-full gap-[2px]">
                     {xUserId === "" && (

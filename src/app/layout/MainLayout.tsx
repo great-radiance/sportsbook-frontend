@@ -21,21 +21,13 @@ import {
 } from "@/shared/utils/bet";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
-import {
-  apiGetUsersMe,
-  apiGetUsersMeExposure,
-  apiGetUsersMeLimits,
-  canPlayerPlaceBets,
-} from "@/api/user/apiUsersMe";
-import { playerExposure } from "@/state/betState";
-import {
-  playerLimits,
-  playerProfile,
-  playerSessionReady,
-} from "@/state/betState";
+import { playerSessionReady } from "@/state/betState";
 import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { storeState, willBeDeletedEventIds } from "@/state/storeState";
+import {
+  storeState,
+  willBeDeletedEventIds,
+} from "@/state/storeState";
 import { Search } from "../components/Search";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
@@ -43,6 +35,8 @@ import { OddsChangedDialog } from "../components/BetSlip/OddsChangedDialog";
 import { useLocation } from "wouter-preact";
 import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
 import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
+import { loadPlayerSession } from "@/helpers/loadPlayerSession";
+import { notify } from "@/shared/toast";
 
 interface MainLayoutProps {
   children: JSX.Element | JSX.Element[];
@@ -72,6 +66,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   });
 
   useEffect(() => {
+    console.log("selectedOdds-mainlayout", selectedOdds.value);
     if (selectedOdds.value.length === 0) {
       window.localStorage.removeItem("selectedOdds");
       window.localStorage.removeItem("selectedBets");
@@ -98,6 +93,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     buildingBetAmount.value,
   ]);
 
+
   useEffect(() => {
     if (!pageName) setLocation("/event-view");
   }, [pageName]);
@@ -111,9 +107,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
       try {
         const parsed = JSON.parse(slipRaw);
         const normalizeSlip = (rows: unknown[]) =>
-          rows.map((row) =>
-            normalizeSelectedOddRow(row as SelectedOddType),
-          );
+          rows.map((row) => normalizeSelectedOddRow(row as SelectedOddType));
         if (Array.isArray(parsed)) {
           selectedOdds.value = normalizeSlip(parsed);
         } else if (parsed?.selectedOdds && Array.isArray(parsed.selectedOdds)) {
@@ -142,7 +136,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   useEffect(() => {
     (async () => {
       const cfg = getAppConfig();
-      balance.value = cfg.xUserBalance ?? balance.value;
       currency.value = cfg.currency ?? currency.value;
 
       let deviceId = window.localStorage.getItem("sb_device_id");
@@ -154,25 +147,18 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         window.localStorage.setItem("sb_device_id", deviceId);
       }
 
-      try {
-        const [me, limits, exposure] = await Promise.all([
-          apiGetUsersMe(),
-          apiGetUsersMeLimits().catch(() => null),
-          apiGetUsersMeExposure().catch(() => null),
-        ]);
-        playerProfile.value = me;
-        playerLimits.value = limits;
-        playerExposure.value = exposure;
-        if (me.currency) currency.value = me.currency;
-        if (!canPlayerPlaceBets(me.status)) {
-          console.warn("Player cannot bet — status:", me.status);
-        }
-      } catch (e) {
-        console.warn("GET /users/me failed:", e);
-        playerProfile.value = null;
-      } finally {
-        playerSessionReady.value = true;
+      const session = await loadPlayerSession();
+      if (session.notFound) {
+        notify(
+          "Player account not found. Please contact support.",
+          "warning",
+          "exclamation-triangle",
+          5000,
+        );
+      } else if (!session.ok) {
+        console.warn("Player session could not be loaded");
       }
+      playerSessionReady.value = true;
     })();
     getSBetsData();
     const favoriteMatchesData = window.localStorage.getItem("favoriteMatches");
@@ -211,7 +197,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         paddingBottom: bottomLayoutHeight.value + 50 + "px",
       }}
     >
-      <div className="flex flex-col relative w-full h-full max-w-[1920px] mx-auto">
+      <div className="flex flex-col relative w-full h-full mx-auto">
         <TabList />
         {children}
         <BonusInfoDialog />

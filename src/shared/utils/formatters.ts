@@ -21,12 +21,13 @@ export const formatTime = (timestamp: number): string => {
   return `${hours}:${minutes}`;
 };
 
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, currencyCode?: string): string {
   const { lang = "en-US", currency = "eur" } = getAppConfig();
+  const code = (currencyCode ?? currency ?? "EUR").toUpperCase();
 
   return new Intl.NumberFormat(lang, {
     style: "currency",
-    currency: currency ?? "eur",
+    currency: code,
   }).format(amount);
 }
 

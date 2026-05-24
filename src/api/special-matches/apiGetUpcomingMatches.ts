@@ -24,9 +24,9 @@ type tParam = {
   /** Unix timestamp in seconds, exclusive upper bound. */
   to?: number;
   /** Sport name (e.g. "Soccer"). */
-  sport?: string;
-  region?: string;
-  competition?: string;
+  sportId?: number;
+  regionId?: number;
+  leagueId?: number;
   limit?: number;
   offset?: number;
 };
@@ -34,25 +34,24 @@ type tParam = {
 export const apiGetUpcomingMatches = async ({
   from,
   to,
-  sport,
-  region,
-  competition,
+  sportId,
+  regionId,
+  leagueId,
   limit,
   offset,
 }: tParam): Promise<tGetUpcomingMatchesResponse> => {
+  const params: Record<string, string | number> = {};
+  if (from != null) params.from = String(from);
+  if (to != null) params.to = String(to);
+  if (sportId) params.sportId = sportId;
+  if (regionId) params.regionId = regionId;
+  if (leagueId) params.leagueId = leagueId;
+  if (limit != null) params.limit = String(limit);
+  if (offset != null) params.offset = String(offset);
+
   const response = await instance.get<tGetUpcomingMatchesResponse>(
     `odds88/events/upcoming/array`,
-    {
-      params: {
-        from: from?.toString() || "",
-        to: to?.toString() || "",
-        sport: sport || "",
-        region: region || "",
-        competition: competition || "",
-        limit: limit?.toString() || "",
-        offset: offset?.toString() || "",
-      },
-    },
+    { params },
   );
   return response.data;
 };

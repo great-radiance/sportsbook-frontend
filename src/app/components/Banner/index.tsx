@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import "./style.scss";
-import { popularMatchesState } from "@/state/popularMatchesState";
+import { featuredSummaryData } from "@/state/summarySports";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/themes/light.css";
@@ -97,10 +97,6 @@ export const EmblaBanner = () => {
   const [events, setEvents] = useState<number[]>([]);
   const [, setLocation] = useLocation();
   const baseTheme = baseColorTheme.value;
-  const popularMatches = popularMatchesState.value as Record<
-    string,
-    Record<string, Record<string, number[]>>
-  >;
   useEffect(() => {
     if (!viewportRef.current) return;
 
@@ -140,14 +136,11 @@ export const EmblaBanner = () => {
   // Get winner market (usually the first market)
 
   useEffect(() => {
-    const allIds: number[] = [];
-    for (const sport of Object.keys(popularMatches)) {
-      for (const region of Object.keys(popularMatches[sport] ?? {})) {
-        for (const league of Object.keys(popularMatches[sport][region] ?? {})) {
-          allIds.push(...(popularMatches[sport][region][league] ?? []));
-        }
-      }
-    }
+    const featured = featuredSummaryData.value;
+    const allIds =
+      featured.featuredEventRefs.length > 0
+        ? featured.featuredEventRefs.map((ref) => ref.eventId)
+        : (featured.featuredMatches[1] ?? []);
     setEvents(
       allIds.filter(
         (id) =>
@@ -155,7 +148,11 @@ export const EmblaBanner = () => {
           Object.keys(storeState.value[id]?.value?.markets || {}).length > 0,
       ),
     );
-  }, [popularMatches, storeState.value, loadedMatchesState.value]);
+  }, [
+    featuredSummaryData.value,
+    storeState.value,
+    loadedMatchesState.value,
+  ]);
 
   return (
     <div class="embla">
@@ -173,7 +170,7 @@ export const EmblaBanner = () => {
 
             return (
               <div key={slide.id} className="embla__slide ">
-                <img src={`${slide.image}`} alt={slide.title || "Banner"} />
+                <img src={`aaa${slide.image}`} alt={slide.title || "Banner"} />
                 <div className="banner-overlay-image"></div>
                 {event && (
                   <div className="banner-overlay cursor-pointer h-full">
@@ -207,36 +204,9 @@ export const EmblaBanner = () => {
                       }}
                     >
                       <div class="banner-team flex items-center">
-                        {/* Team logos omitted — product choice: show names only (no club badge URLs). */}
-                        {/*
-                        <img
-                          src={
-                            cachedTeamLogoUrl(
-                              event?.value?.sport?.name,
-                              homeTeam,
-                            ) ||
-                            `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
-                          }
-                          alt={homeTeam}
-                          className="max-w-[20px] max-h-[20px] object-contain shrink-0"
-                        />
-                        */}
                         {homeTeam}
                       </div>
                       <div class="banner-team flex items-center gap-2">
-                        {/*
-                        <img
-                          src={
-                            cachedTeamLogoUrl(
-                              event?.value?.sport?.name,
-                              awayTeam,
-                            ) ||
-                            `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
-                          }
-                          alt={awayTeam}
-                          className="max-w-[20px] max-h-[20px] object-contain shrink-0"
-                        />
-                        */}
                         {awayTeam}
                       </div>
                     </div>

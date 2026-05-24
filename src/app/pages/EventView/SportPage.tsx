@@ -76,7 +76,9 @@ export const SportPage: FunctionComponent = () => {
   );
   const [activeTab, setActiveTab] = useState<
     "highlights" | "competitions" | "upcoming"
-  >("highlights");
+  >(regionName === "upcoming" ? "upcoming" : "highlights");
+
+  console.log("activeTab", activeTab, "regionName", regionName);
   const [upcomingHydrateLoading, setUpcomingHydrateLoading] = useState(false);
   const upcomingHydrateRunRef = useRef(0);
 

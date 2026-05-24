@@ -459,19 +459,19 @@ GET /odds88/events/selected?sportId=1&status=1&tradingStatus=1&lang=en
 GET /odds88/events/selected?sportId=1&marketIds=1,2&sort=ASC&lang=en
 ```
 
-| Param                   | Type                 | Description                                                                                 |
-| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
-| `sportId`               | `number \| number[]` | Filter by sport. Comma-separated or repeated param                                          |
-| `regionId`              | `number \| number[]` | Filter by region/country                                                                    |
-| `leagueId`              | `number \| number[]` | Filter by league                                                                            |
-| `status`                | `number \| number[]` | Event status code(s)                                                                        |
-| `tradingStatus`         | `number \| number[]` | Trading status code(s)                                                                      |
-| `isOutright`            | `boolean`            | `true` for outrights only, `false` for match events only                                    |
-| `isBetBuilderSupported` | `boolean`            | Bet-builder-eligible events only                                                            |
-| `eventIds`              | `number \| number[]` | Fetch specific event IDs                                                                    |
-| `marketIds`             | `number \| number[]` | Return only these market type IDs per event; keeps `isBestLine` market, falls back to first |
-| `sort`                  | `"ASC" \| "DESC"`    | Sort by start time. Default: `ASC`                                                          |
-| `lang`                  | `string`             | Language code for translated names (`en`, `zh`, `th`, …)                                    |
+| Param                   | Type                 | Description                                                                                                                            |
+| ----------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `sportId`               | `number \| number[]` | Filter by sport. Comma-separated or repeated param                                                                                     |
+| `regionId`              | `number \| number[]` | Filter by region/country                                                                                                               |
+| `leagueId`              | `number \| number[]` | Filter by league                                                                                                                       |
+| `status`                | `number \| number[]` | Event status code(s)                                                                                                                   |
+| `tradingStatus`         | `number \| number[]` | Trading status code(s)                                                                                                                 |
+| `isOutright`            | `boolean`            | `true` for outrights only, `false` for match events only                                                                               |
+| `isBetBuilderSupported` | `boolean`            | Bet-builder-eligible events only                                                                                                       |
+| `eventIds`              | `number \| number[]` | Fetch specific event IDs                                                                                                               |
+| `marketIds`             | `number \| number[]` | Return only these market type IDs per event; keeps `isBestLine` market, falls back to first. Omit or pass empty to return all markets. |
+| `sort`                  | `"ASC" \| "DESC"`    | Sort by start time. Default: `ASC`                                                                                                     |
+| `lang`                  | `string`             | Language code for translated names (`en`, `zh`, `th`, …)                                                                               |
 
 **Response format:**
 
@@ -922,12 +922,244 @@ All values are `0` if the player hasn't bet today. That is normal.
 
 ## Betting
 
-### Place a Bet
+This section walks through the complete flow from a player clicking an odds button to a confirmed bet receipt. Follow the steps in order — each step gates the next.
+
+```
+[1] Pre-flight checks  →  [2] Build bet slip  →  [3] Validate stake
+        ↓
+[4] Generate idempotency key  →  [5] Submit bet
+        ↓
+[6] Handle response
+   ├─ accepted  →  [7] Post-placement actions
+   ├─ ODDS_CHANGED  →  [8] Refresh odds & resubmit
+   ├─ other rejection  →  show rejection message
+   └─ network failure  →  [9] Retry with same key
+```
+
+---
+
+### Step 1 — Pre-flight checks
+
+Before the player can interact with the bet slip, verify three things in parallel on session start:
+
+```js
+const [profile, limits, balance] = await Promise.all([
+  fetch("/api/v1/users/me", { headers: playerHeaders }).then((r) => r.json()),
+  fetch("/api/v1/users/me/limits", { headers: playerHeaders }).then((r) =>
+    r.json(),
+  ),
+  fetchBalanceFromYourOperatorBackend(), // your own backend
+]);
+```
+
+**1a — Check player status**
+
+If `profile.data.status` is anything other than `active` or `limited`, disable the bet slip entirely.
+
+| Status                 | Bet slip | What to show                                             |
+| ---------------------- | -------- | -------------------------------------------------------- |
+| `active`               | Enabled  | —                                                        |
+| `limited`              | Enabled  | "Responsible gambling limits are active on your account" |
+| `suspended`            | Disabled | "Your account is temporarily suspended"                  |
+| `blocked`              | Disabled | "Your account has been blocked. Please contact support"  |
+| `self_excluded`        | Disabled | "You have self-excluded from betting"                    |
+| `pending_verification` | Disabled | "Please verify your identity to continue betting"        |
+
+```js
+const canBet = ["active", "limited"].includes(profile.data.status);
+setBetSlipEnabled(canBet);
+if (!canBet) showStatusBanner(profile.data.status);
+```
+
+**1b — Store limits for stake validation (Step 3)**
+
+```js
+const { single, parlay } = limits.data;
+// single.minStake, single.maxStake, single.maxPayout
+// parlay.minStake, parlay.maxStake, parlay.maxPayout, parlay.maxParlayLegs
+```
+
+**1c — Check sufficient balance**
+
+Do not block the bet slip for low balance — only surface this at submission time via `WALLET_RESERVE_FAILED`. However, you can disable the "Place Bet" button client-side if the entered stake already exceeds the known balance.
+
+---
+
+### Step 2 — Build the Bet Slip
+
+The bet slip holds a list of **legs**. There are two leg types:
+
+| Leg type        | Source                                                                             | `betBuilderBetItems` in payload                   |
+| --------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Regular**     | Player clicks an odds button anywhere in the UI                                    | Not included                                      |
+| **Bet Builder** | Player picks 2+ selections from one event in the BB UI, then gets a combined price | Required — lists all component markets/selections |
+
+A BB leg counts as **one leg** toward `parlay.maxParlayLegs` regardless of how many components it has.
+
+**Regular leg — internal UI state:**
+
+```js
+{
+  type:          'selection',
+  eventId:       5001,
+  marketId:      1,
+  selectionId:   10234,
+  odds:          2.20,
+  eventName:     'Arsenal vs Chelsea',
+  marketName:    'Match Winner',
+  selectionName: 'Arsenal',
+}
+```
+
+**Bet Builder leg — internal UI state:**
+
+```js
+{
+  type:      'betbuilder',
+  eventId:   5001,
+  eventName: 'Arsenal vs Chelsea',
+  odds:      4.75,           // combined price from POST /odds88/bet-builder/price
+  components: [
+    { marketId: 1,  selectionId: 10234, marketName: 'Match Winner',      selectionName: 'Arsenal' },
+    { marketId: 14, selectionId: 10891, marketName: 'Anytime Goalscorer', selectionName: 'Bukayo Saka' },
+  ],
+}
+```
+
+See the [Bet Builder](#bet-builder) section for the full flow on getting the combined price.
+
+**Determine bet type:**
+
+| Legs in slip      | `betType`  |
+| ----------------- | ---------- |
+| 1 (regular or BB) | `"single"` |
+| 2 or more         | `"parlay"` |
+
+**Parlay combinations supported:**
+
+| Combination                                       | Allowed                                 |
+| ------------------------------------------------- | --------------------------------------- |
+| Regular + Regular (different events)              | YES                                     |
+| BB leg + Regular (different events)               | YES                                     |
+| BB leg + BB leg (different events)                | YES                                     |
+| Regular + Regular (same event, different markets) | NO — odds provider rejects              |
+| BB components from different events               | NO — a single BB leg must use one event |
+
+**Adding a leg to the slip:**
+
+```js
+function addLeg(leg) {
+  if (slip.length >= limits.parlay.maxParlayLegs) {
+    showError(`Maximum ${limits.parlay.maxParlayLegs} legs per parlay`);
+    return;
+  }
+  // Prevent two legs from the same event (unless combining inside a BB leg)
+  const sameEvent = slip.some((s) => s.eventId === leg.eventId);
+  if (sameEvent && leg.type !== "betbuilder") {
+    removeMatchingLeg(leg.eventId); // toggle off
+    return;
+  }
+  setSlip([...slip, leg]);
+  idempotencyKey = crypto.randomUUID(); // new key whenever slip changes
+}
+```
+
+**Combined odds (all leg types):**
+
+```js
+const combinedOdds = slip.reduce((acc, leg) => acc * leg.odds, 1);
+const potentialPayout = stake * combinedOdds;
+```
+
+Both regular legs and BB legs contribute their `.odds` value to the product — the BB leg already has the combined price baked in.
+
+---
+
+### Step 3 — Validate Stake Input
+
+Validate before enabling the "Place Bet" button. All limits come from `GET /users/me/limits` (Step 1).
+
+```js
+function validateStake(stake, betType) {
+  const lim = betType === "single" ? limits.single : limits.parlay;
+  const combinedOdds = slip.reduce((acc, s) => acc * s.odds, 1);
+  const potentialPayout = stake * combinedOdds;
+
+  if (stake < lim.minStake)
+    return `Minimum stake is ${lim.minStake} ${currency}`;
+  if (stake > lim.maxStake)
+    return `Maximum stake is ${lim.maxStake} ${currency}`;
+  if (potentialPayout > lim.maxPayout)
+    return `Potential payout exceeds maximum of ${lim.maxPayout} ${currency}`;
+
+  return null; // valid
+}
+```
+
+Show limits inline on the stake input:
+
+```
+Stake: [_______]   Min: $1.00 · Max: $10,000.00
+Potential payout: $125.00   Max payout: $500,000.00
+```
+
+---
+
+### Step 4 — Generate the Idempotency Key
+
+Generate one key per bet attempt. The key prevents double-placement on network retries.
+
+```js
+// Generate once when the player opens the slip or makes any change to it
+let idempotencyKey = crypto.randomUUID();
+```
+
+**Key lifecycle rules:**
+
+| Event                               | Action                           |
+| ----------------------------------- | -------------------------------- |
+| Player opens bet slip               | Generate new key                 |
+| Player changes selection or stake   | Generate new key                 |
+| Network failure on submission       | **Reuse the same key**           |
+| Bet rejected (`ODDS_CHANGED`, etc.) | Generate new key before resubmit |
+| Bet accepted                        | Discard — do not reuse           |
+
+```js
+// Good: generate once, hold it, reuse only on network failure
+const betPayload = { idempotencyKey, betType, stake, currency, selections };
+
+// On ODDS_CHANGED rejection: generate a new key
+idempotencyKey = crypto.randomUUID();
+```
+
+---
+
+### Step 5 — Submit the Bet
 
 ```
 POST /bets/place
 Headers: x-user-id, x-operator-id, x-currency
+Content-Type: application/json
 ```
+
+#### Payload field reference
+
+| Field                             | Required     | Notes                                                                                      |
+| --------------------------------- | ------------ | ------------------------------------------------------------------------------------------ |
+| `idempotencyKey`                  | YES          | Fresh UUID per bet attempt. Reuse only on network-failure retry — never after a rejection. |
+| `betType`                         | YES          | `"single"` (1 leg) or `"parlay"` (2+ legs)                                                 |
+| `stake`                           | YES          | Amount in the player's currency                                                            |
+| `currency`                        | NO           | Defaults to the player's currency from headers                                             |
+| `selections`                      | YES          | Array of legs — one entry per leg, regardless of type                                      |
+| `selections[].eventId`            | YES          | The event this leg belongs to                                                              |
+| `selections[].marketId`           | YES          | Regular leg: the market ID. BB leg: always **`-1`**                                        |
+| `selections[].selectionId`        | YES          | Regular leg: the selection ID. BB leg: always **`-1`**                                     |
+| `selections[].odds`               | YES          | Regular leg: live price. BB leg: **combined price** from `POST /odds88/bet-builder/price`  |
+| `selections[].betBuilderBetItems` | BB legs only | Array of `{ marketId, selectionId }` for every component that makes up this BB leg         |
+
+---
+
+#### Payload A — Regular single
 
 ```json
 {
@@ -940,23 +1172,214 @@ Headers: x-user-id, x-operator-id, x-currency
       "eventId": 5001,
       "marketId": 1,
       "selectionId": 10234,
-      "odds": 2.5
+      "odds": 2.2
     }
   ]
 }
 ```
 
-| Field            | Required | Notes                                                                                        |
-| ---------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `idempotencyKey` | YES      | Fresh UUID per bet. Reuse the same key on network-failure retry to prevent double placement. |
-| `betType`        | YES      | `single` or `parlay`                                                                         |
-| `stake`          | YES      | Amount in the player's currency                                                              |
-| `currency`       | NO       | Defaults to the player's currency                                                            |
-| `selections`     | YES      | 1 item for single, 2+ for parlay                                                             |
+#### Payload B — Regular parlay (no bet builder)
 
-The platform validates that the `odds` you send still match the live value. If they moved, the bet is rejected with `ODDS_CHANGED`.
+```json
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440002",
+  "betType": "parlay",
+  "stake": 10.0,
+  "currency": "USD",
+  "selections": [
+    { "eventId": 5001, "marketId": 1, "selectionId": 10234, "odds": 2.2 },
+    { "eventId": 5002, "marketId": 14, "selectionId": 10891, "odds": 1.85 },
+    { "eventId": 5003, "marketId": 1, "selectionId": 11002, "odds": 3.1 }
+  ]
+}
+```
 
-**Accepted (201):**
+Combined odds: 2.20 × 1.85 × 3.10 = **12.62**. Potential payout: **$126.20**
+
+#### Payload C — Bet Builder single
+
+```json
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440010",
+  "betType": "single",
+  "stake": 10.0,
+  "currency": "USD",
+  "selections": [
+    {
+      "eventId": 5001,
+      "marketId": -1,
+      "selectionId": -1,
+      "odds": 4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1, "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    }
+  ]
+}
+```
+
+`marketId: -1` and `selectionId: -1` are the sentinel values that tell the platform and odds provider this is a Bet Builder leg. `betType` is still `"single"` because there is **one leg**. Potential payout: 10.00 × 4.75 = **$47.50**
+
+#### Payload D — Bet Builder leg + regular leg (2-fold parlay)
+
+```json
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440011",
+  "betType": "parlay",
+  "stake": 10.0,
+  "currency": "USD",
+  "selections": [
+    {
+      "eventId": 5001,
+      "marketId": -1,
+      "selectionId": -1,
+      "odds": 4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1, "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    },
+    {
+      "eventId": 5002,
+      "marketId": 5,
+      "selectionId": 20100,
+      "odds": 1.85
+    }
+  ]
+}
+```
+
+Combined odds: 4.75 × 1.85 = **8.79**. Potential payout: **$87.90**
+
+#### Payload E — Bet Builder leg + regular leg + regular leg (3-fold parlay)
+
+```json
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440012",
+  "betType": "parlay",
+  "stake": 5.0,
+  "currency": "USD",
+  "selections": [
+    {
+      "eventId": 5001,
+      "marketId": -1,
+      "selectionId": -1,
+      "odds": 4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1, "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    },
+    {
+      "eventId": 5002,
+      "marketId": 1,
+      "selectionId": 11002,
+      "odds": 1.85
+    },
+    {
+      "eventId": 5003,
+      "marketId": 2,
+      "selectionId": 30088,
+      "odds": 1.6
+    }
+  ]
+}
+```
+
+Combined odds: 4.75 × 1.85 × 1.60 = **14.06**. Potential payout: **$70.30**
+
+#### Payload F — Bet Builder leg + Bet Builder leg (2-fold parlay, different events)
+
+```json
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440013",
+  "betType": "parlay",
+  "stake": 10.0,
+  "currency": "USD",
+  "selections": [
+    {
+      "eventId": 5001,
+      "marketId": -1,
+      "selectionId": -1,
+      "odds": 4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1, "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    },
+    {
+      "eventId": 5002,
+      "marketId": -1,
+      "selectionId": -1,
+      "odds": 3.2,
+      "betBuilderBetItems": [
+        { "marketId": 5, "selectionId": 20100 },
+        { "marketId": 8, "selectionId": 20505 }
+      ]
+    }
+  ]
+}
+```
+
+Each BB leg is from a different event. Combined odds: 4.75 × 3.20 = **15.20**. Potential payout: **$152.00**
+
+---
+
+**JavaScript — universal submit function (handles all leg types):**
+
+```js
+async function submitBet() {
+  setSubmitting(true);
+  try {
+    const res = await fetch("/api/v1/bets/place", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...playerHeaders },
+      body: JSON.stringify({
+        idempotencyKey,
+        betType: slip.length === 1 ? "single" : "parlay",
+        stake,
+        currency,
+        selections: slip.map((leg) => {
+          if (leg.type === "betbuilder") {
+            return {
+              eventId: leg.eventId,
+              marketId: -1,
+              selectionId: -1,
+              odds: leg.odds,
+              betBuilderBetItems: leg.components.map((c) => ({
+                marketId: c.marketId,
+                selectionId: c.selectionId,
+              })),
+            };
+          }
+          return {
+            eventId: leg.eventId,
+            marketId: leg.marketId,
+            selectionId: leg.selectionId,
+            odds: leg.odds,
+          };
+        }),
+      }),
+    });
+    const result = await res.json();
+    await handleBetResponse(result, res.status);
+  } catch (err) {
+    // Network failure — see Step 9
+    handleNetworkFailure();
+  } finally {
+    setSubmitting(false);
+  }
+}
+```
+
+---
+
+### Step 6 — Handle the Response
+
+The platform returns two distinct shapes depending on whether the bet was accepted or rejected.
+
+**Accepted (HTTP 201):**
 
 ```json
 {
@@ -964,8 +1387,8 @@ The platform validates that the `odds` you send still match the live value. If t
   "status": "accepted",
   "betType": "single",
   "stakeAmount": 50.0,
-  "potentialPayout": 125.0,
-  "combinedOdds": 2.5,
+  "potentialPayout": 110.0,
+  "combinedOdds": 2.2,
   "currency": "USD",
   "createdAt": "2026-05-18T10:01:00.000Z",
   "selections": [
@@ -976,13 +1399,15 @@ The platform validates that the `odds` you send still match the live value. If t
       "eventName": "Arsenal vs Chelsea",
       "marketName": "Match Winner",
       "selectionName": "Arsenal",
-      "odds": 2.5
+      "odds": 2.2
     }
   ]
 }
 ```
 
-**Rejected (200):**
+Show the bet receipt using `betId`, `potentialPayout`, and `combinedOdds`. Then proceed to Step 7.
+
+**Rejected (HTTP 200):**
 
 ```json
 {
@@ -995,23 +1420,305 @@ The platform validates that the `odds` you send still match the live value. If t
 }
 ```
 
-### Rejection Reasons
+Map `rejectionReason` to a player-facing message:
 
-| Code                    | Show to player                                             |
-| ----------------------- | ---------------------------------------------------------- |
-| `USER_SUSPENDED`        | Your account is currently suspended                        |
-| `SELECTION_CLOSED`      | This market is no longer available                         |
-| `ODDS_CHANGED`          | Odds have changed — please review and resubmit             |
-| `STAKE_BELOW_MIN`       | Minimum stake is {minStake} {currency}                     |
-| `STAKE_ABOVE_MAX`       | Maximum stake is {maxStake} {currency}                     |
-| `PAYOUT_ABOVE_MAX`      | Potential payout exceeds the maximum allowed               |
-| `DAILY_STAKE_EXCEEDED`  | You have reached your daily stake limit                    |
-| `DAILY_PAYOUT_EXCEEDED` | Daily payout limit reached                                 |
-| `MAX_EXPOSURE_EXCEEDED` | Betting temporarily unavailable — please try again shortly |
-| `WALLET_RESERVE_FAILED` | Payment failed — check your balance and try again          |
-| `DUPLICATE_BET`         | This bet was already submitted                             |
+| Code                    | Show to player                                             | What to do next                           |
+| ----------------------- | ---------------------------------------------------------- | ----------------------------------------- |
+| `ODDS_CHANGED`          | Odds have changed — please review and resubmit             | Go to Step 8                              |
+| `SELECTION_CLOSED`      | This market is no longer available                         | Remove the selection from slip            |
+| `USER_SUSPENDED`        | Your account is temporarily suspended                      | Disable slip, re-check `GET /users/me`    |
+| `STAKE_BELOW_MIN`       | Minimum stake is {minStake} {currency}                     | Highlight stake input                     |
+| `STAKE_ABOVE_MAX`       | Maximum stake is {maxStake} {currency}                     | Highlight stake input                     |
+| `PAYOUT_ABOVE_MAX`      | Potential payout exceeds the maximum allowed               | Reduce stake                              |
+| `DAILY_STAKE_EXCEEDED`  | You have reached your daily stake limit                    | Disable slip                              |
+| `DAILY_PAYOUT_EXCEEDED` | Daily payout limit reached                                 | Disable slip                              |
+| `MAX_EXPOSURE_EXCEEDED` | Betting temporarily unavailable — please try again shortly | Retry after 30 s                          |
+| `WALLET_RESERVE_FAILED` | Payment failed — check your balance and try again          | Re-fetch balance                          |
+| `DUPLICATE_BET`         | This bet was already submitted                             | Fetch existing bet via `GET /bets/:betId` |
 
-**On `ODDS_CHANGED`:** re-fetch the latest odds, show the new value to the player, and generate a **new** `idempotencyKey` before resubmitting.
+**Provider registration failure (HTTP 502):**
+
+The bet was accepted and the player's balance was reserved, but the platform failed to register it with the odds provider. Cashout will not be available for this bet.
+
+```json
+{ "error": "Bet was accepted but failed to register with odds provider" }
+```
+
+Show the bet as placed. Advise the player to contact support if cashout is not visible.
+
+```js
+async function handleBetResponse(result, httpStatus) {
+  if (httpStatus === 502) {
+    showPartialAcceptanceBanner(); // "Bet placed — cashout may be unavailable"
+    clearSlip();
+    return;
+  }
+  if (result.status === "accepted") {
+    showBetReceipt(result);
+    clearSlip();
+    await postPlacementActions(result.betId);
+  } else if (result.rejectionReason === "ODDS_CHANGED") {
+    await handleOddsChanged(); // Step 8
+  } else if (result.rejectionReason === "DUPLICATE_BET") {
+    const existing = await fetch(`/api/v1/bets/${result.betId}`, {
+      headers: playerHeaders,
+    }).then((r) => r.json());
+    showBetReceipt(existing.data);
+  } else {
+    showRejectionMessage(result.rejectionReason);
+    if (
+      [
+        "USER_SUSPENDED",
+        "DAILY_STAKE_EXCEEDED",
+        "DAILY_PAYOUT_EXCEEDED",
+      ].includes(result.rejectionReason)
+    ) {
+      setBetSlipEnabled(false);
+    }
+  }
+}
+```
+
+---
+
+### Step 7 — Post-placement Actions
+
+After every accepted bet, run these three actions:
+
+**7a — Refresh balance**
+
+The player's balance has changed. Fetch fresh balance from your operator backend immediately.
+
+```js
+const newBalance = await fetchBalanceFromYourOperatorBackend();
+updateBalanceDisplay(newBalance);
+```
+
+**7b — Subscribe to cashout**
+
+Start monitoring cashout eligibility so the "Cash Out" button can appear in My Bets.
+
+```js
+await fetch("/api/v1/odds88/cashout/subscribe", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...playerHeaders },
+  body: JSON.stringify({ betSlipId: betId, playerId: userId }),
+});
+```
+
+**7c — Begin status polling (for open bets)**
+
+Poll the lightweight status endpoint every 5–10 seconds. Stop when the status is terminal.
+
+```js
+const TERMINAL = new Set(["won", "lost", "voided", "cashed_out", "cancelled"]);
+
+async function pollBetStatus(betId) {
+  const res = await fetch(`/api/v1/bets/${betId}/status`, {
+    headers: playerHeaders,
+  });
+  const data = await res.json();
+
+  updateBetStatusInUI(betId, data.status);
+
+  if (!TERMINAL.has(data.status)) {
+    setTimeout(() => pollBetStatus(betId), 7_000);
+  } else {
+    // Terminal — fetch full detail and stop polling
+    const detail = await fetch(`/api/v1/bets/${betId}`, {
+      headers: playerHeaders,
+    }).then((r) => r.json());
+    showFinalBetResult(detail.data);
+    await fetch("/api/v1/odds88/cashout/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...playerHeaders },
+      body: JSON.stringify({ betSlipId: betId }),
+    });
+  }
+}
+
+pollBetStatus(betId);
+```
+
+---
+
+### Step 8 — Handle ODDS_CHANGED
+
+The platform validates submitted odds against the live feed. If the odds moved between the player clicking and submitting, the bet is rejected with `ODDS_CHANGED`.
+
+**Do not silently resubmit.** Always show the player the new price and require confirmation before resubmitting.
+
+```js
+async function handleOddsChanged() {
+  // 1. Re-fetch current odds for each selection in the slip
+  const updatedSelections = await Promise.all(
+    slip.map(async (sel) => {
+      const event = await fetch(`/api/v1/odds88/events/${sel.eventId}`).then(
+        (r) => r.json(),
+      );
+      const market = event.data.markets.find((m) => m.id === sel.marketId);
+      const selection = market?.selections.find(
+        (s) => s.id === sel.selectionId,
+      );
+      return { ...sel, newOdds: selection?.price ?? null };
+    }),
+  );
+
+  // 2. Separate moved and closed selections
+  const closed = updatedSelections.filter((s) => s.newOdds === null);
+  const moved = updatedSelections.filter(
+    (s) => s.newOdds !== null && s.newOdds !== s.odds,
+  );
+
+  // 3. Remove closed selections
+  closed.forEach((s) => removeFromSlip(s.selectionId));
+
+  // 4. Show dialog for moved odds — require player confirmation
+  if (moved.length > 0) {
+    const accepted = await showOddsMovedDialog(
+      moved.map((s) => ({
+        name: s.selectionName,
+        oldOdds: s.odds,
+        newOdds: s.newOdds,
+      })),
+    );
+
+    if (!accepted) return; // player declined — leave slip as-is with new prices displayed
+
+    // 5. Update slip with new odds
+    moved.forEach((s) => updateSlipOdds(s.selectionId, s.newOdds));
+  }
+
+  // 6. Generate a NEW idempotency key — never reuse the rejected key
+  idempotencyKey = crypto.randomUUID();
+
+  // 7. Resubmit
+  await submitBet();
+}
+```
+
+**Odds moved UI:**
+
+```
+⚠ Odds have changed
+
+  Match Winner · Arsenal    2.20 → 2.05  ↓
+  Total Goals  · Over 2.5   1.85 → 1.90  ↑
+
+  [Cancel]   [Accept new odds & place bet]
+```
+
+Highlight price decreases in red and price increases in green. Let the player choose to accept or cancel.
+
+---
+
+### Step 9 — Network Failure Retry
+
+If the `fetch` throws (timeout, connection dropped, etc.) before you receive any response, you do not know whether the bet was placed server-side.
+
+**Reuse the same `idempotencyKey`.** The platform de-duplicates on this key — submitting twice with the same key is safe.
+
+```js
+let retryCount = 0;
+const MAX_RETRIES = 3;
+
+async function handleNetworkFailure() {
+  if (retryCount >= MAX_RETRIES) {
+    showError("Unable to confirm your bet. Please check My Bets or try again.");
+    return;
+  }
+  retryCount++;
+  const delay = Math.min(1000 * 2 ** retryCount, 10_000); // 2 s, 4 s, 8 s
+  showRetryingBanner(retryCount, delay);
+  await new Promise((r) => setTimeout(r, delay));
+  await submitBet(); // same idempotencyKey — intentional
+}
+```
+
+If `GET /bets/history?status=pending` shows the bet already exists, stop retrying and display it.
+
+A **409 Conflict** response means the key was already used successfully — fetch the existing bet:
+
+```js
+if (httpStatus === 409) {
+  // idempotencyKey already accepted — find and show the existing bet
+  const history = await fetch("/api/v1/bets/history?status=accepted&limit=1", {
+    headers: playerHeaders,
+  }).then((r) => r.json());
+  showBetReceipt(history.data[0]);
+}
+```
+
+---
+
+### Complete Flow — Code Skeleton
+
+```js
+// Session init (run in parallel on app load)
+const [profile, limits] = await Promise.all([
+  fetch("/api/v1/users/me", { headers: playerHeaders }).then((r) => r.json()),
+  fetch("/api/v1/users/me/limits", { headers: playerHeaders }).then((r) =>
+    r.json(),
+  ),
+]);
+const canBet = ["active", "limited"].includes(profile.data.status);
+
+// Bet slip state
+// Each entry is either a regular leg ({ type:'selection', ... })
+// or a BB leg ({ type:'betbuilder', components:[...], odds: <combined>, ... })
+let slip = [];
+let stake = 0;
+let idempotencyKey = crypto.randomUUID();
+let retryCount = 0;
+
+// When player clicks an odds button (regular leg)
+function onOddsClick(leg) {
+  if (!canBet) return;
+  addLeg({ type: "selection", ...leg }); // Step 2
+  idempotencyKey = crypto.randomUUID();
+  retryCount = 0;
+}
+
+// When player adds a BB leg (after getting price from /odds88/bet-builder/price)
+function onBBLegConfirmed(eventId, eventName, components, combinedPrice) {
+  if (!canBet) return;
+  addLeg({
+    type: "betbuilder",
+    eventId,
+    eventName,
+    odds: combinedPrice,
+    components,
+  });
+  idempotencyKey = crypto.randomUUID();
+  retryCount = 0;
+}
+
+// When player changes stake
+function onStakeChange(value) {
+  stake = value;
+  const betType = slip.length === 1 ? "single" : "parlay";
+  const error = validateStake(stake, betType); // Step 3
+  setStakeError(error);
+  idempotencyKey = crypto.randomUUID();
+  retryCount = 0;
+}
+
+// When player taps "Place Bet"
+async function onPlaceBet() {
+  const betType = slip.length === 1 ? "single" : "parlay";
+  if (!canBet || validateStake(stake, betType)) return;
+  await submitBet(); // Steps 5 → 6 → 7 / 8 / 9
+}
+```
+
+---
+
+### API Reference
+
+```
+POST /bets/place
+Headers: x-user-id, x-operator-id, x-currency
+```
 
 ---
 
@@ -1030,10 +1737,12 @@ Headers: x-user-id, x-operator-id
 | `betType`     | —        | `single` `parlay`                                                              |
 | `from` / `to` | —        | ISO date range                                                                 |
 | `sort`        | `newest` | `newest` `oldest`                                                              |
+| `sportId`     | —        | Filter by sport ID                                                             |
+| `leagueId`    | —        | Filter by league ID                                                            |
 | `page`        | `1`      | —                                                                              |
 | `limit`       | `20`     | max `100`                                                                      |
 
-**Response (200):**
+**Response (200) — regular single bet:**
 
 ```json
 {
@@ -1059,6 +1768,8 @@ Headers: x-user-id, x-operator-id
           "selectionId": 10234,
           "eventId": 5001,
           "marketId": 1,
+          "isBetBuilder": false,
+          "betBuilderBetItems": [],
           "eventName": "Arsenal vs Chelsea",
           "marketName": "Match Winner",
           "selectionName": "Arsenal",
@@ -1071,9 +1782,142 @@ Headers: x-user-id, x-operator-id
 }
 ```
 
+**Response (200) — Bet Builder single:**
+
+```json
+{
+  "total": 12,
+  "page": 1,
+  "limit": 20,
+  "data": [
+    {
+      "betId": "6645abc123def222",
+      "betType": "single",
+      "stakeAmount": 10.0,
+      "potentialPayout": 47.5,
+      "actualPayout": null,
+      "status": "accepted",
+      "currency": "USD",
+      "combinedOdds": 4.75,
+      "createdAt": "2026-05-18T10:05:00.000Z",
+      "settledAt": null,
+      "selectionCount": 1,
+      "shortResult": "Pending",
+      "selections": [
+        {
+          "selectionId": -1,
+          "eventId": 5001,
+          "marketId": -1,
+          "isBetBuilder": true,
+          "betBuilderBetItems": [
+            { "marketId": 1, "selectionId": 10234 },
+            { "marketId": 14, "selectionId": 10891 }
+          ],
+          "eventName": "Arsenal vs Chelsea",
+          "marketName": "Bet Builder",
+          "selectionName": "Bet Builder",
+          "oddsAtPlacement": 4.75,
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Response (200) — mixed parlay (BB leg + regular leg):**
+
+```json
+{
+  "total": 5,
+  "page": 1,
+  "limit": 20,
+  "data": [
+    {
+      "betId": "6645abc123def333",
+      "betType": "parlay",
+      "stakeAmount": 10.0,
+      "potentialPayout": 87.9,
+      "actualPayout": null,
+      "status": "accepted",
+      "currency": "USD",
+      "combinedOdds": 8.79,
+      "createdAt": "2026-05-18T10:10:00.000Z",
+      "settledAt": null,
+      "selectionCount": 2,
+      "shortResult": "Pending",
+      "selections": [
+        {
+          "selectionId": -1,
+          "eventId": 5001,
+          "marketId": -1,
+          "isBetBuilder": true,
+          "betBuilderBetItems": [
+            { "marketId": 1, "selectionId": 10234 },
+            { "marketId": 14, "selectionId": 10891 }
+          ],
+          "eventName": "Arsenal vs Chelsea",
+          "marketName": "Bet Builder",
+          "selectionName": "Bet Builder",
+          "oddsAtPlacement": 4.75,
+          "status": "pending"
+        },
+        {
+          "selectionId": 20100,
+          "eventId": 5002,
+          "marketId": 5,
+          "isBetBuilder": false,
+          "betBuilderBetItems": [],
+          "eventName": "Man City vs Liverpool",
+          "marketName": "Match Winner",
+          "selectionName": "Man City",
+          "oddsAtPlacement": 1.85,
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Rendering BB legs in the history list:**
+
+Check `isBetBuilder` on each selection to decide how to render it:
+
+```js
+function renderHistorySelection(sel) {
+  if (sel.isBetBuilder) {
+    return (
+      <div className="bb-history-leg">
+        <span className="event">{sel.eventName}</span>
+        <span className="badge">Bet Builder</span>
+        <span className="odds">{sel.oddsAtPlacement.toFixed(2)}</span>
+        <ul className="components">
+          {sel.betBuilderBetItems.map((item, i) => (
+            <li key={i}>
+              Market {item.marketId} · Selection {item.selectionId}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  return (
+    <div className="regular-leg">
+      <span className="event">{sel.eventName}</span>
+      <span className="market">{sel.marketName}</span>
+      <span className="selection">{sel.selectionName}</span>
+      <span className="odds">{sel.oddsAtPlacement.toFixed(2)}</span>
+    </div>
+  );
+}
+```
+
+> The `betBuilderBetItems` array contains the raw `marketId`/`selectionId` pairs. The human-readable names for each component are not stored — if you need them for display, resolve them against the live event data from `GET /odds88/events/:eventId`.
+
 `shortResult` is pre-formatted for display: `"Pending"`, `"Won USD 125.00"`, `"Lost"`, `"Voided"`, `"Cashed Out USD 37.50"`, `"Cancelled"`.
 
-Each item in `selections` contains the human-readable names frozen at placement time — use `eventName` as the primary label and `selectionName` as the outcome label when rendering the history list.
+---
 
 ### Bet Detail
 
@@ -1082,7 +1926,7 @@ GET /bets/:betId
 Headers: x-user-id, x-operator-id
 ```
 
-**Success (200):**
+**Success (200) — regular parlay:**
 
 ```json
 {
@@ -1094,39 +1938,174 @@ Headers: x-user-id, x-operator-id
     "potentialPayout": 625.0,
     "actualPayout": null,
     "combinedOdds": 25.0,
+    "selectionCount": 2,
     "currency": "USD",
+    "walletReserveRef": "txn_abc123",
+    "rejectionReason": null,
     "createdAt": "2026-05-18T10:01:00.000Z",
     "acceptedAt": "2026-05-18T10:01:00.100Z",
     "settledAt": null,
     "cashoutAmount": null,
+    "cashoutAt": null,
     "selections": [
       {
         "selectionId": 10234,
         "eventId": 5001,
         "marketId": 1,
+        "isBetBuilder": false,
+        "betBuilderBetItems": [],
         "eventName": "Arsenal vs Chelsea",
         "marketName": "Match Winner",
         "selectionName": "Arsenal",
         "status": "pending",
+        "settlementResult": null,
         "oddsAtPlacement": 2.5,
-        "stakePortion": 50.0,
-        "potentialPayout": 125.0,
+        "stakePortion": 25.0,
+        "potentialPayout": 62.5,
         "actualPayout": null,
         "settledAt": null,
-        "eventSnapshot": {
-          "id": 5001,
-          "name": "Arsenal vs Chelsea",
-          "...": "..."
-        },
+        "eventSnapshot": { "id": 5001, "name": "Arsenal vs Chelsea" },
         "marketSnapshot": { "id": 1, "name": "Match Winner" },
         "selectionSnapshot": { "id": 10234, "name": "Arsenal", "price": 2.5 }
+      }
+    ],
+    "statusTimeline": [
+      {
+        "fromStatus": "pending",
+        "toStatus": "accepted",
+        "reason": null,
+        "createdBy": "system",
+        "createdAt": "2026-05-18T10:01:00.100Z"
+      }
+    ],
+    "walletTransactions": [
+      {
+        "operation": "debit",
+        "status": "success",
+        "externalRef": "txn_abc123",
+        "amount": 25.0,
+        "currency": "USD",
+        "createdAt": "2026-05-18T10:01:00.000Z"
       }
     ]
   }
 }
 ```
 
-`eventName`, `marketName`, and `selectionName` are the primary labels — use these to render the bet receipt and detail view. The full `eventSnapshot`, `marketSnapshot`, and `selectionSnapshot` objects are also provided, frozen at placement time, for any additional context you may need (scores, competitor details, etc.).
+**Success (200) — BB leg + regular leg parlay:**
+
+```json
+{
+  "data": {
+    "betId": "6645abc123def333",
+    "betType": "parlay",
+    "status": "accepted",
+    "stakeAmount": 10.0,
+    "potentialPayout": 87.9,
+    "actualPayout": null,
+    "combinedOdds": 8.79,
+    "selectionCount": 2,
+    "currency": "USD",
+    "walletReserveRef": "txn_def456",
+    "rejectionReason": null,
+    "createdAt": "2026-05-18T10:10:00.000Z",
+    "acceptedAt": "2026-05-18T10:10:00.120Z",
+    "settledAt": null,
+    "cashoutAmount": null,
+    "cashoutAt": null,
+    "selections": [
+      {
+        "selectionId": -1,
+        "eventId": 5001,
+        "marketId": -1,
+        "isBetBuilder": true,
+        "betBuilderBetItems": [
+          { "marketId": 1, "selectionId": 10234 },
+          { "marketId": 14, "selectionId": 10891 }
+        ],
+        "eventName": "Arsenal vs Chelsea",
+        "marketName": "Bet Builder",
+        "selectionName": "Bet Builder",
+        "status": "pending",
+        "settlementResult": null,
+        "oddsAtPlacement": 4.75,
+        "stakePortion": 10.0,
+        "potentialPayout": 47.5,
+        "actualPayout": null,
+        "settledAt": null,
+        "eventSnapshot": { "id": 5001, "name": "Arsenal vs Chelsea" },
+        "marketSnapshot": { "id": -1, "name": "Bet Builder" },
+        "selectionSnapshot": { "id": -1, "name": "Bet Builder", "price": 4.75 }
+      },
+      {
+        "selectionId": 20100,
+        "eventId": 5002,
+        "marketId": 5,
+        "isBetBuilder": false,
+        "betBuilderBetItems": [],
+        "eventName": "Man City vs Liverpool",
+        "marketName": "Match Winner",
+        "selectionName": "Man City",
+        "status": "pending",
+        "settlementResult": null,
+        "oddsAtPlacement": 1.85,
+        "stakePortion": 10.0,
+        "potentialPayout": 18.5,
+        "actualPayout": null,
+        "settledAt": null,
+        "eventSnapshot": { "id": 5002, "name": "Man City vs Liverpool" },
+        "marketSnapshot": { "id": 5, "name": "Match Winner" },
+        "selectionSnapshot": { "id": 20100, "name": "Man City", "price": 1.85 }
+      }
+    ],
+    "statusTimeline": [
+      {
+        "fromStatus": "pending",
+        "toStatus": "accepted",
+        "reason": null,
+        "createdBy": "system",
+        "createdAt": "2026-05-18T10:10:00.120Z"
+      }
+    ],
+    "walletTransactions": [
+      {
+        "operation": "debit",
+        "status": "success",
+        "externalRef": "txn_def456",
+        "amount": 10.0,
+        "currency": "USD",
+        "createdAt": "2026-05-18T10:10:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Selection field reference:**
+
+| Field                | Regular leg           | Bet Builder leg                                          |
+| -------------------- | --------------------- | -------------------------------------------------------- |
+| `selectionId`        | Selection ID          | `-1`                                                     |
+| `marketId`           | Market ID             | `-1`                                                     |
+| `isBetBuilder`       | `false`               | `true`                                                   |
+| `betBuilderBetItems` | `[]`                  | Array of `{ marketId, selectionId }` for each component  |
+| `marketName`         | e.g. `"Match Winner"` | `"Bet Builder"`                                          |
+| `selectionName`      | e.g. `"Arsenal"`      | `"Bet Builder"`                                          |
+| `eventSnapshot`      | Full event data       | Full event data                                          |
+| `marketSnapshot`     | Market data           | `{ id: -1, name: "Bet Builder" }`                        |
+| `selectionSnapshot`  | Selection data        | `{ id: -1, name: "Bet Builder", price: <combinedOdds> }` |
+
+**Other field notes:**
+
+| Field                | Notes                                                                         |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `selectionCount`     | Number of **legs** (a BB leg with 3 components counts as 1)                   |
+| `walletReserveRef`   | External reference from the operator wallet debit — useful for reconciliation |
+| `rejectionReason`    | Populated for `rejected` bets; `null` otherwise                               |
+| `cashoutAt`          | Timestamp of cashout; `null` if not cashed out                                |
+| `settlementResult`   | Per-selection outcome once settled; `null` while pending                      |
+| `statusTimeline`     | Ordered list of every status transition                                       |
+| `walletTransactions` | Debit / credit records including cashout credit if cashed out                 |
 
 **Bet status flow:**
 
@@ -1200,7 +2179,15 @@ Headers: x-user-id, x-operator-id
 }
 ```
 
-**Failed (502):** Operator wallet declined. Bet stays `accepted` — let the player retry.
+> The returned `cashoutAmount` is the **odds88-confirmed** value. It may differ slightly from the amount you requested if the market moved between your request and odds88's confirmation — always display the confirmed figure.
+
+**Rejected by odds provider (422):** Cashout refused (market moved too far, selection settled, etc.). Bet stays `accepted`.
+
+```json
+{ "error": "Cashout rejected by odds provider" }
+```
+
+**Failed (502):** Odds provider accepted but the operator wallet credit failed. Bet stays `accepted` — let the player retry.
 
 After cashout: refresh balance from your operator backend and update the bet in My Bets.
 
@@ -1219,11 +2206,45 @@ Headers: x-user-id, x-operator-id
 
 ## Bet Builder
 
-Combines multiple selections from the **same event** into one leg with a single price.
+Combines **2 or more selections from the same event** into one single "super-leg" at a combined price. The entire combo is settled as one outcome — all components must win for the leg to win.
 
 Only show the Bet Builder UI if the event has `isBetBuilderSupported: true`.
 
-### Get Price
+---
+
+### Bet Builder flow overview
+
+```
+[1] Player picks 2+ selections from one event
+        ↓
+[2] POST /odds88/bet-builder/price  →  get combined price + requestId
+        ↓
+[3] Add the BB "super-leg" to the bet slip
+        ↓
+[4] POST /bets/place  →  send betBuilderBetItems in the selection
+        ↓
+[5] Follow the same post-placement actions as a regular bet
+```
+
+---
+
+### Step 1 — Check event eligibility
+
+Only call the BB price endpoint if the event supports it:
+
+```js
+// From GET /odds88/events/:eventId or the live event data
+if (!event.eventInfo.isBetBuilderSupported) {
+  hideBetBuilderUI();
+  return;
+}
+```
+
+---
+
+### Step 2 — Get the combined price
+
+Call this every time the player adds or removes a component selection. Debounce by ~300 ms to avoid hammering the endpoint.
 
 ```
 POST /odds88/bet-builder/price
@@ -1242,7 +2263,12 @@ Headers: x-user-id, x-operator-id
 }
 ```
 
-Minimum 2 selections. Generate a fresh `requestId` (`crypto.randomUUID()`) per request.
+| Field       | Notes                                                            |
+| ----------- | ---------------------------------------------------------------- |
+| `requestId` | Fresh `crypto.randomUUID()` per request                          |
+| `segmentId` | Always `1` unless instructed otherwise by your platform operator |
+| `eventId`   | All components must belong to this event                         |
+| `bets`      | Minimum 2 items; no maximum enforced but keep under 10 for UX    |
 
 **Price available (200):**
 
@@ -1257,7 +2283,7 @@ Minimum 2 selections. Generate a fresh `requestId` (`crypto.randomUUID()`) per r
 }
 ```
 
-**Rejected by odds88 (200):** `price` is absent, `rejectInfo` is set.
+**Rejected by odds provider (200):** `price` is absent, `rejectInfo` is populated.
 
 ```json
 {
@@ -1272,12 +2298,399 @@ Minimum 2 selections. Generate a fresh `requestId` (`crypto.randomUUID()`) per r
 }
 ```
 
-| `reason` | Meaning                                              |
-| -------- | ---------------------------------------------------- |
-| `1`      | Selection unavailable                                |
-| `2`      | Stake above maximum (`maxBet` field has the limit)   |
-| `3`      | Selections cannot be combined                        |
-| `4`      | Alternative odds available (`alternativeOdds` field) |
+| `reason` | Meaning                                                        | What to show                     |
+| -------- | -------------------------------------------------------------- | -------------------------------- |
+| `1`      | A component selection is no longer available                   | Remove the unavailable selection |
+| `2`      | Stake would exceed max bet (`maxBet` in response)              | Show max-bet warning             |
+| `3`      | These selections cannot be combined (correlated)               | "These picks can't be combined"  |
+| `4`      | Alternative odds are available (`alternativeOdds` in response) | Offer the alternative price      |
+
+```js
+const BB_REQUEST_DEBOUNCE = 300;
+let bbTimer = null;
+
+function onBBSelectionChange(eventId, components) {
+  if (components.length < 2) {
+    clearBBPrice();
+    return;
+  }
+
+  clearTimeout(bbTimer);
+  bbTimer = setTimeout(async () => {
+    const res = await fetch("/api/v1/odds88/bet-builder/price", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...playerHeaders },
+      body: JSON.stringify({
+        requestId: crypto.randomUUID(),
+        segmentId: 1,
+        eventId,
+        bets: components.map((c) => ({
+          marketId: c.marketId,
+          selectionId: c.selectionId,
+        })),
+      }),
+    });
+    const { data } = await res.json();
+
+    if (data.rejectInfo) {
+      showBBRejectReason(data.rejectInfo.reason, data.rejectInfo.message);
+      clearBBPrice();
+    } else {
+      setBBPrice(data.price); // show the combined odds, enable "Add to slip"
+    }
+  }, BB_REQUEST_DEBOUNCE);
+}
+```
+
+---
+
+### Step 3 — Store the BB leg in the slip
+
+A BB leg is stored differently from a regular leg because it holds a list of component selections, all from one event, with the combined price.
+
+```js
+// Internal slip state for a Bet Builder leg
+const bbLeg = {
+  type: "betbuilder", // distinguish from regular 'selection'
+  eventId: 5001,
+  eventName: "Arsenal vs Chelsea",
+  odds: 4.75, // combined BB price from Step 2
+  components: [
+    {
+      marketId: 1,
+      selectionId: 10234,
+      marketName: "Match Winner",
+      selectionName: "Arsenal",
+    },
+    {
+      marketId: 14,
+      selectionId: 10891,
+      marketName: "Anytime Goalscorer",
+      selectionName: "Bukayo Saka",
+    },
+  ],
+};
+```
+
+Rules:
+
+- All components must belong to the **same `eventId`**
+- You cannot have two selections from the same market within one BB leg
+- A BB leg counts as **one leg** toward `parlay.maxParlayLegs`
+- A BB leg from event A can be combined as a parlay leg with regular selections from events B, C, etc.
+
+---
+
+### Step 4 — Display the BB leg in the slip
+
+```js
+function renderBBLeg(leg) {
+  return (
+    <div className="bb-leg">
+      <div className="bb-header">
+        <span className="event-name">{leg.eventName}</span>
+        <span className="bb-badge">Bet Builder</span>
+        <span className="bb-odds">{leg.odds.toFixed(2)}</span>
+      </div>
+      <ul className="bb-components">
+        {leg.components.map((c, i) => (
+          <li key={i}>
+            <span className="market-name">{c.marketName}</span>
+            <span className="separator">·</span>
+            <span className="selection-name">{c.selectionName}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+---
+
+### Step 5 — Convert slip state to placement payload
+
+A BB leg maps to a single entry in `selections` with `marketId: -1` and `selectionId: -1`. These sentinel values tell both the platform and the odds provider that this is a Bet Builder leg — skip standard market/selection lookup and use the combined price from `betBuilderBetItems` instead.
+
+```js
+function toPlacementSelection(leg) {
+  if (leg.type === "betbuilder") {
+    return {
+      eventId: leg.eventId,
+      marketId: -1, // sentinel — identifies this as a BB leg
+      selectionId: -1, // sentinel — identifies this as a BB leg
+      odds: leg.odds, // combined BB price from /odds88/bet-builder/price
+      betBuilderBetItems: leg.components.map((c) => ({
+        marketId: c.marketId,
+        selectionId: c.selectionId,
+      })),
+    };
+  }
+  // Regular leg — no betBuilderBetItems needed
+  return {
+    eventId: leg.eventId,
+    marketId: leg.marketId,
+    selectionId: leg.selectionId,
+    odds: leg.odds,
+  };
+}
+```
+
+---
+
+### Payload examples
+
+#### A — Standalone BB single bet (one super-leg)
+
+```json
+POST /bets/place
+
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440010",
+  "betType":        "single",
+  "stake":          10.00,
+  "currency":       "USD",
+  "selections": [
+    {
+      "eventId":     5001,
+      "marketId":    -1,
+      "selectionId": -1,
+      "odds":        4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1,  "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    }
+  ]
+}
+```
+
+- `marketId: -1` and `selectionId: -1` are the sentinel values for any BB leg
+- `betType` is `"single"` because there is **one leg** (the BB leg itself has two components, but they are one combined outcome)
+- `odds` is the **combined** price from `POST /odds88/bet-builder/price` — not the individual odds of any component
+- `betBuilderBetItems` lists all component market/selection pairs
+
+#### B — BB leg + regular leg (2-fold parlay)
+
+```json
+POST /bets/place
+
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440011",
+  "betType":        "parlay",
+  "stake":          10.00,
+  "currency":       "USD",
+  "selections": [
+    {
+      "eventId":     5001,
+      "marketId":    -1,
+      "selectionId": -1,
+      "odds":        4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1,  "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    },
+    {
+      "eventId":     5002,
+      "marketId":    5,
+      "selectionId": 20100,
+      "odds":        1.85
+    }
+  ]
+}
+```
+
+- Leg #1: BB leg from event 5001 (`marketId: -1, selectionId: -1`)
+- Leg #2: Regular selection from event 5002
+- Combined parlay odds: 4.75 × 1.85 = **8.79**
+- Potential payout: 10.00 × 8.79 = **$87.90**
+
+#### C — BB leg + BB leg (2-fold parlay, different events)
+
+```json
+POST /bets/place
+
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440012",
+  "betType":        "parlay",
+  "stake":          10.00,
+  "currency":       "USD",
+  "selections": [
+    {
+      "eventId":     5001,
+      "marketId":    -1,
+      "selectionId": -1,
+      "odds":        4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1,  "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    },
+    {
+      "eventId":     5002,
+      "marketId":    -1,
+      "selectionId": -1,
+      "odds":        3.20,
+      "betBuilderBetItems": [
+        { "marketId": 5, "selectionId": 20100 },
+        { "marketId": 8, "selectionId": 20505 }
+      ]
+    }
+  ]
+}
+```
+
+- Each BB leg is from a **different event** — event 5001 and 5002
+- Both legs must win for the parlay to win
+- Combined odds: 4.75 × 3.20 = **15.20**
+
+#### D — BB leg + regular leg + regular leg (3-fold parlay)
+
+```json
+POST /bets/place
+
+{
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440013",
+  "betType":        "parlay",
+  "stake":          5.00,
+  "currency":       "USD",
+  "selections": [
+    {
+      "eventId":     5001,
+      "marketId":    -1,
+      "selectionId": -1,
+      "odds":        4.75,
+      "betBuilderBetItems": [
+        { "marketId": 1,  "selectionId": 10234 },
+        { "marketId": 14, "selectionId": 10891 }
+      ]
+    },
+    {
+      "eventId":     5002,
+      "marketId":    1,
+      "selectionId": 11002,
+      "odds":        1.85
+    },
+    {
+      "eventId":     5003,
+      "marketId":    2,
+      "selectionId": 30088,
+      "odds":        1.60
+    }
+  ]
+}
+```
+
+- 3 legs total: 1 BB leg + 2 regular legs from 3 different events
+- Combined odds: 4.75 × 1.85 × 1.60 = **14.06**
+- Potential payout: 5.00 × 14.06 = **$70.30**
+
+---
+
+### Complete JS function — build placement payload
+
+```js
+function buildPlaceBetPayload({ slip, stake, currency }) {
+  const betType = slip.length === 1 ? "single" : "parlay";
+
+  return {
+    idempotencyKey: crypto.randomUUID(),
+    betType,
+    stake,
+    currency,
+    selections: slip.map((leg) => {
+      if (leg.type === "betbuilder") {
+        return {
+          eventId: leg.eventId,
+          marketId: -1,
+          selectionId: -1,
+          odds: leg.odds,
+          betBuilderBetItems: leg.components.map((c) => ({
+            marketId: c.marketId,
+            selectionId: c.selectionId,
+          })),
+        };
+      }
+      return {
+        eventId: leg.eventId,
+        marketId: leg.marketId,
+        selectionId: leg.selectionId,
+        odds: leg.odds,
+      };
+    }),
+  };
+}
+```
+
+---
+
+### Combined odds display (all leg types)
+
+```js
+function getDisplayOdds(leg) {
+  return leg.type === "betbuilder" ? leg.odds : leg.odds;
+}
+
+function getCombinedOdds(slip) {
+  return slip.reduce((acc, leg) => acc * getDisplayOdds(leg), 1);
+}
+
+function getPotentialPayout(slip, stake) {
+  return stake * getCombinedOdds(slip);
+}
+
+// Slip with 1 BB leg (4.75) + 1 regular leg (1.85)
+// combinedOdds = 4.75 × 1.85 = 8.7875  → display as 8.79
+// potentialPayout = 10.00 × 8.7875 = 87.875  → display as $87.88
+```
+
+---
+
+### Constraints summary
+
+| Rule                             | Detail                                                                                    |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| Min components per BB leg        | 2                                                                                         |
+| All components same event        | YES — cannot mix events in one BB leg                                                     |
+| BB leg counts as one parlay leg  | YES                                                                                       |
+| BB + regular legs in same parlay | YES — from different events                                                               |
+| BB + BB legs in same parlay      | YES — each from a different event                                                         |
+| Same event twice in parlay       | NO — unless one is a BB leg and the other is a regular selection, which odds88 may reject |
+| `betBuilderBetItems` required    | YES for any BB leg in `/bets/place`                                                       |
+
+---
+
+### ODDS_CHANGED on a BB leg
+
+If the placement is rejected with `ODDS_CHANGED`, re-fetch the BB price before showing the player the new value. Do not re-use the old combined price.
+
+```js
+async function refreshBBLeg(leg) {
+  const res = await fetch("/api/v1/odds88/bet-builder/price", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...playerHeaders },
+    body: JSON.stringify({
+      requestId: crypto.randomUUID(),
+      segmentId: 1,
+      eventId: leg.eventId,
+      bets: leg.components.map((c) => ({
+        marketId: c.marketId,
+        selectionId: c.selectionId,
+      })),
+    }),
+  });
+  const { data } = await res.json();
+
+  if (data.rejectInfo) {
+    removeLegFromSlip(leg); // component is gone or correlated
+    showBBUnavailableMessage(data.rejectInfo.message);
+    return null;
+  }
+
+  return { ...leg, odds: data.price }; // updated BB leg
+}
+```
 
 ---
 
@@ -1596,10 +3009,10 @@ if (result.status === "accepted") {
 
 ### Refresh & Caching Strategy
 
-The platform caches widget responses in Redis (default 60s TTL). You do not need your own server-side cache.
+The platform caches widget responses in Redis. The TTL is admin-configurable (`autoRefreshInterval`, default 60 s). You do not need your own server-side cache — mirror the same interval on the frontend so your refresh aligns with when the server will have fresh data.
 
 ```js
-const WIDGET_REFRESH_MS = 60_000;
+const WIDGET_REFRESH_MS = 60_000; // match the server's autoRefreshInterval (default 60 s)
 
 async function loadHomeWidgets() {
   const [starPlayers, trendingAccas] = await Promise.all([
@@ -1923,7 +3336,7 @@ All endpoints are prefixed with `/api/v1`. No `Authorization` header needed.
 - [ ] Empty `data: []` handled gracefully — no errors thrown
 - [ ] Widget refresh paused while bet slip is open
 - [ ] `ODDS_CHANGED` on widget bet re-fetches widgets and shows new prices
-- [ ] Widgets refreshed every 60 seconds; paused when browser tab is hidden
+- [ ] Widgets refreshed on the server's `autoRefreshInterval` cadence (default 60 s); paused when browser tab is hidden
 
 **Analytics**
 

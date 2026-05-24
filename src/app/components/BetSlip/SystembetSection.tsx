@@ -1,6 +1,7 @@
 import { getOddsValue } from "@/helpers/getOddsValue";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { systemBetSpecifier } from "@/state/betState";
+import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
@@ -48,7 +49,7 @@ const SystemBetLineComponent = (props: {
       combos.map((line) =>
         line.reduce(
           (acc, odd) =>
-            acc * getOddsValue(odd.eventId, odd.marketId, odd.oddsId),
+            acc * getOddsValue(odd.eventId, odd.marketId, Number(odd.oddsId)),
           1,
         ),
       ),
@@ -69,7 +70,10 @@ const SystemBetLineComponent = (props: {
           <input
             type="text"
             value={stake}
-            onChange={(e) => setStake(Number((e as any).target.value || "0"))}
+            onChange={(e) => {
+              setStake(Number((e as any).target.value || "0"));
+              rotateBetSlipIdempotencyKey();
+            }}
             className="p-1 border border-1 border-white/10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-10 bg-white/10 text-white"
           />
         </div>

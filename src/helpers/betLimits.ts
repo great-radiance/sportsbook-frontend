@@ -30,14 +30,21 @@ export function validateStakeAmount(
   limits: UserLimits | null,
   betType: "single" | "parlay",
   currency?: string,
+  combinedOdds = 1,
 ): string | null {
-  const { minStake, maxStake } = stakeLimitsForBetType(limits, betType);
+  const { minStake, maxStake, maxPayout } = stakeLimitsForBetType(
+    limits,
+    betType,
+  );
   const cur = currency ?? "";
   if (minStake != null && stake < minStake) {
     return `Minimum stake is ${minStake}${cur ? ` ${cur}` : ""}`;
   }
   if (maxStake != null && stake > maxStake) {
     return `Maximum stake is ${maxStake}${cur ? ` ${cur}` : ""}`;
+  }
+  if (maxPayout != null && stake * combinedOdds > maxPayout) {
+    return `Potential payout exceeds maximum of ${maxPayout}${cur ? ` ${cur}` : ""}`;
   }
   return null;
 }

@@ -52,7 +52,6 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   const { pageName } = useRouteParams();
   const [loadedCount, setLoadedCount] = useState<number>(0);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  console.log("rendering live ......");
 
   // useEffect(() => {
   //   (async () => {

@@ -11,8 +11,6 @@ import { isOpenedMyBet } from "@/state/betState";
 export const EventView: FunctionComponent = () => {
   const { pageName } = useRouteParams();
 
-  console.log("rendering event view ......", pageName);
-
   return (
     <div className="relative flex flex-col md:flex-row w-full h-full bg-[var(--background-color)]">
       {pageName === "live" ? null : <Sidebar />}
@@ -29,7 +27,6 @@ export const EventView: FunctionComponent = () => {
                 <div className="flex w-full md:max-w-[calc(100%-320px)] h-full shrink-0">
                   <SwitchMachesBoard />
                 </div>
-                {console.log("isOpenedMyBet", isOpenedMyBet.value)}
                 <div
                   className="absolute min-h-screen h-full z-[25] bottom-[70px] top-0 left-1 right-1 flex flex-col md:shrink-0 md:w-[320px] md:mt-2 md:mx-2 md:relative md:left-0 md:right-0"
                   style={{

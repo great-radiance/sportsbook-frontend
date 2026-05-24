@@ -1,4 +1,6 @@
 import { getOddsValue } from "@/helpers/getOddsValue";
+import { refreshPlayerProfile } from "@/helpers/refreshPlayerProfile";
+import { refreshBalanceFromOperator } from "@/helpers/refreshPlayerWallet";
 import { refreshHomeWidgets } from "@/state/homeWidgetsRefresh";
 import {
   loadHomeWidgetsBatch,
@@ -18,8 +20,12 @@ export type SubmittedSelectionLine = {
   odds: number;
 };
 
-/** Integration guide: re-fetch widgets and show old vs new prices. */
+/** Integration guide: re-fetch widgets; refresh profile after rejection. */
 export function onBetRejectedWithReason(reason: string | undefined): void {
+  void refreshPlayerProfile();
+  if (reason === "WALLET_RESERVE_FAILED") {
+    void refreshBalanceFromOperator();
+  }
   if (reason === "ODDS_CHANGED") {
     refreshHomeWidgets();
   }
@@ -56,8 +62,7 @@ export async function handleOddsChangedRejection(
       if (!eventIds.has(leg.eventId)) continue;
       const line = lines.find((l) =>
         submitted.some(
-          (s) =>
-            s.eventId === leg.eventId && s.selectionId === leg.selectionId,
+          (s) => s.eventId === leg.eventId && s.selectionId === leg.selectionId,
         ),
       );
       if (line) line.newOdds = leg.odds;
@@ -68,17 +73,15 @@ export async function handleOddsChangedRejection(
     const s = submitted[i];
     const fromStore = getOddsValue(
       s.eventId,
-      String(s.marketId),
-      String(s.selectionId),
+      s.marketId,
+      s.selectionId,
     );
     if (fromStore > 0 && Math.abs(fromStore - s.odds) > 0.001) {
       lines[i].newOdds = fromStore;
     }
   }
 
-  const changed = lines.filter(
-    (l) => Math.abs(l.oldOdds - l.newOdds) > 0.001,
-  );
+  const changed = lines.filter((l) => Math.abs(l.oldOdds - l.newOdds) > 0.001);
 
   showOddsChangedDialog(
     changed.length > 0 ? changed : lines,

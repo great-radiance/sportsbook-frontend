@@ -55,7 +55,7 @@ export const OpenBets: FunctionComponent = () => {
       } catch (err) {
         if (cancelled) return;
         console.error("Error fetching bet history:", err);
-        setError("An error occurred while fetching pending bets");
+        setError("An error occurred while fetching bet history");
         betHistoryState.value = [];
       } finally {
         if (!cancelled) setLoading(false);
@@ -70,6 +70,7 @@ export const OpenBets: FunctionComponent = () => {
   const handleTabChange = (tab: "open" | "settled") => {
     if (tab === selectedTab) return;
     lastFetchedKeyRef.current = "";
+    betHistoryState.value = [];
     setPage(1);
     setSelectedTab(tab);
   };
@@ -100,10 +101,10 @@ export const OpenBets: FunctionComponent = () => {
 
   return (
     <div className="w-full min-h-[400px] pb-30 md:pb-20 rounded-t-[16px] overflow-y-auto rounded-[4px] flex text-[12px] bg-[var(--sub-element-color)] text-[var(--text-basic-color)] flex-col gap-2 py-2">
-      <div className="flex items-center justify-center w-full border-b-[1px] border-[var(--border-color)]  py-4 uppercase">
+      <div className="flex items-center justify-center w-full border-b-[1px] border-[var(--border-color)] py-4 uppercase">
         {tBetslip("mybets")}
       </div>
-      <div className="bg-[var(--sub-element-secondary)] rounded-[90px] left-3 right-3 absolute flex items-center gap-1 p-1">
+      <div className="relative mx-3 flex items-center gap-1 rounded-[90px] bg-[var(--sub-element-secondary)] p-1">
         <div
           className={`flex-1 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
             selectedTab === "open"
@@ -129,29 +130,41 @@ export const OpenBets: FunctionComponent = () => {
           <span className="text-[12px] py-2 px-3">{tBetslip("Settled")}</span>
         </div>
       </div>
+
       {loading && (
-        <div className="w-full min-h-[400px] flex items-center justify-center">
+        <div className="w-full min-h-[320px] flex items-center justify-center pt-4">
           <span className="text-[14px]">{tCommon("loadingBets")}</span>
         </div>
       )}
 
       {!loading && bets.length === 0 ? (
-        <div className="w-full min-h-[400px] flex items-center justify-center">
-          <span className="text-[14px]">{tBetslip("noOpenBets")}</span>
+        <div className="w-full min-h-[320px] flex items-center justify-center pt-4">
+          <span className="text-[14px]">
+            {selectedTab === "open"
+              ? tBetslip("noOpenBets")
+              : tBetslip("noSettledBets")}
+          </span>
         </div>
       ) : (
-        !loading &&
-        bets.map((bet) => (
-          <div
-            key={bet.betId}
-            className="w-full flex items-center justify-center px-2"
-          >
-            <BetComponent bet={bet} onCashoutSuccess={handleCashoutSuccess} />
+        !loading && (
+          <div className="flex flex-col gap-2 pt-2">
+            {bets.map((bet) => (
+              <div
+                key={bet.betId}
+                className="w-full flex items-center justify-center px-2"
+              >
+                <BetComponent
+                  bet={bet}
+                  onCashoutSuccess={handleCashoutSuccess}
+                  isSettledView={selectedTab === "settled"}
+                />
+              </div>
+            ))}
           </div>
-        ))
+        )
       )}
 
-      {totalPagesState.value > 1 && (
+      {!loading && totalPagesState.value > 1 && (
         <div className="w-full flex items-center justify-center gap-2 mt-4">
           <button
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
@@ -174,7 +187,12 @@ export const OpenBets: FunctionComponent = () => {
                   const value = (e.target as HTMLInputElement).value;
                   const numericValue = value === "" ? 1 : Number(value);
                   if (!isNaN(numericValue)) {
-                    setPage(numericValue);
+                    setPage(
+                      Math.min(
+                        Math.max(1, numericValue),
+                        totalPagesState.value,
+                      ),
+                    );
                   }
                 }
               }}

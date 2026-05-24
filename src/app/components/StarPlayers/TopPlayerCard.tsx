@@ -13,6 +13,7 @@ type TopPlayerCardProps = {
 
 function pickToInput(
   pick: StarPlayerCardResponse["picks"][0],
+  card: StarPlayerCardResponse,
 ): WidgetSelectionInput {
   return {
     eventId: pick.eventId,
@@ -21,6 +22,11 @@ function pickToInput(
     marketName: pick.marketName,
     outcomeName: pick.outcomeName,
     odds: pick.odds,
+    sport: card.sport,
+    region: card.region,
+    league: card.league,
+    startTime: card.startTime,
+    matchName: card.matchName,
   };
 }
 
@@ -81,7 +87,9 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
                 <button
                   type="button"
                   className="flex flex-col px-[6px] py-[6px] text-left w-full rounded hover:bg-white/5"
-                  onClick={() => void addSingleWidgetPickToSlip(pickToInput(pick))}
+                  onClick={() =>
+                    void addSingleWidgetPickToSlip(pickToInput(pick, data))
+                  }
                 >
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col justify-between items-center gap-[2px]">

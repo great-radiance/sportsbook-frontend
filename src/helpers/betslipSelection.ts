@@ -1,63 +1,187 @@
-import { selectedBetType, isBuilding, selectedOdds } from "@/state/betState";
+import { selectedBetType, selectedOdds, playerLimits } from "@/state/betState";
 import { storeState } from "@/state/storeState";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { notify } from "@/shared/toast";
 import { storeSelection, removeFromOddsStore } from "@/helpers/storeEvent";
+import { selectionStoreKey } from "@/state/storeState";
 import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
 import { tParticipant } from "@/types/tEvent";
+import { slipLegCount } from "@/helpers/betslipLegs";
+import { maxParlayLegsFromLimits } from "@/helpers/betLimits";
+import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
+import { verifyBetBuilderGroup } from "@/helpers/betBuilderSlipValidation";
+import { applyBetBuilderPriceForEvent } from "@/helpers/betBuilderPriceState";
 
 export function isBetslipSelectionSelected(
   eventId: number,
-  marketKey: string,
+  marketId: number,
   selectionId: number,
 ): boolean {
   return selectedOdds.value.some(
     (o) =>
       o.eventId === eventId &&
-      o.marketId === marketKey &&
+      o.marketId === marketId &&
       o.oddsId === String(selectionId),
   );
 }
 
+/** Widget API metadata when the event is not yet in `storeState`. */
+export type WidgetEventContext = {
+  sport: { id: number; name: string };
+  region: { id: number; name: string };
+  league: { id: number; name: string };
+  startTime?: string;
+  matchName?: string;
+};
+
+function participantsFromWidgetMatchName(matchName?: string): tParticipant[] {
+  if (!matchName?.trim()) return [];
+  const parts = matchName.split(/\s+vs\s+/i);
+  if (parts.length === 2) {
+    return [
+      { name: parts[0].trim(), home: true },
+      { name: parts[1].trim(), home: false },
+    ];
+  }
+  return [{ name: matchName.trim(), home: true }];
+}
+
 export type ToggleBetslipSelectionArgs = {
   eventId: number;
-  marketKey: string;
+  marketId: number;
   marketName: string;
   selection: tSelectionValue;
   apiMarketId: number;
+  widgetEvent?: WidgetEventContext;
 };
 
-export function toggleBetslipSelection({
+const toggleQueueByEvent = new Map<number, Promise<void>>();
+
+/** Remove every slip selection for one event (e.g. bet builder no longer combinable). */
+export function removeSlipSelectionsForEvent(eventId: number): void {
+  const toRemove = selectedOdds.value.filter((o) => o.eventId === eventId);
+  if (!toRemove.length) return;
+
+  removeFromOddsStore(
+    toRemove.map((o) =>
+      selectionStoreKey(o.eventId, o.marketId, Number(o.oddsId)),
+    ),
+  );
+  selectedOdds.value = selectedOdds.value.filter((o) => o.eventId !== eventId);
+  rotateBetSlipIdempotencyKey();
+}
+
+export function toggleBetslipSelection(
+  args: ToggleBetslipSelectionArgs,
+): void {
+  const { eventId } = args;
+  const prev = toggleQueueByEvent.get(eventId) ?? Promise.resolve();
+  const next = prev
+    .then(() => toggleBetslipSelectionAsync(args))
+    .catch((err) => console.error("toggleBetslipSelection failed:", err));
+  toggleQueueByEvent.set(
+    eventId,
+    next.finally(() => {
+      if (toggleQueueByEvent.get(eventId) === next) {
+        toggleQueueByEvent.delete(eventId);
+      }
+    }),
+  );
+}
+
+async function toggleBetslipSelectionAsync({
   eventId,
-  marketKey,
+  marketId,
   marketName,
   selection,
   apiMarketId,
-}: ToggleBetslipSelectionArgs): void {
+  widgetEvent,
+}: ToggleBetslipSelectionArgs): Promise<void> {
   const oddsId = String(selection.id);
   const selId = selection.id;
 
-  if (isBetslipSelectionSelected(eventId, marketKey, selId)) {
-    removeFromOddsStore([oddsId]);
+  if (isBetslipSelectionSelected(eventId, marketId, selId)) {
+    removeFromOddsStore([selectionStoreKey(eventId, marketId, selId)]);
     selectedOdds.value = selectedOdds.value.filter(
       (o) =>
         !(
           o.eventId === eventId &&
-          o.marketId === marketKey &&
+          o.marketId === marketId &&
           o.oddsId === oddsId
         ),
     );
+    rotateBetSlipIdempotencyKey();
     return;
   }
 
   const ev = storeState.value[eventId]?.value;
-  if (!ev) return;
+  if (!ev && !widgetEvent) return;
 
-  if (isBuilding.value) {
-    const building = selectedOdds.value.filter((o) => o.isBuilding);
-    if (building.length > 0 && building[0].eventId !== eventId) {
+  if (selectedBetType.value !== "multi" && selectedBetType.value !== "system") {
+    const toRemove = selectedOdds.value.filter(
+      (o) => o.eventId === eventId && o.marketId === marketId,
+    );
+    if (toRemove.length) {
+      removeFromOddsStore(
+        toRemove.map((o) =>
+          selectionStoreKey(o.eventId, o.marketId, Number(o.oddsId)),
+        ),
+      );
+      selectedOdds.value = selectedOdds.value.filter(
+        (o) => !(o.eventId === eventId && o.marketId === marketId),
+      );
+    }
+  }
+
+  const participants: tParticipant[] = ev
+    ? (ev.competitors ?? []).map((c, i) => ({
+        name: c.name,
+        home: i === 0,
+      }))
+    : participantsFromWidgetMatchName(widgetEvent?.matchName);
+
+  const row: SelectedOddType = {
+    sport: ev
+      ? { id: ev.sport.id, name: ev.sport.name }
+      : {
+          id: widgetEvent!.sport.id,
+          name: widgetEvent!.sport.name,
+        },
+    region: ev
+      ? { id: ev.region.id, name: ev.region.name }
+      : {
+          id: widgetEvent!.region.id,
+          name: widgetEvent!.region.name,
+        },
+    league: ev
+      ? { id: ev.league.id, name: ev.league.name }
+      : {
+          id: widgetEvent!.league.id,
+          name: widgetEvent!.league.name,
+        },
+    oddsId,
+    name: selection.name,
+    marketId,
+    eventId,
+    sportSlug: String(ev?.sport.id ?? widgetEvent!.sport.id),
+    marketName,
+    participants,
+    startDate: ev
+      ? Date.parse(ev.startTime) || 0
+      : Date.parse(widgetEvent?.startTime ?? "") || 0,
+    isBuilding: false,
+    selectedBank: false,
+    amount: 0,
+    apiMarketId,
+    apiSelectionId: selection.id,
+  };
+
+  if (selectedBetType.value === "multi" || selectedBetType.value === "system") {
+    const maxLegs = maxParlayLegsFromLimits(playerLimits.value);
+    const nextOdds = [...selectedOdds.value, row];
+    if (slipLegCount(nextOdds) > maxLegs) {
       notify(
-        "These selections cannot be combined from different events.",
+        `Maximum ${maxLegs} legs per parlay`,
         "warning",
         "exclamation-triangle",
         2800,
@@ -66,62 +190,21 @@ export function toggleBetslipSelection({
     }
   }
 
-  let next = [...selectedOdds.value];
+  const sameEventSelections = selectedOdds.value.filter(
+    (o) => o.eventId === eventId,
+  );
+  const candidateGroup = [...sameEventSelections, row];
 
-  if (selectedBetType.value !== "multi" && selectedBetType.value !== "system") {
-    const toRemove = next.filter(
-      (o) =>
-        o.eventId === eventId && o.marketId === marketKey && !o.isBuilding,
-    );
-    if (toRemove.length) {
-      removeFromOddsStore(toRemove.map((o) => o.oddsId));
-      next = next.filter(
-        (o) =>
-          !(
-            o.eventId === eventId &&
-            o.marketId === marketKey &&
-            !o.isBuilding
-          ),
-      );
+  if (candidateGroup.length >= 2) {
+    const check = await verifyBetBuilderGroup(eventId, candidateGroup);
+    if (!check.combinable) {
+      notify(check.message, "error", "x-circle", 3500);
+      return;
     }
+    applyBetBuilderPriceForEvent(eventId, check.price, candidateGroup);
   }
 
-  if (selectedBetType.value === "multi" || selectedBetType.value === "system") {
-    const nonBuilding = next.filter((o) => !o.isBuilding);
-    if (nonBuilding.some((o) => o.eventId === eventId)) {
-      const toRemove = nonBuilding
-        .filter((o) => o.eventId === eventId)
-        .map((o) => o.oddsId);
-      removeFromOddsStore(toRemove);
-      next = next.filter((o) => o.isBuilding || o.eventId !== eventId);
-    }
-  }
-
-  const participants: tParticipant[] = (ev.competitors ?? []).map((c, i) => ({
-    name: c.name,
-    home: i === 0,
-  }));
-
-  const row: SelectedOddType = {
-    sport: { id: ev.sport.id, name: ev.sport.name },
-    region: { id: ev.region.id, name: ev.region.name },
-    league: { id: ev.league.id, name: ev.league.name },
-    oddsId,
-    name: selection.name,
-    marketId: marketKey,
-    eventId,
-    sportSlug: String(ev.sport.id),
-    marketName,
-    participants,
-    startDate: Date.parse(ev.startTime) || 0,
-    isBuilding: isBuilding.value,
-    selectedBank: false,
-    amount: 0,
-    apiMarketId,
-    apiSelectionId: selection.id,
-  };
-
-  next.push(row);
-  selectedOdds.value = next;
-  storeSelection(eventId, marketKey, selection.id);
+  selectedOdds.value = [...selectedOdds.value, row];
+  storeSelection(eventId, marketId, selection.id);
+  rotateBetSlipIdempotencyKey();
 }

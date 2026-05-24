@@ -8,6 +8,7 @@ export interface SpecialNavigationItem {
   color: string;
   hasArrow?: boolean;
   isExpandable: boolean;
+  link?: string;
 }
 
 export const useSpecialNavigationItems = () => {
@@ -20,6 +21,7 @@ export const useSpecialNavigationItems = () => {
         icon: "coupon",
         color: "teal",
         isExpandable: false,
+        link: "/event-view/sport/Soccer/1/upcoming",
       },
       {
         id: "outright",
@@ -27,6 +29,7 @@ export const useSpecialNavigationItems = () => {
         icon: "winner",
         color: "purple",
         isExpandable: false,
+        link: "/event-view/special/outright",
       },
       {
         id: "popular",
@@ -34,6 +37,7 @@ export const useSpecialNavigationItems = () => {
         icon: "special",
         color: "purple",
         isExpandable: false,
+        link: "/event-view/special/popular",
       },
       // {
       //   id: "boosted",

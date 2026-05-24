@@ -27,6 +27,8 @@ type tParam = {
   sportId?: number;
   regionId?: number;
   leagueId?: number;
+  tradingStatus?: number;
+  status?: number[];
   limit?: number;
   offset?: number;
 };
@@ -37,6 +39,8 @@ export const apiGetUpcomingMatches = async ({
   sportId,
   regionId,
   leagueId,
+  tradingStatus,
+  status,
   limit,
   offset,
 }: tParam): Promise<tGetUpcomingMatchesResponse> => {
@@ -46,6 +50,8 @@ export const apiGetUpcomingMatches = async ({
   if (sportId) params.sportId = sportId;
   if (regionId) params.regionId = regionId;
   if (leagueId) params.leagueId = leagueId;
+  if (tradingStatus != null) params.tradingStatus = tradingStatus;
+  if (status != null) params.status = status.join(",");
   if (limit != null) params.limit = String(limit);
   if (offset != null) params.offset = String(offset);
 

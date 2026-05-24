@@ -15,15 +15,12 @@ import type {
   tSelectionValue,
 } from "@/types/typesForSocket.ts/tEventModel";
 import {
-  eventHasStoredMarkets,
   matchResultCells,
   overUnderButtonLabel,
   overUnderCells,
-  resolveThirdColumnKind,
   resolveUpcomingMatchMarkets,
   thirdColumnCells,
   thirdColumnSelectionLabel,
-  thirdColumnSlot,
 } from "@/helpers/upcomingMatchMarkets";
 import {
   UPCOMING_MATCH_COL_GROUP,
@@ -31,9 +28,6 @@ import {
   UPCOMING_MATCH_COL_MATCH,
   UPCOMING_MATCH_ROW,
 } from "./upcomingMatchLayout";
-import { Match } from "../MatchesBoard/components/Match";
-import { isMobile } from "@/state/isMobile";
-
 export {
   UPCOMING_MATCH_COL_CELL,
   UPCOMING_MATCH_COL_GROUP,
@@ -44,7 +38,6 @@ export {
 
 type UpcomingMatchRowProps = {
   eventId: number;
-  sportId: number;
 };
 
 const oddBtnBase =
@@ -171,32 +164,35 @@ function MarketGroup({ children }: { children: preact.ComponentChildren }) {
 
 export const UpcomingMatchRow: FunctionComponent<UpcomingMatchRowProps> = ({
   eventId,
-  sportId,
 }) => {
   const [, setLocation] = useLocation();
   const event = storeState.value[eventId]?.value;
-  // if (!eventHasStoredMarkets(event)) return null;
 
   const slots = resolveUpcomingMatchMarkets(
-    Object.values(event.markets ?? {}).map((sig) => sig.value),
+    Object.values(event?.markets ?? {}).map((sig) => sig.value),
   );
-  const thirdKind = resolveThirdColumnKind(slots, sportId, event.sport?.name);
-  const thirdCol = thirdColumnSlot(slots, thirdKind);
   const [ouOver, ouUnder] = overUnderCells(slots.overUnder.market);
-  const [thirdA, thirdB] = thirdColumnCells(thirdCol.market);
+  const [ggA, ggB] = thirdColumnCells(slots.ggNg.market);
 
-  const home = event.competitors?.[0]?.name ?? "";
-  const away = event.competitors?.[1]?.name ?? "";
-  const startMs = new Date(event.startTime || "").getTime();
-  const isLive = event.status === 3;
-  const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`;
+  const home = event?.competitors?.[0]?.name ?? "";
+  const away = event?.competitors?.[1]?.name ?? "";
+  const startMs = event?.startTime
+    ? new Date(event.startTime).getTime()
+    : Number.NaN;
+  const isLive = event?.status === 3;
+  const eventPath = event
+    ? `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`
+    : "";
 
   return (
     <div className={UPCOMING_MATCH_ROW}>
       <button
         type="button"
         className={`${UPCOMING_MATCH_COL_MATCH} flex items-center gap-2.5 text-left`}
-        onClick={(e) => linkButtonOnClick(e, eventPath, setLocation)}
+        onClick={(e) => {
+          if (!eventPath) return;
+          linkButtonOnClick(e, eventPath, setLocation);
+        }}
       >
         <div className="flex w-[38px] shrink-0 flex-col leading-tight text-[var(--text-sub-color)]">
           <span className="text-[11px] tabular-nums">
@@ -207,12 +203,32 @@ export const UpcomingMatchRow: FunctionComponent<UpcomingMatchRowProps> = ({
           </span>
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-[13px] font-bold leading-tight text-[var(--text-basic-color)]">
-            {home}
-          </span>
-          <span className="truncate text-[13px] font-bold leading-tight text-[var(--text-basic-color)]">
-            {away}
-          </span>
+          <div className="flex items-center gap-2">
+            <img
+              src={event?.competitors?.[0]?.logo || ""}
+              alt={home}
+              className="w-[14px] h-[14px] object-contain shrink-0"
+              onError={(e) => {
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`;
+              }}
+            />
+            <span className="truncate text-[13px] font-bold leading-tight text-[var(--text-basic-color)]">
+              {home}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <img
+              src={event?.competitors?.[1]?.logo || ""}
+              alt={away}
+              className="w-[14px] h-[14px] object-contain shrink-0"
+              onError={(e) => {
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
+              }}
+            />
+            <span className="truncate text-[13px] font-bold leading-tight text-[var(--text-basic-color)]">
+              {away}
+            </span>
+          </div>
         </div>
       </button>
 
@@ -249,15 +265,15 @@ export const UpcomingMatchRow: FunctionComponent<UpcomingMatchRowProps> = ({
         <MarketGroup>
           <OddCell
             eventId={eventId}
-            market={thirdCol.market}
-            selection={thirdA}
-            label={thirdColumnSelectionLabel(thirdKind, thirdA)}
+            market={slots.ggNg.market}
+            selection={ggA}
+            label={thirdColumnSelectionLabel(ggA, event?.competitors)}
           />
           <OddCell
             eventId={eventId}
-            market={thirdCol.market}
-            selection={thirdB}
-            label={thirdColumnSelectionLabel(thirdKind, thirdB)}
+            market={slots.ggNg.market}
+            selection={ggB}
+            label={thirdColumnSelectionLabel(ggB, event?.competitors)}
           />
         </MarketGroup>
       </div>

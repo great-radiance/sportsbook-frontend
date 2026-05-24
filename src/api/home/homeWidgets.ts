@@ -6,10 +6,17 @@ import { signal } from "@preact/signals";
 export type WidgetSportRef = { id: number; name: string };
 export type WidgetRegionRef = { id: number; name: string };
 export type WidgetLeagueRef = { id: number; name: string };
+export type WidgetCompetitorRef = { id: number; name: string };
+
+export type WidgetParamFields = {
+  parameters?: Record<string, unknown> | null;
+  extraParameters?: Record<string, unknown> | null;
+  selectionExtraParameters?: Record<string, unknown> | null;
+};
 
 export type StarPlayerPickRole = "player_prop" | "match_result" | "total_goals";
 
-export type StarPlayerPickResponse = {
+export type StarPlayerPickResponse = WidgetParamFields & {
   role: StarPlayerPickRole;
   eventId: number;
   marketId: number;
@@ -28,8 +35,12 @@ export type StarPlayerCardResponse = {
   league: WidgetLeagueRef;
   region: WidgetRegionRef;
   startTime: string;
+  competitors?: WidgetCompetitorRef[];
   picks: StarPlayerPickResponse[];
+  /** Product of leg odds (local). */
   combinedOdds: number;
+  /** Provider Bet Builder price; use for bundle display and BB placement. */
+  bbCombinedOdds?: number | null;
   displayOrder?: number;
 };
 
@@ -38,13 +49,14 @@ export type StarPlayersApiResponse = {
   meta: { count: number; generatedAt?: string };
 };
 
-export type TrendingAccaLegResponse = {
+export type TrendingAccaLegResponse = WidgetParamFields & {
   eventId: number;
   matchName: string;
   sport: WidgetSportRef;
   region: WidgetRegionRef;
   league: WidgetLeagueRef;
   startTime: string;
+  competitors?: WidgetCompetitorRef[];
   marketId: number;
   selectionId: number;
   marketName: string;

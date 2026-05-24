@@ -95,7 +95,11 @@ export const Match: FunctionComponent<MatchProps> = ({
       const marketId = markets.find((m) => m.type === marketType)?.id;
       if (marketId) return marketId;
       if (allowAutoSelect) {
-        return markets[0]?.id ?? 1;
+        for (const market of markets) {
+          if (market.selections.length < 4) {
+            return market.id;
+          }
+        }
       }
       return 0;
     },

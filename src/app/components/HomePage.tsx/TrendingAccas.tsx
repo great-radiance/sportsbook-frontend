@@ -13,6 +13,10 @@ import {
   trendingAccasCache,
 } from "@/state/homeWidgetsCache";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import {
+  widgetMarketDisplayName,
+  widgetOutcomeDisplayName,
+} from "@/helpers/widgetDisplayNames";
 
 const baseTheme = baseColorTheme.value;
 const formatDate = (iso: string) => {
@@ -27,15 +31,20 @@ const formatDate = (iso: string) => {
     .padStart(2, "0")}`;
 };
 
+function legNameFields(leg: TrendingAccaCouponResponse["legs"][0]) {
+  return { ...leg, competitors: leg.competitors };
+}
+
 function legToInput(
   leg: TrendingAccaCouponResponse["legs"][0],
 ): WidgetSelectionInput {
+  const fields = legNameFields(leg);
   return {
     eventId: leg.eventId,
     marketId: leg.marketId,
     selectionId: leg.selectionId,
-    marketName: leg.marketName,
-    outcomeName: leg.outcomeName,
+    marketName: widgetMarketDisplayName(fields),
+    outcomeName: widgetOutcomeDisplayName(fields),
     odds: leg.odds,
     sport: leg.sport,
     region: leg.region,
@@ -132,7 +141,8 @@ const TrendingAccas = () => {
                         />
                         <div className="flex flex-col min-w-0 flex-1">
                           <span className="text-xs font-semibold text-[var(--text-basic-color)] break-words whitespace-normal">
-                            {bet.marketName}: {bet.outcomeName}
+                            {widgetMarketDisplayName(legNameFields(bet))}:{" "}
+                            {widgetOutcomeDisplayName(legNameFields(bet))}
                           </span>
                           <span className="text-xs text-[var(--text-sub-color)] break-words whitespace-normal">
                             {bet.matchName}

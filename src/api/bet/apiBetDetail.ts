@@ -9,6 +9,9 @@ export type BetBuilderBetItem = {
   selectionId: number;
   marketName?: string;
   selectionName?: string;
+  parameters?: Record<string, unknown> | null;
+  extraParameters?: Record<string, unknown> | null;
+  selectionExtraParameters?: Record<string, unknown> | null;
 };
 
 export type BetDetailSelection = {
@@ -44,12 +47,22 @@ export type BetDetailSelection = {
     isBetBuilderSupported?: boolean;
     mappingInfo?: { feedId: number; id: string }[];
   };
-  marketSnapshot?: { id?: number; name?: string; type?: number };
+  parameters?: Record<string, unknown> | null;
+  extraParameters?: Record<string, unknown> | null;
+  selectionExtraParameters?: Record<string, unknown> | null;
+  marketSnapshot?: {
+    id?: number;
+    name?: string;
+    type?: number;
+    parameters?: Record<string, unknown> | null;
+    extraParameters?: Record<string, unknown> | null;
+  };
   selectionSnapshot?: {
     id?: number;
     name?: string;
     odds?: number;
     price?: number;
+    extraParameters?: Record<string, unknown> | null;
   };
 };
 

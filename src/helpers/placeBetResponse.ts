@@ -4,7 +4,7 @@ import type {
 } from "@/api/bet/placeBet";
 import { loadBetDetail } from "@/api/bet/apiBetDetail";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
-import { startBetStatusPolling } from "@/helpers/pollBetStatus";
+import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import { notify } from "@/shared/toast";
 
 export type PlaceBetSideEffects = {
@@ -51,7 +51,7 @@ export async function handlePlaceBetCallResult(
     notify("Bet accepted", "success", "check2-circle", 2500);
     effects.refreshWallet();
     effects.subscribeCashout(result.betId);
-    startBetStatusPolling(result.betId);
+    await showAcceptedBetInOpenBets(result.betId);
     effects.onAccepted(result.betId);
     effects.clearSlip();
     rotateBetSlipIdempotencyKey();

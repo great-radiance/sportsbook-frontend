@@ -1,6 +1,11 @@
 import type { BetLegType } from "@/shared/utils/bet";
 import type { Participant } from "@/shared/utils/types";
 import type { BetDetailSelection } from "./apiBetDetail";
+import {
+  competitorsForDisplay,
+  resolveMarketDisplayName,
+  resolveSelectionDisplayName,
+} from "@/helpers/betDisplayNames";
 
 type EventSnapshot = NonNullable<BetDetailSelection["eventSnapshot"]>;
 
@@ -48,15 +53,26 @@ function participantsFromEvent(
   ];
 }
 
-function oddsFromSelection(sel: BetDetailSelection) {
+function oddsFromSelection(
+  sel: BetDetailSelection,
+  competitors: ReturnType<typeof competitorsForDisplay>,
+) {
   const snap = sel.selectionSnapshot as SelectionSnapshot | undefined;
   const placement =
     sel.oddsAtPlacement ?? snap?.price ?? snap?.odds ?? 0;
   const current = sel.currentOdds ?? placement;
-  const label =
+  const rawLabel =
     sel.selectionName?.trim() ||
     snap?.name?.trim() ||
-    (sel.isBetBuilder ? "Bet Builder" : "—");
+    (sel.isBetBuilder ? "Bet Builder" : "");
+  const label =
+    resolveSelectionDisplayName(
+      rawLabel,
+      competitors,
+      sel.parameters ?? sel.marketSnapshot?.parameters,
+      sel.extraParameters ?? sel.marketSnapshot?.extraParameters,
+      sel.selectionExtraParameters ?? snap?.extraParameters,
+    ) || rawLabel || (sel.isBetBuilder ? "Bet Builder" : "—");
 
   return {
     id: String(sel.selectionId),
@@ -74,8 +90,20 @@ export function mapSelectionsToBetLegs(
 
   return selections.map((sel) => {
     const ev = sel.eventSnapshot as EventSnapshot | undefined;
-    const odd = oddsFromSelection(sel);
     const eventTitle = sel.eventName?.trim() || ev?.name?.trim() || "";
+    const competitors = competitorsForDisplay(ev?.competitors);
+    const odd = oddsFromSelection(sel, competitors);
+    const rawMarketName =
+      sel.marketName?.trim() ||
+      sel.marketSnapshot?.name?.trim() ||
+      (sel.isBetBuilder ? "Bet Builder" : "");
+    const marketName =
+      resolveMarketDisplayName(
+        rawMarketName,
+        competitors,
+        sel.parameters ?? sel.marketSnapshot?.parameters,
+        sel.extraParameters ?? sel.marketSnapshot?.extraParameters,
+      ) || rawMarketName;
 
     return {
       eventId: sel.eventId,
@@ -92,17 +120,27 @@ export function mapSelectionsToBetLegs(
       },
       participants: participantsFromEvent(ev, eventTitle),
       market: {
-        name:
-          sel.marketName?.trim() ||
-          sel.marketSnapshot?.name?.trim() ||
-          (sel.isBetBuilder ? "Bet Builder" : ""),
+        name: marketName,
       },
       isBetBuilder: Boolean(sel.isBetBuilder),
       betBuilderBetItems: (sel.betBuilderBetItems ?? []).map((item) => ({
         marketId: item.marketId,
         selectionId: item.selectionId,
-        marketName: item.marketName,
-        selectionName: item.selectionName,
+        marketName:
+          resolveMarketDisplayName(
+            item.marketName,
+            competitors,
+            item.parameters,
+            item.extraParameters,
+          ) || item.marketName,
+        selectionName:
+          resolveSelectionDisplayName(
+            item.selectionName,
+            competitors,
+            item.parameters,
+            item.extraParameters,
+            item.selectionExtraParameters,
+          ) || item.selectionName,
       })),
       eventName: eventTitle || undefined,
       selectionDisplayName: odd.name,

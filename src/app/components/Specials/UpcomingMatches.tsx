@@ -20,7 +20,6 @@ import { HorizontalTabs } from "../HorizontalTabs";
 import { storeState } from "@/state/storeState";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 import { eventHasStoredMarkets } from "@/helpers/upcomingMatchMarkets";
-import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
 import {
   UPCOMING_MATCH_COL_CELL,
   UPCOMING_MATCH_COL_GROUP,
@@ -184,11 +183,6 @@ export const UpcomingMatches: FunctionComponent = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [eventIdsBySport, summarySports.value.data]);
 
-  const selectedSportName = useMemo(
-    () => sportsWithCount.find((s) => s.id === selectedSport)?.name ?? "",
-    [sportsWithCount, selectedSport],
-  );
-
   const sportEventIds = useMemo(
     () => eventIdsBySport.get(selectedSport) ?? [],
     [eventIdsBySport, selectedSport],
@@ -215,6 +209,8 @@ export const UpcomingMatches: FunctionComponent = () => {
         const res = await apiGetUpcomingMatches({
           from: activeDateTab.from,
           to: activeDateTab.to,
+          tradingStatus: 0,
+          status: [1, 2],
         });
         if (gen !== catalogGenRef.current) return;
         setEventIdsBySport(buildEventIdsBySport(res.data));
@@ -288,9 +284,7 @@ export const UpcomingMatches: FunctionComponent = () => {
     }
   }, [sportsWithCount, selectedSport]);
 
-  const thirdColLabel = isMoneylineSport(selectedSport, selectedSportName)
-    ? tLive("handicapLabel")
-    : "GG/NG";
+  const thirdColLabel = "GG/NG";
 
   const listLoading = loadingCatalog || loadingMatches;
   const showLoadMore = !listLoading && loadedIds.length < sportEventIds.length;
@@ -362,11 +356,7 @@ export const UpcomingMatches: FunctionComponent = () => {
                   allowAutoSelect={true}
                 />
               ) : (
-                <UpcomingMatchRow
-                  key={eventId}
-                  eventId={eventId}
-                  sportId={selectedSport}
-                />
+                <UpcomingMatchRow key={eventId} eventId={eventId} />
               ),
             )
           )}

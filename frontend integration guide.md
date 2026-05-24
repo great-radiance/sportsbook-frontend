@@ -1810,12 +1810,22 @@ Headers: x-user-id, x-operator-id
           "marketId": -1,
           "isBetBuilder": true,
           "betBuilderBetItems": [
-            { "marketId": 1, "selectionId": 10234 },
-            { "marketId": 14, "selectionId": 10891 }
+            {
+              "marketId": 1,
+              "selectionId": 10234,
+              "marketName": "Match Winner",
+              "selectionName": "Arsenal"
+            },
+            {
+              "marketId": 14,
+              "selectionId": 10891,
+              "marketName": "Anytime Goalscorer",
+              "selectionName": "Bukayo Saka"
+            }
           ],
           "eventName": "Arsenal vs Chelsea",
           "marketName": "Bet Builder",
-          "selectionName": "Bet Builder",
+          "selectionName": "Bet Builder (2 selections)",
           "oddsAtPlacement": 4.75,
           "status": "pending"
         }
@@ -1853,12 +1863,22 @@ Headers: x-user-id, x-operator-id
           "marketId": -1,
           "isBetBuilder": true,
           "betBuilderBetItems": [
-            { "marketId": 1, "selectionId": 10234 },
-            { "marketId": 14, "selectionId": 10891 }
+            {
+              "marketId": 1,
+              "selectionId": 10234,
+              "marketName": "Match Winner",
+              "selectionName": "Arsenal"
+            },
+            {
+              "marketId": 14,
+              "selectionId": 10891,
+              "marketName": "Anytime Goalscorer",
+              "selectionName": "Bukayo Saka"
+            }
           ],
           "eventName": "Arsenal vs Chelsea",
           "marketName": "Bet Builder",
-          "selectionName": "Bet Builder",
+          "selectionName": "Bet Builder (2 selections)",
           "oddsAtPlacement": 4.75,
           "status": "pending"
         },
@@ -1895,7 +1915,7 @@ function renderHistorySelection(sel) {
         <ul className="components">
           {sel.betBuilderBetItems.map((item, i) => (
             <li key={i}>
-              Market {item.marketId} · Selection {item.selectionId}
+              {item.marketName} · {item.selectionName}
             </li>
           ))}
         </ul>
@@ -1913,7 +1933,7 @@ function renderHistorySelection(sel) {
 }
 ```
 
-> The `betBuilderBetItems` array contains the raw `marketId`/`selectionId` pairs. The human-readable names for each component are not stored — if you need them for display, resolve them against the live event data from `GET /odds88/events/:eventId`.
+> Each item in `betBuilderBetItems` includes `marketName` and `selectionName` resolved at placement time — use them directly for display without any extra API calls.
 
 `shortResult` is pre-formatted for display: `"Pending"`, `"Won USD 125.00"`, `"Lost"`, `"Voided"`, `"Cashed Out USD 37.50"`, `"Cancelled"`.
 
@@ -1934,6 +1954,7 @@ Headers: x-user-id, x-operator-id
     "betId": "6645abc123def111",
     "betType": "parlay",
     "status": "accepted",
+    "shortResult": "Pending",
     "stakeAmount": 25.0,
     "potentialPayout": 625.0,
     "actualPayout": null,
@@ -2000,6 +2021,7 @@ Headers: x-user-id, x-operator-id
     "betId": "6645abc123def333",
     "betType": "parlay",
     "status": "accepted",
+    "shortResult": "Pending",
     "stakeAmount": 10.0,
     "potentialPayout": 87.9,
     "actualPayout": null,
@@ -2020,12 +2042,22 @@ Headers: x-user-id, x-operator-id
         "marketId": -1,
         "isBetBuilder": true,
         "betBuilderBetItems": [
-          { "marketId": 1, "selectionId": 10234 },
-          { "marketId": 14, "selectionId": 10891 }
+          {
+            "marketId": 1,
+            "selectionId": 10234,
+            "marketName": "Match Winner",
+            "selectionName": "Arsenal"
+          },
+          {
+            "marketId": 14,
+            "selectionId": 10891,
+            "marketName": "Anytime Goalscorer",
+            "selectionName": "Bukayo Saka"
+          }
         ],
         "eventName": "Arsenal vs Chelsea",
         "marketName": "Bet Builder",
-        "selectionName": "Bet Builder",
+        "selectionName": "Bet Builder (2 selections)",
         "status": "pending",
         "settlementResult": null,
         "oddsAtPlacement": 4.75,
@@ -2083,22 +2115,23 @@ Headers: x-user-id, x-operator-id
 
 **Selection field reference:**
 
-| Field                | Regular leg           | Bet Builder leg                                          |
-| -------------------- | --------------------- | -------------------------------------------------------- |
-| `selectionId`        | Selection ID          | `-1`                                                     |
-| `marketId`           | Market ID             | `-1`                                                     |
-| `isBetBuilder`       | `false`               | `true`                                                   |
-| `betBuilderBetItems` | `[]`                  | Array of `{ marketId, selectionId }` for each component  |
-| `marketName`         | e.g. `"Match Winner"` | `"Bet Builder"`                                          |
-| `selectionName`      | e.g. `"Arsenal"`      | `"Bet Builder"`                                          |
-| `eventSnapshot`      | Full event data       | Full event data                                          |
-| `marketSnapshot`     | Market data           | `{ id: -1, name: "Bet Builder" }`                        |
-| `selectionSnapshot`  | Selection data        | `{ id: -1, name: "Bet Builder", price: <combinedOdds> }` |
+| Field                | Regular leg           | Bet Builder leg                                                                    |
+| -------------------- | --------------------- | ---------------------------------------------------------------------------------- |
+| `selectionId`        | Selection ID          | `-1`                                                                               |
+| `marketId`           | Market ID             | `-1`                                                                               |
+| `isBetBuilder`       | `false`               | `true`                                                                             |
+| `betBuilderBetItems` | `[]`                  | Array of `{ marketId, selectionId, marketName, selectionName }` for each component |
+| `marketName`         | e.g. `"Match Winner"` | `"Bet Builder"`                                                                    |
+| `selectionName`      | e.g. `"Arsenal"`      | `"Bet Builder (N selections)"`                                                     |
+| `eventSnapshot`      | Full event data       | Full event data                                                                    |
+| `marketSnapshot`     | Market data           | `{ id: -1, name: "Bet Builder" }`                                                  |
+| `selectionSnapshot`  | Selection data        | `{ id: -1, name: "Bet Builder", price: <combinedOdds> }`                           |
 
 **Other field notes:**
 
 | Field                | Notes                                                                         |
 | -------------------- | ----------------------------------------------------------------------------- |
+| `shortResult`        | Pre-formatted result string — present on both history and detail              |
 | `selectionCount`     | Number of **legs** (a BB leg with 3 components counts as 1)                   |
 | `walletReserveRef`   | External reference from the operator wallet debit — useful for reconciliation |
 | `rejectionReason`    | Populated for `rejected` bets; `null` otherwise                               |
@@ -2735,6 +2768,10 @@ GET /api/v1/home/star-players
       "league": { "id": 101, "name": "Premier League" },
       "region": { "id": 10, "name": "England" },
       "startTime": "2026-05-17T14:00:00.000Z",
+      "competitors": [
+        { "id": 301, "name": "Manchester City" },
+        { "id": 302, "name": "Arsenal" }
+      ],
       "picks": [
         {
           "role": "player_prop",
@@ -2743,7 +2780,10 @@ GET /api/v1/home/star-players
           "selectionId": 10234,
           "marketName": "Anytime Goalscorer",
           "outcomeName": "Erling Haaland",
-          "odds": 2.1
+          "odds": 2.1,
+          "parameters": null,
+          "extraParameters": null,
+          "selectionExtraParameters": null
         },
         {
           "role": "match_result",
@@ -2752,7 +2792,10 @@ GET /api/v1/home/star-players
           "selectionId": 10001,
           "marketName": "Match Result",
           "outcomeName": "Manchester City",
-          "odds": 1.85
+          "odds": 1.85,
+          "parameters": null,
+          "extraParameters": null,
+          "selectionExtraParameters": null
         },
         {
           "role": "total_goals",
@@ -2761,7 +2804,10 @@ GET /api/v1/home/star-players
           "selectionId": 10099,
           "marketName": "Total Goals",
           "outcomeName": "Over 2.5",
-          "odds": 1.72
+          "odds": 1.72,
+          "parameters": { "totalValue": 2.5 },
+          "extraParameters": null,
+          "selectionExtraParameters": null
         }
       ],
       "combinedOdds": 6.68,
@@ -2775,14 +2821,19 @@ GET /api/v1/home/star-players
 }
 ```
 
-| Field          | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| `cardId`       | Stable identifier — use as React / template key            |
-| `playerName`   | Hero player display name                                   |
-| `picks[].role` | `player_prop` \| `match_result` \| `total_goals`           |
-| `picks[].odds` | Decimal price **at response time** — validate at placement |
-| `combinedOdds` | Product of all three leg odds — show as bundle price       |
-| `displayOrder` | Already sorted server-side                                 |
+| Field                              | Description                                                                                                                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cardId`                           | Stable identifier — use as React / template key                                                                                                                             |
+| `playerName`                       | Hero player display name                                                                                                                                                    |
+| `competitors`                      | Home/away competitor objects — use for team name display                                                                                                                    |
+| `picks[].role`                     | `player_prop` \| `match_result` \| `total_goals`                                                                                                                            |
+| `picks[].odds`                     | Decimal price **at response time** — validate at placement                                                                                                                  |
+| `picks[].parameters`               | Market parameters (e.g. `{ "totalValue": 2.5 }` for Over/Under) — use to build display labels                                                                               |
+| `picks[].extraParameters`          | Additional market parameters from the odds provider                                                                                                                         |
+| `picks[].selectionExtraParameters` | Selection-level extra parameters from the odds provider                                                                                                                     |
+| `combinedOdds`                     | Product of all three leg odds — computed locally                                                                                                                            |
+| `bbCombinedOdds`                   | Confirmed combined Bet Builder price from the odds provider, or `null` if BB is unavailable for this combo. Use this when placing as a BB single instead of `combinedOdds`. |
+| `displayOrder`                     | Already sorted server-side                                                                                                                                                  |
 
 #### Rendering a Card
 
@@ -2885,11 +2936,18 @@ GET /api/v1/home/trending-accas
           "region": { "id": 10, "name": "England" },
           "league": { "id": 101, "name": "Premier League" },
           "startTime": "2026-05-17T14:00:00.000Z",
+          "competitors": [
+            { "id": 301, "name": "Man City" },
+            { "id": 302, "name": "Arsenal" }
+          ],
           "marketId": 1,
           "selectionId": 10001,
           "marketName": "Match Result",
           "outcomeName": "Man City",
-          "odds": 1.85
+          "odds": 1.85,
+          "parameters": null,
+          "extraParameters": null,
+          "selectionExtraParameters": null
         }
       ],
       "displayOrder": 1
@@ -2902,13 +2960,17 @@ GET /api/v1/home/trending-accas
 }
 ```
 
-| Field                  | Description                                                       |
-| ---------------------- | ----------------------------------------------------------------- |
-| `couponId`             | Stable identifier — use as React / template key                   |
-| `foldCount`            | Number of legs (always equals `legs.length`)                      |
-| `combinedOdds`         | Server-computed product of all leg odds                           |
-| `socialProof.betCount` | Only present when enough bets exist — show as "187+ bets on this" |
-| `displayOrder`         | Already sorted server-side                                        |
+| Field                             | Description                                                            |
+| --------------------------------- | ---------------------------------------------------------------------- |
+| `couponId`                        | Stable identifier — use as React / template key                        |
+| `foldCount`                       | Number of legs (always equals `legs.length`)                           |
+| `combinedOdds`                    | Server-computed product of all leg odds                                |
+| `socialProof.betCount`            | Only present when enough bets exist — show as "187+ bets on this"      |
+| `legs[].competitors`              | Home/away competitor objects for the event — use for team name display |
+| `legs[].parameters`               | Market parameters (e.g. `{ "totalValue": 2.5 }` for Over/Under)        |
+| `legs[].extraParameters`          | Additional market parameters from the odds provider                    |
+| `legs[].selectionExtraParameters` | Selection-level extra parameters from the odds provider                |
+| `displayOrder`                    | Already sorted server-side                                             |
 
 #### Rendering a Coupon
 

@@ -30,6 +30,7 @@ import { useTranslate } from "@/shared/i18n/i18n";
 import { formatCurrency } from "@/shared/utils/formatters";
 import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
 import { loadBetDetail } from "@/api/bet/apiBetDetail";
+import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import {
   currentBetSlipIdempotencyKey,
   rotateBetSlipIdempotencyKey,
@@ -456,6 +457,7 @@ export const BetSlip: FunctionComponent = () => {
               notify("Bet accepted", "success", "check2-circle", 2500);
               void refreshAfterWalletAction();
               void subscribeCashoutForBet(d.betId, xUserId);
+              void showAcceptedBetInOpenBets(d.betId);
               rotateBetSlipIdempotencyKey();
             } else {
               notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -521,6 +523,7 @@ export const BetSlip: FunctionComponent = () => {
             notify("Bet accepted", "success", "check2-circle", 2500);
             void refreshAfterWalletAction();
             void subscribeCashoutForBet(d.betId, xUserId);
+            void showAcceptedBetInOpenBets(d.betId);
             rotateBetSlipIdempotencyKey();
           } else {
             notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -566,6 +569,7 @@ export const BetSlip: FunctionComponent = () => {
                   notify("Bet accepted", "success", "check2-circle", 2500);
                   void refreshAfterWalletAction();
                   void subscribeCashoutForBet(d.betId, xUserId);
+                  void showAcceptedBetInOpenBets(d.betId);
                   rotateBetSlipIdempotencyKey();
                 } else {
                   notify("Unexpected bet response", "error", "x-circle", 2500);

@@ -5,6 +5,12 @@ import {
   addSingleWidgetPickToSlip,
   type WidgetSelectionInput,
 } from "@/helpers/homeWidgetBetslip";
+import {
+  starPlayerBundleOdds,
+  starPlayerDisplayName,
+  widgetMarketDisplayName,
+  widgetOutcomeDisplayName,
+} from "@/helpers/widgetDisplayNames";
 
 type TopPlayerCardProps = {
   data: StarPlayerCardResponse;
@@ -15,12 +21,13 @@ function pickToInput(
   pick: StarPlayerCardResponse["picks"][0],
   card: StarPlayerCardResponse,
 ): WidgetSelectionInput {
+  const nameFields = { ...pick, competitors: card.competitors };
   return {
     eventId: pick.eventId,
     marketId: pick.marketId,
     selectionId: pick.selectionId,
-    marketName: pick.marketName,
-    outcomeName: pick.outcomeName,
+    marketName: widgetMarketDisplayName(nameFields),
+    outcomeName: widgetOutcomeDisplayName(nameFields),
     odds: pick.odds,
     sport: card.sport,
     region: card.region,
@@ -30,18 +37,25 @@ function pickToInput(
   };
 }
 
+function pickDisplayLine(
+  pick: StarPlayerCardResponse["picks"][0],
+  card: StarPlayerCardResponse,
+): string {
+  const nameFields = { ...pick, competitors: card.competitors };
+  const market = widgetMarketDisplayName(nameFields);
+  const outcome = widgetOutcomeDisplayName(nameFields);
+  return `${market} — ${outcome}`;
+}
+
 export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
   data,
   onAddToBetSlip,
 }) => {
-  const combined =
-    typeof data.combinedOdds === "number" && data.combinedOdds > 0
-      ? data.combinedOdds
-      : data.picks.reduce((acc, pick) => acc * pick.odds, 1);
+  const bundleOdds = starPlayerBundleOdds(data);
 
   return (
-    <div className="relative flex flex-col items-center justify-end gap-2 w-[238px] h-[290px]">
-      <div className="flex flex-col relative w-full h-[270px] rounded-[12px] overflow-hidden bg-[#840E2E]">
+    <div className="relative flex flex-col items-center justify-end gap-2 w-[250px] h-[300px]">
+      <div className="flex flex-col relative w-full h-[280px] rounded-[12px] overflow-hidden bg-[#840E2E]">
         <div
           className="absolute z-2 top-0 left-0 w-full h-full"
           style={{
@@ -61,7 +75,7 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
         alt="Player"
         className="absolute z-1 top-0 mx-auto object-cover"
       />
-      <div className="flex flex-col z-2 absolute bottom-0 w-full h-[230px] overflow-hidden">
+      <div className="flex flex-col z-2 absolute bottom-0 w-full h-[240px] overflow-hidden">
         <div className="flex items-center flex-col flex-1 justify-start pt-1">
           <div className="flex items-center p-1 justify-center rounded-full bg-[#840e2e] min-h-[26px] mx-auto px-2">
             <span className="text-[9px] leading-tight text-center text-white/90 line-clamp-2">
@@ -72,7 +86,7 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
         <div className="flex flex-col w-full h-full justify-between items-center p-2">
           <div className="flex flex-col text-white w-full items-center justify-center">
             <span className="text-[14px] font-bold text-center px-2">
-              {data.playerName}
+              {starPlayerDisplayName(data)}
             </span>
             <span className="text-[11px] text-center px-2 text-white/70">
               {data.league.name}
@@ -98,8 +112,7 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
                     </div>
                     <div className="flex-1 items-center justify-center">
                       <span className="text-[12px] text-white starplayers-two-line-clamp">
-                        {pick.marketName} —{" "}
-                        <span className="font-bold">{pick.outcomeName}</span>
+                        {pickDisplayLine(pick, data)}{" "}
                         <span className="ml-1 opacity-80">
                           {pick.odds.toFixed(2)}
                         </span>
@@ -114,7 +127,7 @@ export const TopPlayerCard: FunctionComponent<TopPlayerCardProps> = ({
               className="flex w-full text-[14px] bg-[var(--sub-element-secondary)] items-center justify-center rounded-[8px] text-[var(--text-primary-color)] font-bold h-[36px]"
               onClick={onAddToBetSlip}
             >
-              {combined.toFixed(2)}
+              {bundleOdds.toFixed(2)}
             </button>
           </div>
         </div>

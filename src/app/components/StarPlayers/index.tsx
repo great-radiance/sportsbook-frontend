@@ -9,6 +9,10 @@ import {
   addStarPlayerBundleToSlip,
   type WidgetSelectionInput,
 } from "@/helpers/homeWidgetBetslip";
+import {
+  widgetMarketDisplayName,
+  widgetOutcomeDisplayName,
+} from "@/helpers/widgetDisplayNames";
 import { useHomeWidgetPolling } from "@/hooks/useHomeWidgetPolling";
 import {
   loadHomeWidgetsBatch,
@@ -19,12 +23,14 @@ function pickToInput(
   pick: StarPlayerCardResponse["picks"][0],
   card: StarPlayerCardResponse,
 ): WidgetSelectionInput {
+  const competitors = card.competitors;
+  const nameFields = { ...pick, competitors };
   return {
     eventId: pick.eventId,
     marketId: pick.marketId,
     selectionId: pick.selectionId,
-    marketName: pick.marketName,
-    outcomeName: pick.outcomeName,
+    marketName: widgetMarketDisplayName(nameFields),
+    outcomeName: widgetOutcomeDisplayName(nameFields),
     odds: pick.odds,
     sport: card.sport,
     region: card.region,
@@ -63,7 +69,8 @@ export const StarPlayers: FunctionComponent = () => {
   useHomeWidgetPolling(load);
 
   const handleAddBundle = useCallback((card: StarPlayerCardResponse) => {
-    void addStarPlayerBundleToSlip(card.picks.map((pick) => pickToInput(pick, card)));
+    const picks = card.picks.map((pick) => pickToInput(pick, card));
+    void addStarPlayerBundleToSlip(card, picks);
   }, []);
 
   if (players.length === 0) return null;

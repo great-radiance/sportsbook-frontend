@@ -1,14 +1,21 @@
 import { FunctionComponent } from "preact";
+import { useSignal } from "@preact/signals";
 import { BetComponent } from "./BetComponent";
 import { apiGetBetHistory } from "@/api/bet/betHistory";
+import { isOpenBetsListStatus } from "@/helpers/showAcceptedBetInOpenBets";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getAppConfig } from "@/shared/config/appConfig";
-import { betHistoryState, totalPagesState } from "@/state/betHistoryState";
+import {
+  betHistoryState,
+  openBetsTabState,
+  totalPagesState,
+} from "@/state/betHistoryState";
 import { playerSessionReady } from "@/state/betState";
 
 export const OpenBets: FunctionComponent = () => {
+  useSignal();
   const { t: tCommon } = useTranslate("common");
   const { t: tBetslip } = useTranslate("betslip");
   const [loading, setLoading] = useState<boolean>(false);
@@ -16,7 +23,8 @@ export const OpenBets: FunctionComponent = () => {
   const [page, setPage] = useState<number>(1);
   const [refreshToken, setRefreshToken] = useState(0);
   const { xUserId } = getAppConfig();
-  const [selectedTab, setSelectedTab] = useState<"open" | "settled">("open");
+  const selectedTab = openBetsTabState.value;
+  const bets = betHistoryState.value;
   const sessionReady = playerSessionReady.value;
 
   const lastFetchedKeyRef = useRef<string>("");
@@ -50,7 +58,16 @@ export const OpenBets: FunctionComponent = () => {
         }
 
         lastFetchedKeyRef.current = fetchKey;
-        betHistoryState.value = response.bets;
+        const apiBets = response.bets;
+        if (selectedTab === "open" && page === 1) {
+          const apiIds = new Set(apiBets.map((b) => b.betId));
+          const localOnly = betHistoryState.value.filter(
+            (b) => !apiIds.has(b.betId) && isOpenBetsListStatus(b.status),
+          );
+          betHistoryState.value = [...localOnly, ...apiBets];
+        } else {
+          betHistoryState.value = apiBets;
+        }
         totalPagesState.value = response.totalPages;
       } catch (err) {
         if (cancelled) return;
@@ -72,7 +89,7 @@ export const OpenBets: FunctionComponent = () => {
     lastFetchedKeyRef.current = "";
     betHistoryState.value = [];
     setPage(1);
-    setSelectedTab(tab);
+    openBetsTabState.value = tab;
   };
 
   const handleCashoutSuccess = () => {
@@ -96,8 +113,6 @@ export const OpenBets: FunctionComponent = () => {
       </div>
     );
   }
-
-  const bets = betHistoryState.value;
 
   return (
     <div className="w-full min-h-[400px] pb-30 md:pb-20 rounded-t-[16px] overflow-y-auto rounded-[4px] flex text-[12px] bg-[var(--sub-element-color)] text-[var(--text-basic-color)] flex-col gap-2 py-2">

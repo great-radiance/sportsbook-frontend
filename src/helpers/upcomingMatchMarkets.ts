@@ -1,14 +1,10 @@
-import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 import type {
+  competitor,
+  tEventModel,
   tMarketModel,
   tSelectionValue,
 } from "@/types/typesForSocket.ts/tEventModel";
-import {
-  extractHandicapFigure,
-  getOddName,
-  getOnlyNumber,
-} from "@/helpers/getOnlyNumber";
-import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
+import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
 
 export type UpcomingMarketSlot = {
   market: tMarketModel | undefined;
@@ -18,10 +14,7 @@ export type UpcomingMatchMarkets = {
   matchResult: UpcomingMarketSlot;
   overUnder: UpcomingMarketSlot;
   ggNg: UpcomingMarketSlot;
-  handicap: UpcomingMarketSlot;
 };
-
-export type UpcomingThirdColumnKind = "ggNg" | "handicap";
 
 export function marketSelections(
   market: tMarketModel | undefined,
@@ -71,16 +64,6 @@ function pickGgNg(markets: tMarketModel[]): tMarketModel | undefined {
   });
 }
 
-function pickHandicap(markets: tMarketModel[]): tMarketModel | undefined {
-  const candidates = markets.filter((m) => {
-    const n = m.name.toLowerCase();
-    return n.includes("handicap") && !n.includes("3-");
-  });
-  return (
-    candidates.find((m) => marketSelections(m).length === 2) ?? candidates[0]
-  );
-}
-
 export function resolveUpcomingMatchMarkets(
   markets: tMarketModel[],
 ): UpcomingMatchMarkets {
@@ -88,7 +71,6 @@ export function resolveUpcomingMatchMarkets(
     matchResult: { market: pickMatchResult(markets) },
     overUnder: { market: pickOverUnder(markets) },
     ggNg: { market: pickGgNg(markets) },
-    handicap: { market: pickHandicap(markets) },
   };
 }
 
@@ -99,31 +81,8 @@ export function eventHasStoredMarkets(event: tEventModel | undefined): boolean {
   return Boolean(
     slots.matchResult.market ||
       slots.overUnder.market ||
-      slots.ggNg.market ||
-      slots.handicap.market,
+      slots.ggNg.market,
   );
-}
-
-export function resolveThirdColumnKind(
-  slots: UpcomingMatchMarkets,
-  sportId: number,
-  sportName?: string,
-): UpcomingThirdColumnKind {
-  if (
-    isMoneylineSport(sportId, sportName) &&
-    !slots.ggNg.market &&
-    slots.handicap.market
-  ) {
-    return "handicap";
-  }
-  return "ggNg";
-}
-
-export function thirdColumnSlot(
-  slots: UpcomingMatchMarkets,
-  kind: UpcomingThirdColumnKind,
-): UpcomingMarketSlot {
-  return kind === "handicap" ? slots.handicap : slots.ggNg;
 }
 
 /** Match-result row: up to 3 cells (1 / X / 2). */
@@ -155,7 +114,7 @@ export function overUnderCells(
   return [sorted[0], sorted[1]];
 }
 
-/** Third column row: two labeled cells (GG/NG or spread). */
+/** Both teams to score row: two labeled cells (Yes / No). */
 export function thirdColumnCells(
   market: tMarketModel | undefined,
 ): [tSelectionValue | undefined, tSelectionValue | undefined] {
@@ -180,37 +139,62 @@ export function overUnderButtonLabel(
   return num ? `${prefix} ${num}`.trim() : name || "—";
 }
 
-export function ggNgButtonLabel(
-  selection: tSelectionValue | undefined,
-): string {
-  if (!selection) return "—";
-  const name = String(
-    getOddName(selection.name as never) ?? selection.name ?? "",
-  )
-    .toLowerCase()
-    .trim();
-  if (name === "yes" || name.startsWith("yes")) return "Yes";
-  if (name === "no" || name.startsWith("no")) return "No";
-  return selection.name || "—";
+function namesMatch(a: string, b: string): boolean {
+  const x = a.trim().toLowerCase();
+  const y = b.trim().toLowerCase();
+  if (!x || !y) return false;
+  return x === y || x.includes(y) || y.includes(x);
 }
 
-export function spreadButtonLabel(
+function bttsYesNoPart(part: string): string {
+  const p = part.trim().toLowerCase();
+  if (p === "yes" || p.startsWith("yes")) return "Yes";
+  if (p === "no" || p.startsWith("no")) return "No";
+  const trimmed = part.trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase() : "—";
+}
+
+/** Map home/away/draw (or team name) to 1 / X / 2 for combo BTTS labels. */
+function resultSidePart(
+  part: string,
+  competitors?: competitor[],
+): string {
+  const p = part.trim().toLowerCase();
+  if (p === "1" || p === "home") return "1";
+  if (p === "2" || p === "away") return "2";
+  if (p === "x" || p === "draw" || p === "tie") return "X";
+
+  const home = competitors?.[0]?.name?.trim();
+  const away = competitors?.[1]?.name?.trim();
+  if (home && namesMatch(p, home)) return "1";
+  if (away && namesMatch(p, away)) return "2";
+
+  return part.trim();
+}
+
+export function ggNgButtonLabel(
   selection: tSelectionValue | undefined,
+  competitors?: competitor[],
 ): string {
   if (!selection) return "—";
-  const name = String(
+  const raw = String(
     getOddName(selection.name as never) ?? selection.name ?? "",
-  );
-  const fig = typeof name === "string" ? extractHandicapFigure(name) : null;
-  if (!fig) return "—";
-  return fig.startsWith("-") || fig.startsWith("+") ? fig : `+${fig}`;
+  ).trim();
+  if (!raw) return "—";
+
+  const amp = raw.indexOf("&");
+  if (amp >= 0) {
+    const left = raw.slice(0, amp);
+    const right = raw.slice(amp + 1);
+    return `${resultSidePart(left, competitors)} & ${bttsYesNoPart(right)}`;
+  }
+
+  return bttsYesNoPart(raw);
 }
 
 export function thirdColumnSelectionLabel(
-  kind: UpcomingThirdColumnKind,
   selection: tSelectionValue | undefined,
+  competitors?: competitor[],
 ): string {
-  return kind === "handicap"
-    ? spreadButtonLabel(selection)
-    : ggNgButtonLabel(selection);
+  return ggNgButtonLabel(selection, competitors);
 }

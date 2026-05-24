@@ -23,10 +23,7 @@ import {
   isOpenedCashoutDialog,
 } from "@/state/isOpenedCashoutDialog";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import {
-  getBetStatusLabel,
-  isCashoutableStatus,
-} from "@/helpers/betStatus";
+import { getBetStatusLabel, isCashoutableStatus } from "@/helpers/betStatus";
 import { BetHistoryLegRow } from "./BetHistoryLegRow";
 
 interface BetComponentProps {
@@ -129,8 +126,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   })();
 
   const baseTheme = baseColorTheme.value;
-  const showCashoutButton =
-    !isSettledView && isCashoutableStatus(status);
+  const showCashoutButton = !isSettledView && isCashoutableStatus(status);
 
   return (
     <div
@@ -201,9 +197,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
             ? t("result")
             : t("possibleWin")}
         </div>
-        <div className="text-[var(--primary-color)]">
-          {fmt(payoutAmount)}
-        </div>
+        <div className="text-[var(--primary-color)]">{fmt(payoutAmount)}</div>
       </div>
 
       {showCashoutButton && (

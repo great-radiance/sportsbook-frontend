@@ -1,7 +1,7 @@
 /** Shared grid widths for upcoming match header + rows. */
 
-export const UPCOMING_MATCH_COL_MATCH = "min-w-0 flex-[1]";
-export const UPCOMING_MATCH_COL_MARKETS = "flex min-w-0 flex-[1.8] gap-3";
+export const UPCOMING_MATCH_COL_MATCH = "min-w-0 flex-[0.8]";
+export const UPCOMING_MATCH_COL_MARKETS = "flex min-w-0 flex-[2.2] gap-3";
 export const UPCOMING_MATCH_COL_GROUP =
   "flex min-w-0 flex-1 gap-1 items-stretch";
 export const UPCOMING_MATCH_COL_CELL = "min-w-0 flex-1";

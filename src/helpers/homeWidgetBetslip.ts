@@ -5,7 +5,11 @@ import {
 } from "@/helpers/betslipSelection";
 import { notify } from "@/shared/toast";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
+import type { StarPlayerCardResponse } from "@/api/home/homeWidgets";
 import {
+  betBuilderCombinable,
+  betBuilderPrice,
+  betBuilderRejectMessage,
   buildingBetAmount,
   isBuilding,
   multipleBetAmount,
@@ -216,8 +220,11 @@ export function addSingleWidgetPickToSlip(pick: WidgetSelectionInput): void {
   }
 }
 
-/** Star player card — three legs on the same event (bet builder / same-game parlay). */
-export function addStarPlayerBundleToSlip(picks: WidgetSelectionInput[]): void {
+/** Star player card — same-event Bet Builder bundle. */
+export function addStarPlayerBundleToSlip(
+  card: StarPlayerCardResponse,
+  picks: WidgetSelectionInput[],
+): void {
   if (picks.length === 0) return;
 
   selectedOdds.value = selectedOdds.value.filter((o) => !o.isBuilding);
@@ -225,11 +232,22 @@ export function addStarPlayerBundleToSlip(picks: WidgetSelectionInput[]): void {
   selectedBetType.value = "single";
   buildingBetAmount.value = 0;
 
+  let added = 0;
   for (const pick of picks) {
-    addWidgetPick(pick, { building: true, betType: "single" });
+    if (addWidgetPick(pick, { building: true, betType: "single" })) {
+      added += 1;
+    }
   }
 
-  betSlipExpanded.value = true;
+  if (added > 0) {
+    const bbPrice = card.bbCombinedOdds;
+    if (typeof bbPrice === "number" && bbPrice > 0) {
+      betBuilderPrice.value = bbPrice;
+      betBuilderCombinable.value = true;
+      betBuilderRejectMessage.value = null;
+    }
+    betSlipExpanded.value = true;
+  }
 }
 
 /** Trending acca — parlay across distinct events. */

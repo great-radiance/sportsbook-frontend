@@ -225,23 +225,11 @@ export function addStarPlayerBundleToSlip(picks: WidgetSelectionInput[]): void {
   selectedBetType.value = "single";
   buildingBetAmount.value = 0;
 
-  let added = 0;
   for (const pick of picks) {
-    if (addWidgetPick(pick, { building: true, betType: "single" })) {
-      added += 1;
-    }
+    addWidgetPick(pick, { building: true, betType: "single" });
   }
 
-  if (added > 0) {
-    betSlipExpanded.value = true;
-  } else {
-    notify(
-      "Unable to add selections to betslip. Please try again.",
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-  }
+  betSlipExpanded.value = true;
 }
 
 /** Trending acca — parlay across distinct events. */
@@ -254,11 +242,8 @@ export function addTrendingAccaToSlip(legs: WidgetSelectionInput[]): void {
 
   selectedOdds.value = selectedOdds.value.filter((o) => o.isBuilding);
 
-  let failed = 0;
   for (const leg of legs) {
-    if (!addWidgetPick(leg, { building: false, betType: "multi" })) {
-      failed += 1;
-    }
+    addWidgetPick(leg, { building: false, betType: "multi" });
   }
 
   const allLegsOnSlip = legs.every((leg) =>
@@ -269,16 +254,5 @@ export function addTrendingAccaToSlip(legs: WidgetSelectionInput[]): void {
     selectedBetType.value = "multi";
     betSlipExpanded.value = true;
     return;
-  }
-
-  if (failed > 0) {
-    notify(
-      failed === legs.length
-        ? "Unable to add acca to betslip. Please try again."
-        : "Some acca legs could not be added. Check your bet slip.",
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
   }
 }

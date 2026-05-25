@@ -5,6 +5,7 @@ import type { SidebarMarketRef } from "@/state/summarySports";
 export type tSelectionValue = {
   id: number;
   name: string;
+  nickName?: string;
   probability: number;
   price: number;
   originalPrice: number;

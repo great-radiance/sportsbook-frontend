@@ -8,6 +8,7 @@ import { useTranslate } from "@/shared/i18n/i18n";
 import { translationState } from "@/state/translationState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { featuredSummaryData, summarySports } from "@/state/summarySports";
+import { RACING_SPORT_IDS } from "@/helpers/isRacingSport";
 
 type SportRow = (typeof summarySports.value.data)[number];
 type RegionRow = SportRow[2][number];
@@ -135,6 +136,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
             const sportCount =
               summarySports.value.counts?.[sportId]?.total ?? 0;
             if (sportCount <= 0) return null;
+            if (RACING_SPORT_IDS.has(sportId)) return null;
 
             const isSportExpanded = expandedSports.has(sportId);
 

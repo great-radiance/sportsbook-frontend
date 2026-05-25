@@ -81,8 +81,6 @@ const TrendingAccas = () => {
     };
   }, [load]);
 
-  useHomeWidgetPolling(load);
-
   if (coupons.length === 0) return null;
 
   return (

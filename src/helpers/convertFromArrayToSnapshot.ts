@@ -40,6 +40,7 @@ export function convertFromArrayToSnapshot(
       competitors: competitors.map((c: any) => ({
         id: c?.[0],
         name: c?.[1],
+        logo: c?.[2],
       })),
       startTime,
       isOutright,

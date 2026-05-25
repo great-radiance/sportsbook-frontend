@@ -1,10 +1,6 @@
 import { competitor } from "@/types/typesForSocket.ts/tEventModel";
 
-const HANDICAP_PARAM_KEYS = new Set([
-  "hcp",
-  "handicap",
-  "hcp_for_the_rest",
-]);
+const HANDICAP_PARAM_KEYS = new Set(["hcp", "handicap", "hcp_for_the_rest"]);
 
 function resolveHandicapRaw(
   parameters?: Record<string, string>,
@@ -95,6 +91,44 @@ export const completeName = (
       competitor2 = team.name;
     }
   }
+
+  let result = rawName
+    .replace(/\{\$competitor1\}/g, competitor1)
+    .replace(/\{\$competitor2\}/g, competitor2);
+
+  const hcpRaw = resolveHandicapRaw(parameters, extraParameters);
+  if (hcpRaw !== undefined) {
+    result = applyHandicapPlaceholders(result, hcpRaw);
+  }
+
+  const merged: Record<string, string> = {
+    ...(parameters ?? {}),
+    ...(extraParameters ?? {}),
+  };
+  for (const [key, val] of Object.entries(merged)) {
+    if (val == null) continue;
+    if (key === "competitorId" || HANDICAP_PARAM_KEYS.has(key)) {
+      continue;
+    }
+    const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\{!?${safeKey}\\}`, "g");
+    result = result.replace(re, val);
+  }
+
+  return result;
+};
+
+export const completeNickName = (
+  rawName: string,
+  competitors?: competitor[],
+  parameters?: Record<string, string>,
+  extraParameters?: Record<string, string>,
+): string => {
+  if (rawName.toLowerCase() === "draw") return "X";
+  if (!rawName || !rawName.includes("{")) return rawName;
+
+  let competitor1 = "1";
+  let competitor2 = "2";
 
   let result = rawName
     .replace(/\{\$competitor1\}/g, competitor1)

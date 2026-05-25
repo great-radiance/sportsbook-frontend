@@ -81,12 +81,14 @@ export const Match: FunctionComponent<MatchProps> = ({
     ? Object.values(event.markets).map((sig) => sig.value)
     : [];
 
+  console.log("markets", markets);
+
   const scoreboard = event?.scoreboard;
   const homeGoals = getCompetitorScore(scoreboard, 1);
   const awayGoals = getCompetitorScore(scoreboard, 2);
 
   const rawTime = typeof scoreboard?.time === "number" ? scoreboard.time : null;
-  const showClock = isLive && rawTime !== null;
+  const showClock = isLive && rawTime !== null && rawTime > 0;
 
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
@@ -108,6 +110,9 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   // Get winner market (usually the first market)
   const selectedMarket = marketId ?? getSelectedMarket(marketType ?? 0);
+  const selectionCount =
+    markets.find((m) => m.id === selectedMarket)?.selections?.length ?? 0;
+  const longMarket = selectionCount > 3;
   // console.log(
   //   "event",
   //   event,
@@ -294,7 +299,7 @@ export const Match: FunctionComponent<MatchProps> = ({
       </span>
       <div className="flex flex-col md:flex-row w-full md:w-[calc(100%-60px)] h-full">
         <div
-          className="flex flex-1 w-full md:max-w-[calc(50%)] px-1 min-w-0 overflow-hidden"
+          className={`flex flex-1 w-full md:max-w-[calc(50%)] px-1 min-w-0 overflow-hidden ${longMarket ? "md:max-w-[calc(30%)]" : ""}`}
           onClick={(e) => {
             linkButtonOnClick(e, eventPath, setLocation);
           }}
@@ -384,7 +389,9 @@ export const Match: FunctionComponent<MatchProps> = ({
           )}
         </div>
 
-        <div className="flex gap-2 flex-1 w-full my-[5px] md:my-0 md:min-w-[calc(50%)] md:max-w-[calc(50%)] items-center justify-center">
+        <div
+          className={`flex gap-2 flex-1 w-full my-[5px] md:my-0 md:min-w-[calc(50%)] md:max-w-[calc(50%)] items-center justify-center ${longMarket ? "md:max-w-[calc(70%)]" : ""}`}
+        >
           <Market marketId={selectedMarket} eventId={eventId} />
           {/* {compact !== 1 && (
           <Market

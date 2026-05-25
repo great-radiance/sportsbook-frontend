@@ -66,8 +66,6 @@ export const StarPlayers: FunctionComponent = () => {
     };
   }, []);
 
-  useHomeWidgetPolling(load);
-
   const handleAddBundle = useCallback((card: StarPlayerCardResponse) => {
     const picks = card.picks.map((pick) => pickToInput(pick, card));
     void addStarPlayerBundleToSlip(card, picks);

@@ -81,7 +81,8 @@ export interface BetHistoryQueryParams {
   page?: number;
   limit?: number;
   sort?: "newest" | "oldest";
-  status?: string;
+  /** One or more statuses. Multiple values are sent as `status=a,b,c`. */
+  status?: string | string[];
   betType?: string;
   from?: string;
   to?: string;
@@ -99,6 +100,11 @@ export interface BetHistoryResponseDto {
 
 const historyInFlight = new Map<string, Promise<BetHistoryResponseDto | null>>();
 
+function statusKey(status?: string | string[]): string {
+  if (status == null) return "";
+  return Array.isArray(status) ? status.join(",") : status;
+}
+
 function historyRequestKey(
   params?: BetHistoryQueryParams & { tab?: "open" | "settled" },
 ): string {
@@ -106,7 +112,7 @@ function historyRequestKey(
     page: params?.page ?? 1,
     limit: params?.limit ?? 20,
     sort: params?.sort ?? "newest",
-    status: params?.status ?? "",
+    status: statusKey(params?.status),
     tab: params?.tab ?? "",
     betType: params?.betType ?? "",
     from: params?.from ?? "",
@@ -122,7 +128,7 @@ const emptyProvider: ProviderResponseType = {
   message: "",
 };
 
-const OPEN_BET_API_STATUSES = new Set(["accepted", "pending"]);
+const OPEN_BET_API_STATUSES = ["accepted", "pending"] as const;
 const SETTLED_BET_API_STATUSES = [
   "won",
   "lost",
@@ -132,31 +138,16 @@ const SETTLED_BET_API_STATUSES = [
   "cancelled",
   "rejected",
 ] as const;
+const OPEN_BET_API_STATUS_SET = new Set<string>(OPEN_BET_API_STATUSES);
 const SETTLED_BET_API_STATUS_SET = new Set<string>(SETTLED_BET_API_STATUSES);
-
-function dedupeHistoryRows(rows: BetHistoryApiRow[]): BetHistoryApiRow[] {
-  const byId = new Map<string, BetHistoryApiRow>();
-  for (const row of rows) {
-    if (!row?.betId) continue;
-    byId.set(row.betId, row);
-  }
-  return [...byId.values()];
-}
-
-function sortHistoryRows(
-  rows: BetHistoryApiRow[],
-  sort: "newest" | "oldest",
-): BetHistoryApiRow[] {
-  return [...rows].sort((a, b) => {
-    const ta = new Date(a.createdAt).getTime();
-    const tb = new Date(b.createdAt).getTime();
-    return sort === "oldest" ? ta - tb : tb - ta;
-  });
-}
 
 async function fetchHistoryPage(
   params: BetHistoryQueryParams,
 ): Promise<BetHistoryApiResponse> {
+  const statusParam = Array.isArray(params.status)
+    ? params.status.join(",")
+    : params.status;
+
   const response = await instance.get<
     BetHistoryApiResponse | { data: BetHistoryApiResponse }
   >("/bets/history", {
@@ -164,7 +155,7 @@ async function fetchHistoryPage(
       page: params.page ?? 1,
       limit: params.limit ?? 20,
       sort: params.sort ?? "newest",
-      ...(params.status ? { status: params.status } : {}),
+      ...(statusParam ? { status: statusParam } : {}),
       ...(params.betType ? { betType: params.betType } : {}),
       ...(params.from ? { from: params.from } : {}),
       ...(params.to ? { to: params.to } : {}),
@@ -173,68 +164,6 @@ async function fetchHistoryPage(
     },
   });
   return parseBetHistoryResponse(response.data);
-}
-
-async function fetchOpenBetRows(
-  params: BetHistoryQueryParams,
-): Promise<{ rows: BetHistoryApiRow[]; total: number; page: number; limit: number }> {
-  const limit = params.limit ?? 20;
-  const page = params.page ?? 1;
-  const sort = params.sort ?? "newest";
-
-  const body = await fetchHistoryPage({
-    ...params,
-    page,
-    limit,
-    sort,
-    status: "accepted",
-  });
-
-  let rows = body.data ?? [];
-  rows = rows.filter((r) => OPEN_BET_API_STATUSES.has(r.status));
-
-  return {
-    rows,
-    total: body.total ?? rows.length,
-    page: body.page ?? page,
-    limit: body.limit ?? limit,
-  };
-}
-
-/** Merge settled statuses — API accepts one `status` per request. */
-async function fetchSettledBetRows(
-  params: BetHistoryQueryParams,
-): Promise<{ rows: BetHistoryApiRow[]; total: number; page: number; limit: number }> {
-  const limit = params.limit ?? 20;
-  const page = params.page ?? 1;
-  const sort = params.sort ?? "newest";
-  const fetchLimit = 100;
-
-  const bodies = await Promise.all(
-    SETTLED_BET_API_STATUSES.map((status) =>
-      fetchHistoryPage({
-        ...params,
-        status,
-        page: 1,
-        limit: fetchLimit,
-        sort,
-      }).catch(() => ({ total: 0, page: 1, limit: fetchLimit, data: [] })),
-    ),
-  );
-
-  const merged = sortHistoryRows(
-    dedupeHistoryRows(bodies.flatMap((b) => b.data ?? [])),
-    sort,
-  );
-  const total = merged.length;
-  const start = (page - 1) * limit;
-
-  return {
-    rows: merged.slice(start, start + limit),
-    total,
-    page,
-    limit,
-  };
 }
 
 function mapBetTypeFromApi(api: string): betType {
@@ -367,9 +296,19 @@ export function filterBetsByTab(
   tab: "open" | "settled",
 ): BetHistoryApiRow[] {
   if (tab === "open") {
-    return rows.filter((r) => OPEN_BET_API_STATUSES.has(r.status));
+    return rows.filter((r) => OPEN_BET_API_STATUS_SET.has(r.status));
   }
   return rows.filter((r) => SETTLED_BET_API_STATUS_SET.has(r.status));
+}
+
+function statusForTab(
+  tab: "open" | "settled" | undefined,
+  explicit: string | string[] | undefined,
+): string | string[] | undefined {
+  if (explicit) return explicit;
+  if (tab === "open") return [...OPEN_BET_API_STATUSES];
+  if (tab === "settled") return [...SETTLED_BET_API_STATUSES];
+  return undefined;
 }
 
 async function fetchBetHistoryInternal(
@@ -380,38 +319,20 @@ async function fetchBetHistoryInternal(
     const page = params?.page ?? 1;
     const tab = params?.tab;
 
-  const { status: _status, tab: _tab, ...rest } = params ?? {};
+    const { tab: _tab, status, ...rest } = params ?? {};
 
-    let rows: BetHistoryApiRow[] = [];
-    let total = 0;
-    let respPage = page;
-    let respLimit = limit;
+    const body = await fetchHistoryPage({
+      ...rest,
+      page,
+      limit,
+      sort: params?.sort ?? "newest",
+      status: statusForTab(tab, status),
+    });
 
-    if (tab === "open") {
-      const open = await fetchOpenBetRows({ ...rest, page, limit });
-      rows = open.rows;
-      total = open.total;
-      respPage = open.page;
-      respLimit = open.limit;
-    } else if (tab === "settled") {
-      const settled = await fetchSettledBetRows({ ...rest, page, limit });
-      rows = settled.rows;
-      total = settled.total;
-      respPage = settled.page;
-      respLimit = settled.limit;
-    } else {
-      const body = await fetchHistoryPage({
-        ...rest,
-        page,
-        limit,
-        sort: params?.sort ?? "newest",
-        ...(params?.status ? { status: params.status } : {}),
-      });
-      rows = body.data ?? [];
-      total = body.total ?? rows.length;
-      respPage = body.page ?? page;
-      respLimit = body.limit ?? limit;
-    }
+    const rows = body.data ?? [];
+    const total = body.total ?? rows.length;
+    const respPage = body.page ?? page;
+    const respLimit = body.limit ?? limit;
 
     const bets = rows.map((row) => mapBetHistoryApiRowToBetItem(row));
     const totalPages = Math.max(1, Math.ceil(total / Math.max(1, respLimit)));

@@ -24,10 +24,7 @@ import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
 import { playerSessionReady } from "@/state/betState";
 import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import {
-  storeState,
-  willBeDeletedEventIds,
-} from "@/state/storeState";
+import { storeState, willBeDeletedEventIds } from "@/state/storeState";
 import { Search } from "../components/Search";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
@@ -92,7 +89,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     multipleBetAmount.value,
     buildingBetAmount.value,
   ]);
-
 
   useEffect(() => {
     if (!pageName) setLocation("/event-view");
@@ -201,7 +197,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         <TabList />
         {children}
         <BonusInfoDialog />
-        <MyBet />
+        {/* <MyBet /> */}
         <Search />
         <CashoutDialog />
         <OddsChangedDialog />

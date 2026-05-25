@@ -107,10 +107,10 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   };
 
   const statusLabel = getBetStatusLabel(status, t);
-  const shortResult =
-    typeof displayBet.metadata?.shortResult === "string"
-      ? displayBet.metadata.shortResult
-      : null;
+  // const shortResult =
+  //   typeof displayBet.metadata?.shortResult === "string"
+  //     ? displayBet.metadata.shortResult
+  //     : null;
 
   const payoutAmount = (() => {
     if (status === "cashed_out" && displayBet.cashoutAmount != null) {
@@ -165,7 +165,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
         </div>
         <div className="flex flex-col h-full items-end justify-center">
           <div className="text-[var(--primary-color)] uppercase">
-            {shortResult || statusLabel}
+            {statusLabel}
           </div>
           <div>
             {formatDate(displayBet.placedAt)},{" "}

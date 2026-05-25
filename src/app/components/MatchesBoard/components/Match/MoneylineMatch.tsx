@@ -337,11 +337,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
     const suspended = odd.status === 1;
     const closed = odd.status === 2 || odd.status === 3;
     const lineText = oddLabel(market, odd, index, kind);
-    const selected = isBetslipSelectionSelected(
-      eventId,
-      market.id,
-      odd.id,
-    );
+    const selected = isBetslipSelectionSelected(eventId, market.id, odd.id);
 
     if (closed) {
       return (
@@ -495,16 +491,17 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     {/* Team logo omitted — names only. */}
-                    {/*
+
                     <img
                       src={
-                        cachedTeamLogoUrl(event.sport?.name, homeTeam) ||
+                        competitors[rowOrder[0]]?.logo ||
+                        competitors[0]?.logo ||
                         `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.png`
                       }
                       className="h-3.5 w-3.5 shrink-0 object-contain"
                       alt=""
                     />
-                    */}
+
                     <span className="truncate text-[13px] font-bold">
                       {teamFirst}
                     </span>
@@ -519,10 +516,10 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
               <div className="h-[1px] bg-[var(--border-color)] w-full" />
               <div className="flex items-center justify-between gap-2 h-full">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  {/*
                   <img
                     src={
-                      cachedTeamLogoUrl(event.sport?.name, awayTeam) ||
+                      competitors[rowOrder[1]]?.logo ||
+                      competitors[1]?.logo ||
                       `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`
                     }
                     className="h-3.5 w-3.5 shrink-0 object-contain"
@@ -531,7 +528,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                       e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.png`;
                     }}
                   />
-                  */}
+
                   <span className="truncate text-[13px] font-bold">
                     {teamSecond}
                   </span>

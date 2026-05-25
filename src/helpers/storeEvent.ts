@@ -12,7 +12,7 @@ import {
 } from "@/types/typesForSocket.ts/tEventModel";
 import { signal, Signal } from "@preact/signals";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
-import { completeName } from "./completeName";
+import { completeName, completeNickName } from "./completeName";
 import { computePriceMv } from "@/helpers/odds88/priceMove";
 
 /** API payloads may use legacy typo `isBetBuilderSuported` or correct `isBetBuilderSupported`. */
@@ -27,11 +27,11 @@ function readIsBetBuilderSupported(source: BetBuilderSupportIn): boolean {
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
-  if (
-    new Date(event.eventInfo.startTime).getTime() <
-    Date.now() - 1000 * 60 * 60 * 24
-  )
-    return;
+  // if (
+  //   new Date(event.eventInfo.startTime).getTime() <
+  //   Date.now() - 1000 * 60 * 60 * 24
+  // )
+  //   return;
   if (!storeState.value[event.eventInfo.id]) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,
@@ -49,6 +49,12 @@ export const storeEvent = (event: MatchDataResponse) => {
       const completedSelection: tSelectionValue = {
         ...selection,
         name: completeName(
+          selection.name,
+          competitors,
+          market.parameters,
+          selectionExtra,
+        ),
+        nickName: completeNickName(
           selection.name,
           competitors,
           market.parameters,
@@ -244,9 +250,7 @@ export const storeSelection = (
   const key = selectionStoreKey(eventId, marketId, selectionId);
   const existing = selectionsStoreState.value[key]?.value;
   const livePrice =
-    selectionSig &&
-    typeof selectionSig === "object" &&
-    "value" in selectionSig
+    selectionSig && typeof selectionSig === "object" && "value" in selectionSig
       ? selectionSig.value.price
       : undefined;
 

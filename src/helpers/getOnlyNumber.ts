@@ -1,3 +1,5 @@
+import { formatSnakeCaseMarketName } from "@/helpers/completeName";
+
 export const getOnlyNumber = (str: string | object | null) => {
   if (typeof str === "string") {
     return str.match(/([-+]?\d*\.?\d+)$/)?.[0];
@@ -24,7 +26,7 @@ export const getOddName = (
   str: string | { h: string | null; e: string | null; o: string | null } | null,
 ) => {
   if (typeof str === "string") {
-    return str;
+    return formatSnakeCaseMarketName(str);
   }
   if (typeof str === "object" && str !== null) {
     return (str.e ?? "") + (str.o ?? "") + (str.h ?? "");

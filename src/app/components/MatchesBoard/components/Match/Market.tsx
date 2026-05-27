@@ -6,6 +6,7 @@ import {
   isBetslipSelectionSelected,
   toggleBetslipSelection,
 } from "@/helpers/betslipSelection";
+import { formatSnakeCaseMarketName } from "@/helpers/completeName";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 import { isBuilding } from "@/state/betState";
 
@@ -233,8 +234,9 @@ export const Market: FunctionComponent<MarketProps> = ({
         className={`flex w-full font-bold text-[14px] gap-2 overflow-hidden ${isHightFull ? "h-full" : "h-[36px]"}`}
       >
         {selections.map((selection, index) => {
-          const selectionName =
-            selection?.value.nickName ?? selection?.value.name ?? "";
+          const selectionName = formatSnakeCaseMarketName(
+            selection?.value.nickName ?? selection?.value.name ?? "",
+          );
           const selectionId = selection?.value.id;
           const isSuspended =
             selection?.value.status === 1 || tradingStatus === 1;

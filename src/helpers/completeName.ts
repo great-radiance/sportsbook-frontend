@@ -49,6 +49,40 @@ function applyHandicapPlaceholders(result: string, hcpRaw: string): string {
   return result;
 }
 
+/** Feed keys like `AWAY_WIN_3+` → `Away Win 3+`. */
+const FEED_MARKET_KEY_RE = /^[A-Za-z0-9_+\-.]+$/;
+
+function formatSnakeWord(word: string): string {
+  const lower = word.toLowerCase();
+  if (!lower) return lower;
+  const ord = lower.match(/^(\d+)([a-z]+)$/);
+  if (ord) return `${ord[1]}${ord[2]}`;
+  if (/^\d/.test(lower)) return lower;
+  const alphaNum = lower.match(/^([a-z]+)(\d.*)$/);
+  if (alphaNum) {
+    return (
+      alphaNum[1].charAt(0).toUpperCase() +
+      alphaNum[1].slice(1) +
+      alphaNum[2]
+    );
+  }
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+/** `DOUBLE_CHANCE_HT_FT2` → `Double Chance Ht Ft2`; `AWAY_WIN_3+` → `Away Win 3+`. */
+export function formatSnakeCaseMarketName(rawName: string): string {
+  if (!rawName) return rawName;
+  if (rawName.includes("{") || rawName.includes(" ")) return rawName;
+  if (!rawName.includes("_")) return rawName;
+  if (!FEED_MARKET_KEY_RE.test(rawName)) return rawName;
+
+  return rawName
+    .split("_")
+    .filter(Boolean)
+    .map(formatSnakeWord)
+    .join(" ");
+}
+
 /**
  * Replace placeholders in a market or selection name with concrete
  * values derived from the event's competitors and the market's
@@ -68,7 +102,7 @@ function applyHandicapPlaceholders(result: string, hcpRaw: string): string {
  *   - Any other {key} or {!key} that matches a key in `parameters` or
  *     `extraParameters` (generic fallback for {goalnr}, {variant}, ...).
  *
- * If the input has no placeholders, it is returned unchanged.
+ * If the input has no placeholders, snake_case keys are title-cased (`_` → space).
  */
 export const completeName = (
   rawName: string,
@@ -76,7 +110,8 @@ export const completeName = (
   parameters?: Record<string, string>,
   extraParameters?: Record<string, string>,
 ): string => {
-  if (!rawName || !rawName.includes("{")) return rawName;
+  if (!rawName) return rawName;
+  if (!rawName.includes("{")) return formatSnakeCaseMarketName(rawName);
 
   const list = competitors ?? [];
   let competitor1 = list[0]?.name ?? "";
@@ -115,7 +150,7 @@ export const completeName = (
     result = result.replace(re, val);
   }
 
-  return result;
+  return formatSnakeCaseMarketName(result);
 };
 
 export const completeNickName = (
@@ -125,7 +160,8 @@ export const completeNickName = (
   extraParameters?: Record<string, string>,
 ): string => {
   if (rawName.toLowerCase() === "draw") return "X";
-  if (!rawName || !rawName.includes("{")) return rawName;
+  if (!rawName) return rawName;
+  if (!rawName.includes("{")) return formatSnakeCaseMarketName(rawName);
 
   let competitor1 = "1";
   let competitor2 = "2";
@@ -153,5 +189,5 @@ export const completeNickName = (
     result = result.replace(re, val);
   }
 
-  return result;
+  return formatSnakeCaseMarketName(result);
 };

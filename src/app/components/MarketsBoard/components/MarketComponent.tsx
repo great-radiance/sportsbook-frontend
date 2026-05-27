@@ -13,6 +13,7 @@ import { isMobile } from "@/state/isMobile";
 import { storeState } from "@/state/storeState";
 import { tOdd } from "@/types/tEvent";
 import { Signal } from "@preact/signals";
+import { formatSnakeCaseMarketName } from "@/helpers/completeName";
 import { getOddName, getOnlyNumber } from "@/helpers/getOnlyNumber";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 
@@ -49,7 +50,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   const marketIds = Array.isArray(marketId) ? marketId : [marketId];
   const primaryId = marketIds[0];
   const primaryMarket = event?.markets?.[primaryId]?.value;
-  const name = primaryMarket?.name;
+  const name = formatSnakeCaseMarketName(primaryMarket?.name ?? "");
   const tradingStatus = primaryMarket?.tradingStatus;
   const primarySelections = primaryMarket?.selections ?? [];
   // Concatenate selections across every merged market in the order given,

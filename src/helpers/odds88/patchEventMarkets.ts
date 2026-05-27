@@ -1,5 +1,5 @@
 import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
-import { completeName } from "@/helpers/completeName";
+import { completeName, completeNickName } from "@/helpers/completeName";
 import { syncSelectionsStoreForEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
 import type {
@@ -54,6 +54,12 @@ export function patchEventMarkets(event: MatchDataResponse): void {
               market.parameters,
               selectionExtra,
             ),
+            nickName: completeNickName(
+              selection.name,
+              competitors,
+              market.parameters,
+              selectionExtra,
+            ),
             mv: 0,
             isBetBuilderSupported: readIsBetBuilderSupported(
               selection as BetBuilderSupportIn,
@@ -64,7 +70,12 @@ export function patchEventMarkets(event: MatchDataResponse): void {
 
       const marketData: tMarketModel = {
         id: market.id,
-        name: market.name,
+        name: completeName(
+          market.name,
+          competitors,
+          market.parameters,
+          market.extraParameters,
+        ),
         tradingStatus: market.tradingStatus,
         type: market.type,
         isBestLine: market.isBestLine,
@@ -102,6 +113,12 @@ export function patchEventMarkets(event: MatchDataResponse): void {
         market.parameters,
         selectionExtra,
       );
+      const nickName = completeNickName(
+        incoming.name,
+        competitors,
+        market.parameters,
+        selectionExtra,
+      );
       const sig = existingById.get(incoming.id);
       const nextPrice = Number(incoming.price);
 
@@ -118,6 +135,7 @@ export function patchEventMarkets(event: MatchDataResponse): void {
           ...incoming,
           price: nextPrice,
           name,
+          nickName,
           mv,
           isBetBuilderSupported: readIsBetBuilderSupported(
             incoming as BetBuilderSupportIn,
@@ -129,6 +147,7 @@ export function patchEventMarkets(event: MatchDataResponse): void {
           ...incoming,
           price: nextPrice,
           name,
+          nickName,
           mv: 0,
           isBetBuilderSupported: readIsBetBuilderSupported(
             incoming as BetBuilderSupportIn,
@@ -147,7 +166,12 @@ export function patchEventMarkets(event: MatchDataResponse): void {
     marketSig.value = {
       ...marketSig.value,
       tradingStatus: market.tradingStatus,
-      name: market.name,
+      name: completeName(
+        market.name,
+        competitors,
+        market.parameters,
+        market.extraParameters,
+      ),
       parameters: market.parameters,
       extraParameters: market.extraParameters,
     };

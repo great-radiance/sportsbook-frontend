@@ -13,7 +13,7 @@ import { loadHomeWidgetsBatch } from "@/state/homeWidgetsCache";
 
 export const HomePage: FunctionComponent = () => {
   useEffect(() => {
-    void loadHomeWidgetsBatch({ starLimit: 20, accaLimit: 3 });
+    void loadHomeWidgetsBatch({ starLimit: 20, accaLimit: 5 });
   }, []);
 
   return (

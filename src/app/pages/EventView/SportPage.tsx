@@ -10,6 +10,7 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { outRightSummarySports, summarySports } from "@/state/summarySports";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetUpcomingMatches } from "@/api/special-matches/apiGetUpcomingMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { HorizontalTabs } from "@/app/components/HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
@@ -78,9 +79,12 @@ export const SportPage: FunctionComponent = () => {
     "highlights" | "competitions" | "upcoming"
   >(regionName === "upcoming" ? "upcoming" : "highlights");
 
-  console.log("activeTab", activeTab, "regionName", regionName);
   const [upcomingHydrateLoading, setUpcomingHydrateLoading] = useState(false);
   const upcomingHydrateRunRef = useRef(0);
+  const [upcomingWindowHours, setUpcomingWindowHours] = useState<number>(24);
+  const [upcomingLeagueEntries, setUpcomingLeagueEntries] = useState<
+    LeagueEntry[]
+  >([]);
 
   const sportIdNum = Number(sportIdParam) || 0;
 
@@ -290,42 +294,84 @@ export const SportPage: FunctionComponent = () => {
   }, [selectedLeagueEntry, sportName]);
 
   /**
-   * `UpcomingRender` filters every league by `storeState` start times, but
-   * `fetchLeagueMatches` only hydrates the selected league — load the rest when
-   * the Upcoming tab is open so time windows and grouping work.
+   * Upcoming tab: server filters IDs by sport + time window via
+   * `apiGetUpcomingMatches`, then we hydrate full event detail in chunks.
    */
-  const hydrateStoreForUpcomingTab = useCallback(async () => {
-    const allIds = leagueEntries.flatMap((e) => e.eventIds);
-    const unique = [...new Set(allIds)]
-      .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && id > 0);
-    const missing = unique.filter((id) => {
-      const st = storeState.value[id]?.value?.startTime;
-      return !st;
-    });
-    for (let i = 0; i < missing.length; i += UPCOMING_MATCH_IDS_CHUNK) {
-      const slice = missing.slice(i, i + UPCOMING_MATCH_IDS_CHUNK);
-      const matches = await apiGetMatches(slice);
-      (matches ?? []).forEach((event) => storeEvent(event));
-    }
-  }, [leagueEntries]);
-
   useEffect(() => {
     if (activeTab !== "upcoming") {
       upcomingHydrateRunRef.current += 1;
       setUpcomingHydrateLoading(false);
       return;
     }
-    if (!loadedSidebarState.value || !sportName) return;
-    if (leagueEntries.length === 0) return;
+    if (!loadedSidebarState.value || !sportName || !sportIdNum) return;
 
     const runId = ++upcomingHydrateRunRef.current;
     setUpcomingHydrateLoading(true);
+
+    const from = Math.floor(Date.now() / 1000);
+    const to = from + upcomingWindowHours * 60 * 60;
+
     (async () => {
       try {
-        await hydrateStoreForUpcomingTab();
+        const res = await apiGetUpcomingMatches({
+          sportId: sportIdNum,
+          from,
+          to,
+          status: [1, 2],
+          tradingStatus: 0,
+        });
+        if (runId !== upcomingHydrateRunRef.current) return;
+
+        const sportRow = res.data?.find((s) => s[0] === sportIdNum) ?? res.data?.[0];
+        const entries: LeagueEntry[] = [];
+        for (const region of sportRow?.[2] ?? []) {
+          const regionId = region[0];
+          for (const league of region[2] ?? []) {
+            const leagueId = league[0];
+            const eventIds = (league[2] ?? [])
+              .map((id) => Number(id))
+              .filter((id) => Number.isFinite(id) && id > 0);
+            if (eventIds.length === 0) continue;
+            entries.push({
+              key: leagueBucketKey({
+                sportId: sportIdNum,
+                regionId,
+                leagueId,
+              }),
+              sportId: sportIdNum,
+              regionId,
+              leagueId,
+              eventIds,
+              outrightIds: [],
+              matchCount: eventIds.length,
+            });
+          }
+        }
+        const sortedEntries = sortLeagues(entries, sportName, sportIdNum);
+        if (runId !== upcomingHydrateRunRef.current) return;
+        setUpcomingLeagueEntries(sortedEntries);
+
+        const allIds = sortedEntries.flatMap((e) => e.eventIds);
+        const unique = [...new Set(allIds)];
+        const missing = unique.filter(
+          (id) => !storeState.value[id]?.value?.startTime,
+        );
+        const chunks: number[][] = [];
+        for (let i = 0; i < missing.length; i += UPCOMING_MATCH_IDS_CHUNK) {
+          chunks.push(missing.slice(i, i + UPCOMING_MATCH_IDS_CHUNK));
+        }
+        const results = await Promise.all(
+          chunks.map((slice) => apiGetMatches(slice)),
+        );
+        if (runId !== upcomingHydrateRunRef.current) return;
+        for (const matches of results) {
+          (matches ?? []).forEach((event) => storeEvent(event));
+        }
       } catch (e) {
-        console.error("SportPage upcoming hydrate:", e);
+        console.error("SportPage upcoming load:", e);
+        if (runId === upcomingHydrateRunRef.current) {
+          setUpcomingLeagueEntries([]);
+        }
       } finally {
         if (runId === upcomingHydrateRunRef.current) {
           setUpcomingHydrateLoading(false);
@@ -335,9 +381,9 @@ export const SportPage: FunctionComponent = () => {
   }, [
     activeTab,
     sportName,
+    sportIdNum,
     loadedSidebarState.value,
-    leagueEntries,
-    hydrateStoreForUpcomingTab,
+    upcomingWindowHours,
   ]);
 
   const tabStyle = (tab: string) =>
@@ -348,13 +394,8 @@ export const SportPage: FunctionComponent = () => {
     }`;
 
   useEffect(() => {
+    if (!loadedSidebarState.value) return;
     fetchLeagueMatches();
-  }, [fetchLeagueMatches]);
-
-  useEffect(() => {
-    if (loadedSidebarState.value) {
-      fetchLeagueMatches();
-    }
   }, [loadedSidebarState.value, fetchLeagueMatches]);
 
   if (!sportName) {
@@ -394,7 +435,7 @@ export const SportPage: FunctionComponent = () => {
       case "upcoming":
         return (
           <UpcomingRender
-            leagueEntries={leagueEntries}
+            leagueEntries={upcomingLeagueEntries}
             leagueLabelMap={leagueLabelMap}
             selectedLeagueKey={selectedLeagueKey}
             setSelectedLeagueKey={setSelectedLeagueKey}
@@ -402,7 +443,9 @@ export const SportPage: FunctionComponent = () => {
             sportName={sportName}
             selectedCategory={selectedCategory}
             selectedLeagueEntry={selectedLeagueEntry}
-            loading={loading || upcomingHydrateLoading}
+            loading={upcomingHydrateLoading}
+            windowHours={upcomingWindowHours}
+            onWindowHoursChange={setUpcomingWindowHours}
             BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
             getFlagIconFromregionName={getFlagIconFromregionName}
           />

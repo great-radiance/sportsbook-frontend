@@ -27,13 +27,23 @@ export function sportsbookHashHref(path: string): string {
   return `/#sportsbook=${normalized}`;
 }
 
-/** Resolve full prematch URL from summary tree names (sport / region / league). */
-export function prematchPathForLeagueNames(
+export type ResolvedLeague = {
+  sportId: number;
+  sportName: string;
+  regionId: number;
+  regionName: string;
+  leagueId: number;
+  leagueName: string;
+  path: string;
+};
+
+/** Resolve numeric IDs and prematch URL from summary tree names. */
+export function resolveLeagueFromNames(
   summary: summaryData,
   sportName: string,
   regionName: string,
   leagueName: string,
-): string | null {
+): ResolvedLeague | null {
   const sportKey = sportName.trim();
   const regionKey = regionName.trim();
   const leagueKey = leagueName.trim();
@@ -51,16 +61,37 @@ export function prematchPathForLeagueNames(
         const lName = String(league[1] ?? "").trim();
         if (lName !== leagueKey) continue;
         const leagueId = league[0] as number;
-        return buildPrematchPath(
-          sName,
+        return {
           sportId,
-          rName,
+          sportName: sName,
           regionId,
-          lName,
+          regionName: rName,
           leagueId,
-        );
+          leagueName: lName,
+          path: buildPrematchPath(
+            sName,
+            sportId,
+            rName,
+            regionId,
+            lName,
+            leagueId,
+          ),
+        };
       }
     }
   }
   return null;
+}
+
+/** Resolve full prematch URL from summary tree names (sport / region / league). */
+export function prematchPathForLeagueNames(
+  summary: summaryData,
+  sportName: string,
+  regionName: string,
+  leagueName: string,
+): string | null {
+  return (
+    resolveLeagueFromNames(summary, sportName, regionName, leagueName)?.path ??
+    null
+  );
 }

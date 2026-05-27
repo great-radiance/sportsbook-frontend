@@ -18,21 +18,41 @@ export type HomeWidgetsLoadOptions = {
   accaLimit?: number;
 };
 
-/** Loads both home widgets in parallel (integration guide). */
+const inFlight = new Map<string, Promise<void>>();
+
+function inFlightKey(options?: HomeWidgetsLoadOptions): string {
+  return JSON.stringify({
+    sportId: options?.sportId ?? null,
+    starLimit: options?.starLimit ?? 20,
+    accaLimit: options?.accaLimit ?? 5,
+  });
+}
+
+/** Loads both home widgets in parallel; concurrent calls with the same options share one request. */
 export async function loadHomeWidgetsBatch(
   options?: HomeWidgetsLoadOptions,
 ): Promise<void> {
+  const key = inFlightKey(options);
+  const existing = inFlight.get(key);
+  if (existing) return existing;
+
   const { lang } = getAppConfig();
   const base = {
     lang: lang || "en",
     ...(options?.sportId != null ? { sportId: options.sportId } : {}),
   };
 
-  const [starRes, accaRes] = await Promise.all([
-    apiGetStarPlayers({ ...base, limit: options?.starLimit ?? 20 }),
-    apiGetTrendingAccas({ ...base, limit: options?.accaLimit ?? 3 }),
-  ]);
+  const promise = (async () => {
+    const [starRes, accaRes] = await Promise.all([
+      apiGetStarPlayers({ ...base, limit: options?.starLimit ?? 20 }),
+      apiGetTrendingAccas({ ...base, limit: options?.accaLimit ?? 5 }),
+    ]);
+    starPlayersCache.value = starRes?.data ?? [];
+    trendingAccasCache.value = accaRes?.data ?? [];
+  })().finally(() => {
+    inFlight.delete(key);
+  });
 
-  starPlayersCache.value = starRes?.data ?? [];
-  trendingAccasCache.value = accaRes?.data ?? [];
+  inFlight.set(key, promise);
+  return promise;
 }

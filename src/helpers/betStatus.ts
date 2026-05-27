@@ -19,7 +19,7 @@ export function getMaxCashoutAmount(
   stakeAmount: number,
   apiCashoutAmount?: number | null,
 ): number {
-  const stakeCap = Math.max(0, Number(stakeAmount) || 0) * 0.97;
+  const stakeCap = Math.max(0, Number(stakeAmount) || 0);
   if (apiCashoutAmount != null && apiCashoutAmount > 0) {
     return Math.min(apiCashoutAmount, stakeCap);
   }

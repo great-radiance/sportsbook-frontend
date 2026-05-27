@@ -360,7 +360,7 @@ export const Match: FunctionComponent<MatchProps> = ({
                   </div>
                   <div className="flex relative left-[-6px] z-[1] items-center overflow-hidden w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(event?.sport.name || "")}/${encodeURIComponent(event?.region.name || "")}/${encodeURIComponent(event?.league.name || "")}.webp`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${event?.sport.id}/${event?.league.id}.webp`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(event?.region.name || "")}`;
                         e.currentTarget.className =

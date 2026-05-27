@@ -53,6 +53,8 @@ export type ToggleBetslipSelectionArgs = {
   selection: tSelectionValue;
   apiMarketId: number;
   widgetEvent?: WidgetEventContext;
+  /** Skip per-add `verifyBetBuilderGroup` — caller validates the full group once. */
+  skipBetBuilderVerify?: boolean;
 };
 
 const toggleQueueByEvent = new Map<number, Promise<void>>();
@@ -71,13 +73,13 @@ export function removeSlipSelectionsForEvent(eventId: number): void {
   rotateBetSlipIdempotencyKey();
 }
 
-export function toggleBetslipSelection(
-  args: ToggleBetslipSelectionArgs,
-): void {
-  const { eventId } = args;
+function enqueueToggleBetslipSelection(
+  eventId: number,
+  work: () => Promise<void>,
+): Promise<void> {
   const prev = toggleQueueByEvent.get(eventId) ?? Promise.resolve();
   const next = prev
-    .then(() => toggleBetslipSelectionAsync(args))
+    .then(work)
     .catch((err) => console.error("toggleBetslipSelection failed:", err));
   toggleQueueByEvent.set(
     eventId,
@@ -86,6 +88,22 @@ export function toggleBetslipSelection(
         toggleQueueByEvent.delete(eventId);
       }
     }),
+  );
+  return next;
+}
+
+export function toggleBetslipSelection(args: ToggleBetslipSelectionArgs): void {
+  void enqueueToggleBetslipSelection(args.eventId, () =>
+    toggleBetslipSelectionAsync(args),
+  );
+}
+
+/** Await slip update — use when adding several legs before one bet-builder price call. */
+export function toggleBetslipSelectionAwait(
+  args: ToggleBetslipSelectionArgs,
+): Promise<void> {
+  return enqueueToggleBetslipSelection(args.eventId, () =>
+    toggleBetslipSelectionAsync(args),
   );
 }
 
@@ -96,6 +114,7 @@ async function toggleBetslipSelectionAsync({
   selection,
   apiMarketId,
   widgetEvent,
+  skipBetBuilderVerify = false,
 }: ToggleBetslipSelectionArgs): Promise<void> {
   const oddsId = String(selection.id);
   const selId = selection.id;
@@ -195,7 +214,7 @@ async function toggleBetslipSelectionAsync({
   );
   const candidateGroup = [...sameEventSelections, row];
 
-  if (candidateGroup.length >= 2) {
+  if (!skipBetBuilderVerify && candidateGroup.length >= 2) {
     const check = await verifyBetBuilderGroup(eventId, candidateGroup);
     if (!check.combinable) {
       notify(check.message, "error", "x-circle", 3500);

@@ -135,6 +135,7 @@ export const storeEvent = (event: MatchDataResponse) => {
     scoreboard: event.scoreboard,
     // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
+  console.log("competitors", competitors);
 
   syncSelectionsStoreForEvent(event.eventInfo.id);
 };

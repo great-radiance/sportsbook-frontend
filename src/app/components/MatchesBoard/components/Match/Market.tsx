@@ -203,21 +203,6 @@ export const Market: FunctionComponent<MarketProps> = ({
   //   winnerTwo: ["1", "2"],
   // };
 
-  const marketLabel =
-    lowerName.includes("match result") || lowerName.includes("winner")
-      ? column === 3
-        ? "winner"
-        : column === 2
-          ? "winnerTwo"
-          : undefined
-      : lowerName.includes("total goals") &&
-          lowerName.includes("over/under") &&
-          column === 2
-        ? "total"
-        : lowerName.includes("handicap") && !lowerName.includes("3")
-          ? "handicap"
-          : undefined;
-
   if (tradingStatus === 2 || tradingStatus === 3) {
     return (
       <div

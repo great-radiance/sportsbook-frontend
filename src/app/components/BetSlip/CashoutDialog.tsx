@@ -18,7 +18,7 @@ import {
   selectedCashoutBet,
   selectedCashoutBetId,
 } from "@/state/betState";
-import { fullCashout } from "@/api/bet/cashout";
+import { extractApiErrorMessage, fullCashout } from "@/api/bet/cashout";
 import { isCashoutableStatus } from "@/helpers/betStatus";
 import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
 import {
@@ -81,7 +81,9 @@ export const CashoutDialog: FunctionComponent = () => {
   const betId = selectedCashoutBetId.value;
   const bet: BetItemType | null = selectedCashoutBet.value;
   const available = selectedCashoutAmount.value;
-  const canAct = Boolean(bet && isCashoutableStatus(bet.status) && available > 0);
+  const canAct = Boolean(
+    bet && isCashoutableStatus(bet.status) && available > 0,
+  );
   const possibleWin = bet ? bet.stakeAmount * bet.startingOdds : 0;
 
   const shortBetId = bet
@@ -116,23 +118,28 @@ export const CashoutDialog: FunctionComponent = () => {
     setProcessing(true);
     try {
       const response = await fullCashout(betId, available);
-      if (response) {
-        notify(
-          `Cashout successful! Amount: ${formatCurrency(response.cashoutAmount)}`,
-          "success",
-          "check2-circle",
-          3000,
-        );
-        void refreshAfterWalletAction();
-        cashoutDialogOnSuccess.value?.();
-        clearCashoutDialogSignals();
-        dialogRef.current?.hide();
-      } else {
-        notify("Cashout failed. Please try again.", "error", "x-circle", 2500);
+      if (!response) {
+        notify("Cashout amount is invalid", "error", "x-circle", 2500);
+        return;
       }
+      notify(
+        `Cashout successful! Amount: ${formatCurrency(response.cashoutAmount)}`,
+        "success",
+        "check2-circle",
+        3000,
+      );
+      void refreshAfterWalletAction();
+      cashoutDialogOnSuccess.value?.();
+      clearCashoutDialogSignals();
+      dialogRef.current?.hide();
     } catch (error) {
       console.error("Error performing cashout:", error);
-      notify("Error performing cashout", "error", "x-circle", 2500);
+      notify(
+        extractApiErrorMessage(error, "Error performing cashout"),
+        "error",
+        "x-circle",
+        3500,
+      );
     } finally {
       setProcessing(false);
     }

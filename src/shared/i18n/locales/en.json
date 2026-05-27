@@ -84,7 +84,7 @@
     "Outright_Winners": "Outright Winners",
     "Special_Bets": "Special Bets",
     "Odds-on_coupon": "Odds-on Coupon",
-    "FAVOURITE_COMPETITIONS": "Favourite Competitions",
+    "FAVOURITE_COMPETITIONS": "Popular Competitions",
     "betBuilderModeHint": "Combine multiple picks from the same event",
     "top_matches": "Top Matches"
   },
@@ -180,7 +180,7 @@
     "enterTargetValue": "Enter target value",
     "creating": "Creating...",
     "createRule": "CREATE RULE",
-    "cashedOut": "Cashed out",
+    "cashed_out": "Cashed out",
     "won": "Won",
     "lost": "Lost",
     "partiallyCashedOut": "Partially cashed out",

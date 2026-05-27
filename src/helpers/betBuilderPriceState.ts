@@ -1,4 +1,5 @@
 import type { SelectedOddType } from "@/shared/utils/bet";
+import { signal } from "@preact/signals";
 import {
   betBuilderCombinable,
   betBuilderPrice,
@@ -9,6 +10,9 @@ import {
   type EventBetBuilderPriceState,
 } from "@/state/betState";
 import { groupSelectedOddsIntoLegs } from "@/helpers/betslipLegs";
+
+/** While > 0, `useSlipBetBuilderPricesSync` must not fetch (batch bundle add in progress). */
+export const betBuilderPriceSyncSuspended = signal(0);
 
 /** Stable key for a bet-builder selection set — skip duplicate price fetches when unchanged. */
 export function betBuilderSelectionKey(

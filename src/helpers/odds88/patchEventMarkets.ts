@@ -26,10 +26,9 @@ export function patchEventMarkets(event: MatchDataResponse): void {
   const evSig = storeState.value[eventId];
   if (!evSig?.value?.id) return;
 
-  const competitors =
-    event.eventInfo.competitors?.length
-      ? event.eventInfo.competitors
-      : (evSig.value.competitors ?? []);
+  const competitors = event.eventInfo.competitors?.length
+    ? event.eventInfo.competitors
+    : (evSig.value.competitors ?? []);
   let touched = false;
 
   for (const market of event.markets ?? []) {

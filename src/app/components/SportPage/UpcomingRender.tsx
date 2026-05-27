@@ -4,7 +4,7 @@ import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { storeState } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
 import { summarySports } from "@/state/summarySports";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
@@ -47,6 +47,10 @@ type Props = {
 
   loading: boolean;
 
+  /** Time window (in hours) used by the upstream `apiGetUpcomingMatches` call. */
+  windowHours: number;
+  onWindowHoursChange: (hours: number) => void;
+
   BASE_ASSET_PUBLIC_URL: string;
   getFlagIconFromregionName: (region: string) => string;
 };
@@ -61,10 +65,11 @@ const UpcomingRender = ({
   selectedCategory,
   selectedLeagueEntry,
   loading,
+  windowHours,
+  onWindowHoursChange,
   BASE_ASSET_PUBLIC_URL,
   getFlagIconFromregionName,
 }: Props) => {
-  const [filterStartTime, setFilterStartTime] = useState<number>(24); // default to 3 hours
   const [sortBy, setSortBy] = useState<"competition" | "start-time">(
     "competition",
   );
@@ -74,24 +79,16 @@ const UpcomingRender = ({
   const baseTheme = baseColorTheme.value;
 
   const visibleLeagueGroups = useMemo(() => {
-    const now = Date.now();
-    const windowEnd = now + filterStartTime * 60 * 60 * 1000;
     return leagueEntries
-      .map((league) => {
-        const ids =
-          selectedCategory === "Matches" ? league.eventIds : league.outrightIds;
-        const visibleEventIds = ids.filter((eventId) => {
-          const startMs = eventStartMs(eventId);
-          if (!startMs) return false;
-          return startMs >= now && startMs <= windowEnd;
-        });
-        return {
-          ...league,
-          visibleEventIds,
-        };
-      })
+      .map((league) => ({
+        ...league,
+        visibleEventIds:
+          selectedCategory === "Matches"
+            ? league.eventIds
+            : league.outrightIds,
+      }))
       .filter((league) => league.visibleEventIds.length > 0);
-  }, [leagueEntries, selectedCategory, filterStartTime]);
+  }, [leagueEntries, selectedCategory]);
 
   const loadedEventsForMarkets = useMemo(() => {
     const ids = visibleLeagueGroups.flatMap((l) => l.visibleEventIds);
@@ -138,12 +135,19 @@ const UpcomingRender = ({
     );
   };
 
+  /** Reset auto-expansion when the league list changes (sport / category switch). */
+  const autoOpenedRef = useRef<League[] | null>(null);
   useEffect(() => {
-    if (openedLeagueKeys.size === 0 && visibleLeagueGroups.length > 0) {
-      setOpenedLeagueKeys(
-        new Set(visibleLeagueGroups.slice(0, 5).map((league) => league.key)),
-      );
-    }
+    if (autoOpenedRef.current === leagueEntries) return;
+    autoOpenedRef.current = leagueEntries;
+    setOpenedLeagueKeys(new Set());
+  }, [leagueEntries]);
+
+  useEffect(() => {
+    if (openedLeagueKeys.size > 0 || visibleLeagueGroups.length === 0) return;
+    setOpenedLeagueKeys(
+      new Set(visibleLeagueGroups.slice(0, 5).map((league) => league.key)),
+    );
   }, [visibleLeagueGroups, openedLeagueKeys.size]);
   return (
     <>
@@ -151,8 +155,10 @@ const UpcomingRender = ({
         {/* League tab list */}
         <div className="flex gap-4">
           <select
-            value={filterStartTime}
-            onChange={(e) => setFilterStartTime(Number(e.currentTarget?.value))}
+            value={windowHours}
+            onChange={(e) =>
+              onWindowHoursChange(Number(e.currentTarget?.value))
+            }
             className="p-1 border border-[var(--border-color)] text-sm text-[var(--text-sub-color)] border-1 bg-[var(--sub-element-secondary)] rounded"
           >
             <option key={3} value={3}>
@@ -267,18 +273,9 @@ const UpcomingRender = ({
         ) : (
           leagueEntries
             .flatMap((league) =>
-              (selectedCategory === "Matches"
+              selectedCategory === "Matches"
                 ? league.eventIds
-                : league.outrightIds
-              ).filter((eventId) => {
-                const startMs = eventStartMs(eventId);
-                if (!startMs) return false;
-                const now = Date.now();
-                return (
-                  startMs >= now &&
-                  startMs <= now + filterStartTime * 60 * 60 * 1000
-                );
-              }),
+                : league.outrightIds,
             )
             .sort((a, b) => eventStartMs(a) - eventStartMs(b))
             .map(renderMatch)

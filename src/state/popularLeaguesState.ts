@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
-import type { FeaturedLeague } from "@/state/featuredLeaguesTypes";
+import type { TopLeagueItem } from "@/helpers/topLeagueItems";
 
-export type { FeaturedLeague };
+export type { TopLeagueItem };
 
-export const popularLeaguesState = signal<FeaturedLeague>({});
+export const popularLeaguesState = signal<TopLeagueItem[]>([]);

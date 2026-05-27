@@ -177,7 +177,7 @@
     "enterTargetValue": "Zielwert eingeben",
     "creating": "Wird erstellt...",
     "createRule": "REGEL ERSTELLEN",
-    "cashedOut": "Ausgezahlt",
+    "cashed_out": "Ausgezahlt",
     "won": "Gewonnen",
     "lost": "Verloren",
     "partiallyCashedOut": "Teilweise ausgezahlt",

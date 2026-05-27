@@ -1,17 +1,13 @@
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { TrendingAccaCouponResponse } from "@/api/home/homeWidgets";
 import {
   addSingleWidgetPickToSlip,
   addTrendingAccaToSlip,
   type WidgetSelectionInput,
 } from "@/helpers/homeWidgetBetslip";
-import { useHomeWidgetPolling } from "@/hooks/useHomeWidgetPolling";
-import {
-  loadHomeWidgetsBatch,
-  trendingAccasCache,
-} from "@/state/homeWidgetsCache";
+import { trendingAccasCache } from "@/state/homeWidgetsCache";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import {
   widgetMarketDisplayName,
@@ -55,23 +51,13 @@ function legToInput(
 }
 
 const TrendingAccas = () => {
-  const [coupons, setCoupons] = useState<TrendingAccaCouponResponse[]>([]);
+  const [coupons, setCoupons] = useState<TrendingAccaCouponResponse[]>(
+    trendingAccasCache.value ?? [],
+  );
   const mountedRef = useRef(true);
-
-  const load = useCallback(async () => {
-    try {
-      await loadHomeWidgetsBatch();
-      if (!mountedRef.current) return;
-      setCoupons(trendingAccasCache.value ?? []);
-    } catch {
-      if (!mountedRef.current) return;
-      setCoupons([]);
-    }
-  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
-    void load();
     const unsub = trendingAccasCache.subscribe((v) => {
       if (v != null && mountedRef.current) setCoupons(v);
     });
@@ -79,7 +65,7 @@ const TrendingAccas = () => {
       mountedRef.current = false;
       unsub();
     };
-  }, [load]);
+  }, []);
 
   if (coupons.length === 0) return null;
 

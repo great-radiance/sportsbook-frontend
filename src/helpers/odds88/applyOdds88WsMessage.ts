@@ -119,8 +119,7 @@ export function parseRouteIds(
   const sportId = parseInt(sportIdParam ?? "", 10);
   const regionId = parseInt(regionIdParam ?? "", 10);
   return {
-    sportIdParam:
-      Number.isFinite(sportId) && sportId > 0 ? sportId : undefined,
+    sportIdParam: Number.isFinite(sportId) && sportId > 0 ? sportId : undefined,
     regionIdParam:
       Number.isFinite(regionId) && regionId > 0 ? regionId : undefined,
   };
@@ -196,7 +195,7 @@ function applyEventStatus(change: WsDelta, ctx: Odds88WsContext): void {
     statusDescription:
       (change.statusDescription as string) ?? prev.statusDescription,
     startTime: (change.startTime as string) ?? prev.startTime,
-    name: (change.name as string) ?? prev.name,
+    name: prev.name,
   };
   syncSelectionsStoreForEvent(eventId);
 }
@@ -208,7 +207,7 @@ function applyEventChanged(change: WsDelta): void {
   const evSig = storeState.value[eventId]!;
   evSig.value = {
     ...evSig.value,
-    name: (change.name as string) ?? evSig.value.name,
+    name: evSig.value.name,
     startTime: (change.startTime as string) ?? evSig.value.startTime,
     scoreboard: change.scoreboard ?? evSig.value.scoreboard,
   };

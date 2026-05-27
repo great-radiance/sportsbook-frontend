@@ -178,7 +178,7 @@
     "enterTargetValue": "Introducir valor objetivo",
     "creating": "Creando...",
     "createRule": "CREAR REGLA",
-    "cashedOut": "Cobrado",
+    "cashed_out": "Cobrado",
     "won": "Ganado",
     "lost": "Perdido",
     "partiallyCashedOut": "Cobrado parcialmente",

@@ -130,7 +130,7 @@ export async function apiGetTrendingAccas(
 ): Promise<TrendingAccasApiResponse> {
   const { data } = await instance.get<TrendingAccasApiResponse>(
     "/home/trending-accas",
-    { params: widgetParams({ limit: 3, ...query }) },
+    { params: widgetParams({ limit: 5, ...query }) },
   );
 
   for (const coupon of data.data) {
@@ -145,11 +145,7 @@ export async function apiGetTrendingAccas(
         price: leg.odds,
         mv: 0,
       };
-      const key = selectionStoreKey(
-        leg.eventId,
-        leg.marketId,
-        leg.selectionId,
-      );
+      const key = selectionStoreKey(leg.eventId, leg.marketId, leg.selectionId);
       selectionsStoreState.value = {
         ...selectionsStoreState.value,
         [key]: signal(storeOddsTemp),

@@ -177,7 +177,7 @@
     "enterTargetValue": "Hedef değer girin",
     "creating": "Oluşturuluyor...",
     "createRule": "KURAL OLUŞTUR",
-    "cashedOut": "Nakit çıkış yapıldı",
+    "cashed_out": "Nakit çıkış yapıldı",
     "won": "Kazanıldı",
     "lost": "Kaybedildi",
     "partiallyCashedOut": "Kısmen nakit çıkış",

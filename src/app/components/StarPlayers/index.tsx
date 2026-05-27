@@ -13,11 +13,7 @@ import {
   widgetMarketDisplayName,
   widgetOutcomeDisplayName,
 } from "@/helpers/widgetDisplayNames";
-import { useHomeWidgetPolling } from "@/hooks/useHomeWidgetPolling";
-import {
-  loadHomeWidgetsBatch,
-  starPlayersCache,
-} from "@/state/homeWidgetsCache";
+import { starPlayersCache } from "@/state/homeWidgetsCache";
 
 function pickToInput(
   pick: StarPlayerCardResponse["picks"][0],
@@ -43,17 +39,6 @@ function pickToInput(
 export const StarPlayers: FunctionComponent = () => {
   const [players, setPlayers] = useState<StarPlayerCardResponse[]>([]);
   const mountedRef = useRef(true);
-
-  const load = useCallback(async () => {
-    try {
-      await loadHomeWidgetsBatch({ starLimit: 20 });
-      if (!mountedRef.current) return;
-      setPlayers(starPlayersCache.value ?? []);
-    } catch {
-      if (!mountedRef.current) return;
-      setPlayers([]);
-    }
-  }, []);
 
   useEffect(() => {
     mountedRef.current = true;

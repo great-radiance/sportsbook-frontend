@@ -1,7 +1,29 @@
+import axios from "axios";
 import { instance } from "../instance";
 import { unwrapApiData } from "../unwrapApiData";
 import { getMaxCashoutAmount } from "@/helpers/betStatus";
 import { BetItemType } from "@/shared/utils/bet";
+
+/** Pulls the human-readable message from an axios error body `{ error: "..." }` or `{ message: "..." }`. */
+export function extractApiErrorMessage(
+  error: unknown,
+  fallback: string,
+): string {
+  if (axios.isAxiosError(error)) {
+    const body = error.response?.data as
+      | { error?: unknown; message?: unknown }
+      | undefined;
+    const raw =
+      typeof body?.error === "string"
+        ? body.error
+        : typeof body?.message === "string"
+          ? body.message
+          : null;
+    if (raw && raw.trim()) return raw.trim();
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 export interface CashoutResponse {
   success?: boolean;
@@ -49,17 +71,17 @@ export function cashoutAmountForBet(bet: BetItemType): number {
   return getMaxCashoutAmount(bet.stakeAmount, apiAmount);
 }
 
+/**
+ * Throws on failure so the caller can show the backend's error message
+ * (e.g. `{ "error": "Bet is settled." }`). Returns `null` only when no
+ * request was attempted (invalid amount).
+ */
 export const fullCashout = async (
   betId: string,
   cashoutAmount: number,
 ): Promise<CashoutResponse | null> => {
-  try {
-    if (!cashoutAmount || cashoutAmount <= 0) return null;
-    return await apiExecuteCashout(betId, cashoutAmount);
-  } catch (error) {
-    console.error("POST /bets/:betId/cashout failed:", error);
-    return null;
-  }
+  if (!cashoutAmount || cashoutAmount <= 0) return null;
+  return apiExecuteCashout(betId, cashoutAmount);
 };
 
 /** Partial cashout is not in the integration guide — full amount only. */

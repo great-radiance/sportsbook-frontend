@@ -2,6 +2,7 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { FunctionComponent } from "preact";
 import { useState, useEffect } from "preact/hooks";
 import {
+  extractApiErrorMessage,
   fullCashout,
   partialCashout,
   setAutoCashout,
@@ -107,11 +108,16 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
         onSuccess?.();
         onClose();
       } else {
-        notify("Cashout failed. Please try again.", "error", "x-circle", 2500);
+        notify("Cashout amount is invalid", "error", "x-circle", 2500);
       }
     } catch (error) {
       console.error("Error performing cashout:", error);
-      notify("Error performing cashout", "error", "x-circle", 2500);
+      notify(
+        extractApiErrorMessage(error, "Error performing cashout"),
+        "error",
+        "x-circle",
+        3500,
+      );
     } finally {
       setProcessing(false);
     }

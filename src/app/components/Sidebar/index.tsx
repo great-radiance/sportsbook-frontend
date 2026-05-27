@@ -115,9 +115,11 @@ export const Sidebar: FunctionComponent = () => {
         ${
           isMobile.value
             ? "text-[14px]"
-            : `text-[12px] shrink-0 ${
-                pageName === "live" ? "w-[320px]" : "lg:w-[210px]"
-              }`
+            : `text-[12px] shrink-0 w-full md:w-[320px]`
+          // ${
+          //     pageName === "live" ? "w-[320px]" : "md:w-[210px]"
+          //   }
+          //     `
         }`}
     >
       {pageName === "live" && !isMobile.value ? (

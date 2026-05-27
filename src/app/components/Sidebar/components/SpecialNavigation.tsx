@@ -151,7 +151,7 @@ export const SpecialNavigation: FunctionComponent<
       {navigationItems.map((item) => (
         <div
           key={item.id}
-          className={`${item.id === "competitions" ? "hidden md:flex" : ""} flex flex-col w-full rounded-[4px] overflow-hidden ${
+          className={`${item.id === "competitions" ? "flex" : ""} flex flex-col w-full rounded-[4px] overflow-hidden ${
             item.id === sportName ? "font-bold" : ""
           }`}
           style={
@@ -178,7 +178,7 @@ export const SpecialNavigation: FunctionComponent<
                 />
               )}
 
-              <span className="hidden md:flex flex-1 text-left text-[14px]">
+              <span className="flex flex-1 text-left text-[14px]">
                 {item.name || ""}
               </span>
             </div>
@@ -188,7 +188,7 @@ export const SpecialNavigation: FunctionComponent<
                 {item.isExpandable ? (
                   <img
                     src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-                    className={`hidden md:flex w-[24px] h-[24px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"} transition-all duration-300 ${
+                    className={`flex w-[24px] h-[24px] ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"} transition-all duration-300 ${
                       itemExpanded[item.id] ? " -rotate-90" : "rotate-90"
                     }`}
                     alt=""
@@ -196,7 +196,7 @@ export const SpecialNavigation: FunctionComponent<
                 ) : (
                   <img
                     src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-                    className={`hidden md:flex w-[24px] h-[24px] transition-all duration-300 ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                    className={`flex w-[24px] h-[24px] transition-all duration-300 ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                     alt=""
                   />
                 )}

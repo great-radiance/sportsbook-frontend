@@ -112,7 +112,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
       <div className="w-full h-px bg-[var(--border-color)]" />
       <button
         type="button"
-        className="hidden md:flex text-[14px] uppercase font-bold py-2 pl-2 pr-1 rounded-[4px] md:hover:bg-white/10 items-center justify-between"
+        className="flex text-[14px] uppercase font-bold py-2 pl-2 pr-1 rounded-[4px] md:hover:bg-white/10 items-center justify-between"
         onClick={() => setIsNavExpanded((prev) => !prev)}
         aria-expanded={isNavExpanded}
       >
@@ -173,14 +173,14 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                         }}
                       />
                     </div>
-                    <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[14px]">
+                    <span className="flex flex-1 text-left break-words whitespace-normal text-[14px]">
                       {sportLabel}
                     </span>
                   </div>
-                  <div className="hidden md:flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[12px] opacity-80">{sportCount}</span>
                     <img
-                      className={`w-[24px] hidden md:flex rounded-[4px] h-[24px] transition-all shrink-0 ${isSportExpanded ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                      className={`w-[24px] flex rounded-[4px] h-[24px] transition-all shrink-0 ${isSportExpanded ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                       src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
                       alt=""
                       onClick={(ev) => {
@@ -192,7 +192,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                 </button>
 
                 {isSportExpanded ? (
-                  <div className="hidden md:flex flex-col rounded-md bg-white/5 gap-0 overflow-hidden">
+                  <div className="flex flex-col rounded-md bg-white/5 gap-0 overflow-hidden">
                     {featuredSummaryData.value.featuredLeaguesBySport?.[
                       sportId
                     ]?.map((featuredLeague) => {
@@ -229,7 +229,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                           style={{ paddingLeft: 18 }}
                           className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                         >
-                          <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[12px]">
+                          <span className="flex flex-1 text-left break-words whitespace-normal text-[12px]">
                             {leagueName}
                           </span>
                         </button>
@@ -276,15 +276,15 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                             style={{ paddingLeft: 18 }}
                             className="flex justify-between gap-2 items-center py-2 px-1 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                           >
-                            <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[15px]">
+                            <span className="flex flex-1 text-left break-words whitespace-normal text-[15px]">
                               {regionLabel}
                             </span>
-                            <div className="hidden md:flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0">
                               <span className="text-[12px] opacity-80">
                                 {regionCount}
                               </span>
                               <img
-                                className={`w-[24px] hidden md:flex rounded-[4px] h-[24px] transition-all shrink-0 ${isRegionExpanded ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                                className={`w-[24px] flex rounded-[4px] h-[24px] transition-all shrink-0 ${isRegionExpanded ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                                 src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
                                 alt=""
                                 onClick={(ev) => {
@@ -333,10 +333,10 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                                     style={{ paddingLeft: 30 }}
                                     className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                                   >
-                                    <span className="hidden md:flex flex-1 text-left break-words whitespace-normal text-[12px]">
+                                    <span className="flex flex-1 text-left break-words whitespace-normal text-[12px]">
                                       {leagueLabel}
                                     </span>
-                                    <span className="hidden md:flex text-[12px] opacity-80 shrink-0">
+                                    <span className="flex text-[12px] opacity-80 shrink-0">
                                       {leagueCount}
                                     </span>
                                   </button>

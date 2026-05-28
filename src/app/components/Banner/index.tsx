@@ -14,60 +14,6 @@ import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useLocation } from "wouter-preact";
 import { baseColorTheme } from "@/state/baseColorTheme";
 
-const slides = [
-  {
-    id: "1",
-    image:
-      "https://assets.gmlinteractive.com/2026/03/e41ef4e2ea31_392023-344x260.webp",
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-1.webp`,
-    title: "100% Welcome Bonus",
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-
-  {
-    id: "2",
-    image: `https://assets.gmlinteractive.com/2026/03/705360c08710_392027-344x260.webp`,
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-2.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-  {
-    id: "3",
-    image: `https://assets.gmlinteractive.com/2026/03/81dbc7e86a39_392027-344x260.webp`,
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-3.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-  {
-    id: "4",
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-4.webp`,
-    image: `https://assets.gmlinteractive.com/2026/03/32c6c7f190b6_392027-344x260.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-  {
-    id: "6",
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-4.webp`,
-    image: `https://assets.gmlinteractive.com/2026/04/2c5f50990670_392482-344x260.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-  {
-    id: "7",
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-4.webp`,
-    image: `https://assets.gmlinteractive.com/2026/03/0752ad93ffdb_392027-344x260.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-  {
-    id: "8",
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-4.webp`,
-    image: `https://assets.gmlinteractive.com/2026/03/4102d5bf7363_392027-344x260.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-  {
-    id: "9",
-    // image: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-4.webp`,
-    image: `https://assets.gmlinteractive.com/2026/03/255d9c487b4c_392027-344x260.webp`,
-    // overImg: `${BASE_ASSET_PUBLIC_URL}/images/stoiximan/banner-background.webp`,
-  },
-];
-
 const formatEventTime = (event: tEventModel | undefined): string => {
   if (!event?.startTime) return "22:00";
   const d = new Date(event.startTime);
@@ -97,6 +43,14 @@ export const EmblaBanner = () => {
   const [events, setEvents] = useState<number[]>([]);
   const [, setLocation] = useLocation();
   const baseTheme = baseColorTheme.value;
+  const baseIndex = Math.floor((new Date().getTime() / (3600 * 24)) % 10);
+  console.log("baseIndex", baseIndex);
+  const modeBySport: Record<number, number> = {
+    1: 10,
+    8: 1,
+    4: 1,
+  };
+
   useEffect(() => {
     if (!viewportRef.current) return;
 
@@ -142,11 +96,19 @@ export const EmblaBanner = () => {
         ? featured.featuredEventRefs.map((ref) => ref.eventId)
         : (featured.featuredMatches[1] ?? []);
     setEvents(
-      allIds.filter(
-        (id) =>
-          storeState.value[id]?.value &&
-          Object.keys(storeState.value[id]?.value?.markets || {}).length > 0,
-      ),
+      allIds
+        .filter(
+          (id) =>
+            storeState.value[id]?.value &&
+            Object.keys(storeState.value[id]?.value?.markets || {}).length >
+              0 &&
+            modeBySport[storeState.value[id]?.value?.sport?.id],
+        )
+        .sort((a, b) => {
+          const eventA = storeState.value[a];
+          const eventB = storeState.value[b];
+          return eventA?.value?.sport?.id - eventB?.value?.sport?.id;
+        }),
     );
   }, [featuredSummaryData.value, storeState.value, loadedMatchesState.value]);
 
@@ -154,8 +116,7 @@ export const EmblaBanner = () => {
     <div class="embla">
       <div class="embla__viewport" ref={viewportRef}>
         <div class="embla__container">
-          {slides.map((slide, index) => {
-            const eventId = events.length ? events[index % events.length] : 1;
+          {events.map((eventId, index) => {
             const event = storeState.value[eventId];
             const homeTeam = event?.value?.competitors?.[0]?.name || "Home";
             const awayTeam = event?.value?.competitors?.[1]?.name || "Away";
@@ -165,8 +126,17 @@ export const EmblaBanner = () => {
             const selectedMarket = getSelectedMarket(event?.value);
 
             return (
-              <div key={slide.id} className="embla__slide ">
-                <img src={`${slide.image}`} alt={slide.title || "Banner"} />
+              <div
+                key={eventId}
+                className="embla__slide "
+                style={{
+                  order: event.value?.sport?.id,
+                }}
+              >
+                <img
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/banner/${event.value?.sport?.id}/${(baseIndex + index) % modeBySport[event.value?.sport?.id]}.png`}
+                  alt="Banner"
+                />
                 <div className="banner-overlay-image"></div>
                 {event && (
                   <div className="banner-overlay cursor-pointer h-full">

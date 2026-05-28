@@ -129,8 +129,7 @@ export const MarketsBoard: FunctionComponent = () => {
   const isLive = eventData?.status === 3;
 
   const rawTime = typeof scoreboard?.time === "number" ? scoreboard.time : null;
-  const showClock =
-    !!eventData && !isFinished && !isCoverageLost && isLive && rawTime !== null;
+  const showClock = isLive && rawTime !== null && rawTime > 0;
 
   useImperativeLiveClock(clockRef, rawTime, showClock);
 

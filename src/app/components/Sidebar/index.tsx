@@ -10,7 +10,7 @@ import {
 import { SpecialNavigation } from "@/app/components/Sidebar/components/SpecialNavigation";
 import { BetBuilderSidebarToggle } from "@/app/components/Sidebar/components/BetBuilderSidebarToggle";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { PrematchLoader } from "../Loading/PrematchLoader";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
@@ -18,7 +18,6 @@ import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
 import { syncFeaturedFromSidebars } from "@/state/featuredMatchesState";
 import { toSummaryTree } from "@/helpers/syncFeaturedSummary";
-import { loadedSportsbookState } from "@/state/loadedSportsbookState";
 
 export const Sidebar: FunctionComponent = () => {
   const [loading, setLoading] = useState<boolean>(false);

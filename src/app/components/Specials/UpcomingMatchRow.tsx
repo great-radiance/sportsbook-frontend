@@ -171,6 +171,15 @@ export const UpcomingMatchRow: FunctionComponent<UpcomingMatchRowProps> = ({
   const slots = resolveUpcomingMatchMarkets(
     Object.values(event?.markets ?? {}).map((sig) => sig.value),
   );
+
+  if (
+    !slots.matchResult.market &&
+    !slots.overUnder.market &&
+    !slots.ggNg.market
+  ) {
+    return null;
+  }
+
   const [ouOver, ouUnder] = overUnderCells(slots.overUnder.market);
   const [ggA, ggB] = thirdColumnCells(slots.ggNg.market);
 

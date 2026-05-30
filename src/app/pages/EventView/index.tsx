@@ -22,7 +22,11 @@ export const EventView: FunctionComponent = () => {
         ) : (
           <>
             <div className="flex flex-col w-full min-w-0 h-full transition-all duration-300 ease-in-out">
-              {!pageName && <EmblaBanner />}
+              {!pageName && (
+                <>
+                  <EmblaBanner />
+                </>
+              )}
               <div className="flex flex-col md:flex-row p-2 w-full min-w-0 h-full">
                 <div className="flex w-full md:max-w-[calc(100%-320px)] h-full shrink-0">
                   <SwitchMachesBoard />

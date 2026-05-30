@@ -8,6 +8,8 @@ import { registerIconLibrary } from "@shoelace-style/shoelace";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { initThemeColors } from "./theme";
 import { initToast } from "@/shared/toast";
+import { tCard } from "@/app/components/CardListSection/tCard";
+import { cardListState } from "@/state/cardListState";
 
 export interface BannerBetslipConfig {
   name: string;
@@ -46,6 +48,7 @@ export interface SportsbookInitOptions {
   bottomLayoutHeight?: number;
   injectCustomStyles?: string;
   baseTheme?: string;
+  cardList?: tCard[];
 }
 
 export interface SportsbookInstance {
@@ -77,7 +80,12 @@ export function initSportsbookApp(
     currency,
     bottomLayoutHeight,
     baseTheme = "dark",
+    cardList,
   } = options;
+
+  if (cardList?.length) {
+    cardListState.value = cardList;
+  }
 
   setAppConfig({
     host,

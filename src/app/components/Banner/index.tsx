@@ -134,7 +134,7 @@ export const EmblaBanner = () => {
                 }}
               >
                 <img
-                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/banner/${event.value?.sport?.id}/${(baseIndex + index) % modeBySport[event.value?.sport?.id]}.png`}
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/banner/${event.value?.sport?.id}/${(baseIndex + index) % modeBySport[event.value?.sport?.id]}.webp`}
                   alt="Banner"
                 />
                 <div className="banner-overlay-image"></div>

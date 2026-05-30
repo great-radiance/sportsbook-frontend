@@ -10,6 +10,7 @@ import { HorizontalTabs } from "@/app/components/HorizontalTabs";
 import TrendingAccas from "@/app/components/HomePage.tsx/TrendingAccas";
 import { StarPlayers } from "@/app/components/StarPlayers";
 import { loadHomeWidgetsBatch } from "@/state/homeWidgetsCache";
+import { CardListSection } from "@/app/components/CardListSection";
 
 export const HomePage: FunctionComponent = () => {
   useEffect(() => {
@@ -18,6 +19,7 @@ export const HomePage: FunctionComponent = () => {
 
   return (
     <div className="flex md:p-2 w-full flex-col gap-2">
+      <CardListSection />
       <HorizontalTabs>
         <TopLeagueMenu />
       </HorizontalTabs>

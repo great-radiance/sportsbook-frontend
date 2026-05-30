@@ -1,3 +1,4 @@
+import { getAppConfig } from "@/shared/config/appConfig";
 import axios from "axios";
 
 export const instance = axios.create({
@@ -39,6 +40,10 @@ export function setPlayerSessionHeaders(
   } else {
     delete instance.defaults.headers["x-currency"];
   }
+
+  instance.defaults.params = {
+    lang: getAppConfig().lang,
+  };
 
   delete instance.defaults.headers["X-API-ID"];
   delete instance.defaults.headers["X-API-KEY"];

@@ -122,9 +122,7 @@ export const EmblaBanner = () => {
             const awayTeam = event?.value?.competitors?.[1]?.name || "Away";
             const eventTime = formatEventTime(event?.value);
             const eventDateLabel = formatEventDate(event?.value);
-
             const selectedMarket = getSelectedMarket(event?.value);
-
             return (
               <div
                 key={eventId}

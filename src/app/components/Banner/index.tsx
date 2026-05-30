@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import "./style.scss";
 import { featuredSummaryData } from "@/state/summarySports";
-import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/themes/light.css";
 import { Market } from "../MatchesBoard/components/Match/Market";

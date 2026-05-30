@@ -115,25 +115,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   const matchRef = useRef<HTMLDivElement>(null);
   const [rootWidthPx, setRootWidthPx] = useState<number>(0);
 
-  // const parseLiveTime = (t: any): number | null => {
-  //   if (t == null) return null;
-  //   if (typeof t === "number") return t;
-  //   if (typeof t === "string") {
-  //     const parts = t.split(":").map((p) => parseInt(p, 10));
-  //     if (parts.length === 2 && !isNaN(parts[0]))
-  //       return parts[0] * 60 + (isNaN(parts[1]) ? 0 : parts[1]);
-  //     if (parts.length === 3 && !isNaN(parts[0]))
-  //       return (
-  //         parts[0] * 3600 +
-  //         (isNaN(parts[1]) ? 0 : parts[1]) * 60 +
-  //         (isNaN(parts[2]) ? 0 : parts[2])
-  //       );
-  //     const num = parseInt(t.replace(/\D/g, ""), 10);
-  //     if (!isNaN(num)) return num * 60;
-  //   }
-  //   return null;
-  // };
-
   const formatMMSS = (secs: number) => {
     const minutes = Math.floor(secs / 60);
     const seconds = secs % 60;

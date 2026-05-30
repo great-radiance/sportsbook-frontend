@@ -190,7 +190,6 @@ export const MarketsBoard: FunctionComponent = () => {
 
   const homeName = eventData?.competitors?.[0]?.name ?? "";
   const awayName = eventData?.competitors?.[1]?.name ?? "";
-  const sportName_ = eventData?.sport?.name ?? "";
   const regionName_ = eventData?.region?.name ?? "";
   const leagueName_ = eventData?.league?.name ?? "";
 

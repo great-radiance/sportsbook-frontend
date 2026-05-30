@@ -110,14 +110,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   const selectionCount =
     markets.find((m) => m.id === selectedMarket)?.selections?.length ?? 0;
   const longMarket = selectionCount > 3;
-  // console.log(
-  //   "event",
-  //   event,
-  //   // markets,
-  //   markets[0]?.id,
-  //   selectedMarket,
-  //   storeState.value[eventId]?.value?.markets[selectedMarket]?.value,
-  // );
 
   const [compact, setCompact] = useState<number>();
   const matchRef = useRef<HTMLDivElement>(null);

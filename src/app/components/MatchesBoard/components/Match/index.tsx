@@ -54,7 +54,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   eventId,
   marketType,
   marketId,
-  // isLive = false,
   allowAutoSelect = false,
   showLeagueLogo = false,
   allowRounded = false,

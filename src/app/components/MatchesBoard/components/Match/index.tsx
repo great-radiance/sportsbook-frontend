@@ -115,28 +115,6 @@ export const Match: FunctionComponent<MatchProps> = ({
   const matchRef = useRef<HTMLDivElement>(null);
   const [rootWidthPx, setRootWidthPx] = useState<number>(0);
 
-  const formatMMSS = (secs: number) => {
-    const minutes = Math.floor(secs / 60);
-    const seconds = secs % 60;
-    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  };
-
-  // useEffect(() => {
-  //   if (!isLive) return;
-  //   let timer: number | undefined;
-  //   const raw = (live as any)?.status?.time ?? (live as any)?.scoreBoard?.time;
-  //   const initial = parseLiveTime(raw);
-  //   setLiveSeconds(initial);
-  //   if (initial != null) {
-  //     timer = window.setInterval(() => {
-  //       setLiveSeconds((prev) => (prev != null ? prev + 1 : 1));
-  //     }, 1000) as unknown as number;
-  //   }
-  //   return () => {
-  //     if (timer) clearInterval(timer);
-  //   };
-  // }, [live?.status?.time, (live as any)?.scoreBoard?.time, event?.id, isLive]);
-
   useEffect(() => {
     if (panelCompactState.value === 1) {
       currentCompactState.value = compact;
@@ -220,7 +198,6 @@ export const Match: FunctionComponent<MatchProps> = ({
     );
   }
 
-  // console.log("Match", event);
   if (isRacingSport(event.sport?.id, event.sport?.name)) {
     return <RacingMatch eventId={eventId} allowRounded={allowRounded} />;
   }

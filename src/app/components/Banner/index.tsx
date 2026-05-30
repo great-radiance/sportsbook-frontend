@@ -42,7 +42,6 @@ export const EmblaBanner = () => {
   const emblaApiRef = useRef<EmblaCarouselType | null>(null);
   const [events, setEvents] = useState<number[]>([]);
   const [, setLocation] = useLocation();
-  const baseTheme = baseColorTheme.value;
   const baseIndex = Math.floor((new Date().getTime() / (3600 * 24)) % 10);
   console.log("baseIndex", baseIndex);
   const modeBySport: Record<number, number> = {

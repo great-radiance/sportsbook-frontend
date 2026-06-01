@@ -6,10 +6,12 @@ import { useLocation } from "wouter-preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { buildTopLeagueItems } from "@/helpers/topLeagueItems";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
+import { baseColorTheme } from "@/state/baseColorTheme";
 
 export const TopLeagueMenu = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [, setLocation] = useLocation();
+  const baseTheme = baseColorTheme.value;
 
   useEffect(() => {
     const summary = summarySports.value;
@@ -98,7 +100,7 @@ export const TopLeagueMenu = () => {
             onClick={(e) => onLeagueClick(e, path)}
             className="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-white/10"
           >
-            <div className="flex items-center justify-center rounded-md border border-[#FFFFFF20] p-1">
+            <div className="flex items-center justify-center rounded-md border border-[#FFFFFF20] p-1 relative">
               <img
                 src={`${BASE_ASSET_PUBLIC_URL}/logo/leagueById/${sport.id}/${league.id}.webp`}
                 onError={(e) => {
@@ -108,6 +110,17 @@ export const TopLeagueMenu = () => {
                 alt=""
                 className={`h-5 w-5 shrink-0`}
               />
+              <div className="absolute -bottom-[6px] rounded-full mx-auto p-[1px] bg-[var(--background-element)]">
+                <img
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sport.id}.svg`}
+                  onError={(e) => {
+                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                    e.currentTarget.className = "w-4 h-4";
+                  }}
+                  alt=""
+                  className={`w-[14px] h-[14px] ${baseTheme === "dark" ? "invert" : ""}`}
+                />
+              </div>
             </div>
             <div className="min-w-0 flex-1 truncate">
               <span className="block text-[var(--text-primary-color)]">

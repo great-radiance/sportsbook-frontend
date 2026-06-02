@@ -1,5 +1,9 @@
 import { completeName } from "@/helpers/completeName";
-import type { StarPlayerCardResponse } from "@/api/home/homeWidgets";
+import type {
+  BetBuilderHighlightCardResponse,
+  BetBuilderHighlightPickResponse,
+  StarPlayerCardResponse,
+} from "@/api/home/homeWidgets";
 import type { competitor } from "@/types/typesForSocket.ts/tEventModel";
 
 export type WidgetCompetitorRef = { id: number; name: string };
@@ -70,6 +74,41 @@ export function starPlayerDisplayName(card: StarPlayerCardResponse): string {
     return fromPlayerParam.trim();
   }
   return card.playerName?.trim() ?? "";
+}
+
+/** Bet Builder highlight pick line — `label` from admin config, else market + outcome. */
+export function betBuilderHighlightPickLine(
+  pick: BetBuilderHighlightPickResponse,
+  card: BetBuilderHighlightCardResponse,
+): string {
+  const fields = { ...pick, competitors: card.competitors };
+  const outcome = widgetOutcomeDisplayName(fields);
+  const label = pick.label?.trim();
+  if (label) return `${label} - ${outcome}`;
+  return `${widgetMarketDisplayName(fields)} - ${outcome}`;
+}
+
+/** Bundle odds — prefer `bbCombinedOdds` from BB price API. */
+export function betBuilderHighlightOdds(card: {
+  bbCombinedOdds?: number | null;
+  combinedOdds?: number;
+  picks: { odds: number }[];
+}): number {
+  if (
+    typeof card.bbCombinedOdds === "number" &&
+    Number.isFinite(card.bbCombinedOdds) &&
+    card.bbCombinedOdds > 0
+  ) {
+    return card.bbCombinedOdds;
+  }
+  if (
+    typeof card.combinedOdds === "number" &&
+    Number.isFinite(card.combinedOdds) &&
+    card.combinedOdds > 0
+  ) {
+    return card.combinedOdds;
+  }
+  return card.picks.reduce((acc, pick) => acc * pick.odds, 1);
 }
 
 /** Star Players bundle price — prefer provider BB price over leg product. */

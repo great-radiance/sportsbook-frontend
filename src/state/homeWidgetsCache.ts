@@ -1,6 +1,8 @@
 import {
+  apiGetBetBuilderHighlights,
   apiGetStarPlayers,
   apiGetTrendingAccas,
+  type BetBuilderHighlightCardResponse,
   type StarPlayerCardResponse,
   type TrendingAccaCouponResponse,
 } from "@/api/home/homeWidgets";
@@ -11,6 +13,38 @@ export const starPlayersCache = signal<StarPlayerCardResponse[] | null>(null);
 export const trendingAccasCache = signal<TrendingAccaCouponResponse[] | null>(
   null,
 );
+
+export const betBuilderHighlightsCache = signal<
+  BetBuilderHighlightCardResponse[]
+>([]);
+export const betBuilderHighlightsSportId = signal<number | null>(null);
+
+const bbHighlightsInFlight = new Map<number, Promise<void>>();
+
+export async function loadBetBuilderHighlights(options: {
+  sportId: number;
+  limit?: number;
+}): Promise<void> {
+  const { sportId, limit = 20 } = options;
+  const existing = bbHighlightsInFlight.get(sportId);
+  if (existing) return existing;
+
+  const { lang } = getAppConfig();
+  const promise = (async () => {
+    const res = await apiGetBetBuilderHighlights({
+      lang: lang || "en",
+      sportId,
+      limit,
+    });
+    betBuilderHighlightsCache.value = res?.data ?? [];
+    betBuilderHighlightsSportId.value = sportId;
+  })().finally(() => {
+    bbHighlightsInFlight.delete(sportId);
+  });
+
+  bbHighlightsInFlight.set(sportId, promise);
+  return promise;
+}
 
 export type HomeWidgetsLoadOptions = {
   sportId?: number;

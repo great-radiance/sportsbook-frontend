@@ -12,7 +12,10 @@ import {
 } from "@/helpers/betBuilderPriceState";
 import { notify } from "@/shared/toast";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
-import type { StarPlayerCardResponse } from "@/api/home/homeWidgets";
+import type {
+  BetBuilderHighlightCardResponse,
+  StarPlayerCardResponse,
+} from "@/api/home/homeWidgets";
 import {
   betBuilderCombinable,
   betBuilderPrice,
@@ -442,6 +445,17 @@ export async function addStarPlayerBundleToSlip(
   } finally {
     betBuilderPriceSyncSuspended.value -= 1;
   }
+}
+
+/** Bet Builder highlight card — same-event bundle (like Star Players). */
+export function addBetBuilderHighlightToSlip(
+  card: BetBuilderHighlightCardResponse,
+  picks: WidgetSelectionInput[],
+): Promise<void> {
+  return addStarPlayerBundleToSlip(
+    card as unknown as StarPlayerCardResponse,
+    picks,
+  );
 }
 
 /** Trending acca — parlay across distinct events. */

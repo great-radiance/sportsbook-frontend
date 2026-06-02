@@ -26,6 +26,37 @@ export type StarPlayerPickResponse = WidgetParamFields & {
   odds: number;
 };
 
+export type BetBuilderHighlightPickResponse = WidgetParamFields & {
+  slotIndex: number;
+  label?: string;
+  eventId: number;
+  marketId: number;
+  selectionId: number;
+  marketName: string;
+  outcomeName: string;
+  odds: number;
+};
+
+export type BetBuilderHighlightCardResponse = {
+  cardId: string;
+  eventId: number;
+  matchName: string;
+  sport: WidgetSportRef;
+  league: WidgetLeagueRef;
+  region: WidgetRegionRef;
+  startTime: string;
+  competitors?: WidgetCompetitorRef[];
+  picks: BetBuilderHighlightPickResponse[];
+  combinedOdds: number;
+  bbCombinedOdds?: number | null;
+  displayOrder?: number;
+};
+
+export type BetBuilderHighlightsApiResponse = {
+  data: BetBuilderHighlightCardResponse[];
+  meta: { count: number; generatedAt?: string };
+};
+
 export type StarPlayerCardResponse = {
   cardId: string;
   eventId: number;
@@ -92,6 +123,50 @@ function widgetParams(q?: HomeWidgetQuery): Record<string, string | number> {
   return params;
 }
 
+function seedWidgetSelections(
+  picks: {
+    eventId: number;
+    marketId: number;
+    selectionId: number;
+    odds: number;
+  }[],
+) {
+  for (const pick of picks) {
+    const storeOddsTemp = {
+      id: pick.selectionId,
+      eId: pick.eventId,
+      mId: pick.marketId,
+      etradingStatus: 0,
+      mtradingStatus: 0,
+      status: 0,
+      price: pick.odds,
+      mv: 0,
+    };
+    const key = selectionStoreKey(
+      pick.eventId,
+      pick.marketId,
+      pick.selectionId,
+    );
+    selectionsStoreState.value = {
+      ...selectionsStoreState.value,
+      [key]: signal(storeOddsTemp),
+    };
+  }
+}
+
+export async function apiGetBetBuilderHighlights(
+  query?: HomeWidgetQuery,
+): Promise<BetBuilderHighlightsApiResponse> {
+  const { data } = await instance.get<BetBuilderHighlightsApiResponse>(
+    "/home/bet-builder-highlights",
+    { params: widgetParams({ limit: 20, ...query }) },
+  );
+  for (const card of data.data) {
+    seedWidgetSelections(card.picks);
+  }
+  return data;
+}
+
 export async function apiGetStarPlayers(
   query?: HomeWidgetQuery,
 ): Promise<StarPlayersApiResponse> {
@@ -100,27 +175,7 @@ export async function apiGetStarPlayers(
     { params: widgetParams(query) },
   );
   for (const card of data.data) {
-    for (const pick of card.picks) {
-      const storeOddsTemp = {
-        id: pick.selectionId,
-        eId: pick.eventId,
-        mId: pick.marketId,
-        etradingStatus: 0,
-        mtradingStatus: 0,
-        status: 0,
-        price: pick.odds,
-        mv: 0,
-      };
-      const key = selectionStoreKey(
-        pick.eventId,
-        pick.marketId,
-        pick.selectionId,
-      );
-      selectionsStoreState.value = {
-        ...selectionsStoreState.value,
-        [key]: signal(storeOddsTemp),
-      };
-    }
+    seedWidgetSelections(card.picks);
   }
   return data;
 }
@@ -134,23 +189,7 @@ export async function apiGetTrendingAccas(
   );
 
   for (const coupon of data.data) {
-    for (const leg of coupon.legs) {
-      const storeOddsTemp = {
-        id: leg.selectionId,
-        eId: leg.eventId,
-        mId: leg.marketId,
-        etradingStatus: 0,
-        mtradingStatus: 0,
-        status: 0,
-        price: leg.odds,
-        mv: 0,
-      };
-      const key = selectionStoreKey(leg.eventId, leg.marketId, leg.selectionId);
-      selectionsStoreState.value = {
-        ...selectionsStoreState.value,
-        [key]: signal(storeOddsTemp),
-      };
-    }
+    seedWidgetSelections(coupon.legs);
   }
 
   return data;

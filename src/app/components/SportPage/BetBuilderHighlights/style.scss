@@ -1,0 +1,207 @@
+.bbh-carousel {
+  position: relative;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.bbh-carousel__viewport {
+  overflow: hidden;
+  width: 100%;
+}
+
+.bbh-carousel__container {
+  display: flex;
+  touch-action: pan-y;
+  gap: 12px;
+}
+
+.bbh-carousel__slide {
+  flex: 0 0 280px;
+  min-width: 0;
+}
+
+.bbh-carousel__button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  opacity: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 150ms ease;
+  z-index: 2;
+}
+
+.bbh-carousel:hover .bbh-carousel__button {
+  opacity: 1;
+}
+
+.bbh-carousel__button--prev {
+  left: 4px;
+}
+
+.bbh-carousel__button--next {
+  right: 4px;
+}
+
+.bbh-card {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  height: 320px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d1520;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bbh-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #1a3a6e 0%, #0d1520 100%);
+  border-bottom: 2px solid #2b7cff;
+}
+
+.bbh-card__brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+.bbh-card__time {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.bbh-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  min-height: 0;
+}
+
+.bbh-card__league {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 10px;
+}
+
+.bbh-card__teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  min-height: 40px;
+}
+
+.bbh-card__team {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.bbh-card__team-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.bbh-card__teams--text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+
+.bbh-card__picks {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.bbh-card__pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+}
+
+.bbh-card__pick-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.bbh-card__pick-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  flex-shrink: 0;
+}
+
+.bbh-card__pick-line {
+  width: 1px;
+  flex: 1;
+  min-height: 8px;
+  background: rgba(165, 179, 207, 0.6);
+}
+
+.bbh-card__pick:last-child .bbh-card__pick-line {
+  display: none;
+}
+
+.bbh-card__pick-text {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.bbh-card__odds {
+  margin-top: 10px;
+  width: 100%;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--sub-element-secondary);
+  color: var(--text-primary-color);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.bbh-card__odds:hover {
+  filter: brightness(1.05);
+}
+
+.bbh-pick-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}

@@ -46,8 +46,8 @@ export const EmblaBanner = () => {
   console.log("baseIndex", baseIndex);
   const modeBySport: Record<number, number> = {
     1: 10,
-    8: 1,
-    4: 1,
+    8: 8,
+    4: 6,
   };
 
   useEffect(() => {

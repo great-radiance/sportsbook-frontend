@@ -13,6 +13,7 @@ import {
   eventHasMarketType,
   isMoneylineSport,
 } from "@/helpers/sidebarMarketNavigation";
+import { BetBuilderHighlights } from "@/app/components/SportPage/BetBuilderHighlights";
 
 type League = {
   key: string;
@@ -109,6 +110,8 @@ const HighlightRender = ({
 
   return (
     <>
+      <BetBuilderHighlights sportId={sportId} />
+
       <div className="flex sticky top-0 mb-4 z-[200] bg-[var(--background-element)] flex-col w-full p-2 gap-2 rounded-b-[16px]">
         <nav role="tablist" aria-label="Leagues" className="w-full">
           <HorizontalTabs scrollerClassName="py-1">

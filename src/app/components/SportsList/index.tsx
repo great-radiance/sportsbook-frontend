@@ -4,13 +4,13 @@ import { isMobile } from "@/state/isMobile";
 import { FunctionComponent } from "preact";
 import { useTranslate } from "@/shared/i18n/i18n";
 // import { SportsListLoader } from "@/app/components/Loading";
-import { summarySports, summarySportsLive } from "@/state/summarySports";
+import { summarySportsState } from "@/state/summarySports";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { SportsListLoader } from "../Loading";
 
 interface SportsListProps {
-  sportsData: { count: number; name: string; id: number }[];
+  sportsData: { name: string; id: number }[];
   selectedSport: number;
   onSelectSport: (sport: number) => void;
   loading?: boolean;
@@ -40,10 +40,7 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
   // both correct and avoids subscribing to `summarySports*.value.counts`,
   // which previously caused this memo to cache an empty result when the
   // counts signal had not yet populated.
-  const filteredSports = useMemo(
-    () => sportsData.filter((sport) => sport.count > 0),
-    [sportsData],
-  );
+  const filteredSports = useMemo(() => sportsData, [sportsData]);
 
   const checkScrollPosition = () => {
     const el = scrollContainerRef.current;
@@ -200,7 +197,6 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
             </div>
           )}
           {filteredSports.map((sport) => {
-            if (sport.count === 0) return null;
             return (
               <div
                 key={sport.id}
@@ -216,8 +212,8 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
                 } rounded-full px-2 py-1 gap-1 items-center justify-center cursor-pointer`}
                 style={{
                   order:
-                    summarySports.value.data.findIndex(
-                      (s) => s?.[0] === sport.id,
+                    summarySportsState.value.findIndex(
+                      (s) => s.sportId === sport.id,
                     ) + 1 || 999,
                 }}
               >

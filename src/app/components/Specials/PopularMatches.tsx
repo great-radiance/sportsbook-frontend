@@ -15,6 +15,9 @@ import {
   eventHasMarketType,
   isMoneylineSport,
 } from "@/helpers/sidebarMarketNavigation";
+import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
+import { summarySportsState } from "@/state/summarySports";
+import { isRacingSport } from "@/helpers/isRacingSport";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import {
   allEventIdsFromBuckets,
@@ -81,6 +84,11 @@ export const PopularMatches: FunctionComponent = () => {
     [sportsData, selectedSport],
   );
 
+  const sportMarkets = useMemo(
+    () => getSportMarkets(summarySportsState.value, selectedSport),
+    [selectedSport, summarySportsState.value],
+  );
+
   const {
     marketOptions,
     showMarketNav,
@@ -89,10 +97,11 @@ export const PopularMatches: FunctionComponent = () => {
     matchMarketType,
     allowAutoSelect,
   } = useSidebarMarketNavigation({
-    sportId: selectedSport,
-    sportName: selectedSportName,
+    markets: sportMarkets,
     loadedEvents: loadedEventsForMarkets,
-    enabled: true,
+    suppressMarketNav:
+      isMoneylineSport(selectedSport, selectedSportName) ||
+      isRacingSport(selectedSport, selectedSportName),
   });
 
   useEffect(() => {

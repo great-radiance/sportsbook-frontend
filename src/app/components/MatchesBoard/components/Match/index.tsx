@@ -59,6 +59,7 @@ export const Match: FunctionComponent<MatchProps> = ({
   allowRounded = false,
 }) => {
   const event = storeState.value[eventId]?.value;
+  console.log("event", event);
   if (!event) return null;
 
   const showLeague =

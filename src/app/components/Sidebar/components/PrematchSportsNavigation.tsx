@@ -6,11 +6,9 @@ import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { translationState } from "@/state/translationState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import {
   summarySportsState,
-  featuredLeaguesState,
   countsSummarySportsState,
 } from "@/state/summarySports";
 import { RACING_SPORT_IDS } from "@/helpers/isRacingSport";
@@ -103,9 +101,9 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
               buildPrematchPath(
                 sportName,
                 sportId,
-                node.region?.translations[lang],
+                node.region?.name,
                 node.region?.id,
-                node.translations[lang],
+                node.name,
                 leagueId || "",
               ),
               setLocation,
@@ -115,10 +113,8 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
           className="flex justify-between gap-2 items-start py-[6px] pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
         >
           <span className="flex flex-col text-left break-words whitespace-normal text-[11px]">
-            {node.translations[lang]}
-            <span className="text-[10px]">
-              {node.region?.translations[lang]}
-            </span>
+            {node.name}
+            <span className="text-[10px]">{node.region?.name}</span>
           </span>
         </button>
       );
@@ -134,20 +130,15 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
 
       const path =
         node.type === "sport"
-          ? `/event-view/pre-match/${sportName}/${sportId}/${node.translations[lang]}/${node.sportId}`
+          ? `/event-view/pre-match/${sportName}/${sportId}/${node.name}/${node.sportId}`
           : node.children?.length && node.children?.length > 1
-            ? buildPrematchPath(
-                sportName,
-                sportId,
-                node.translations[lang],
-                regionId || "",
-              )
+            ? buildPrematchPath(sportName, sportId, node.name, regionId || "")
             : buildPrematchPath(
                 sportName,
                 sportId,
-                node.translations[lang],
+                node.name,
                 regionId || "",
-                node.children?.[0]?.translations[lang],
+                node.children?.[0]?.name,
                 node.children?.[0]?.leagueId || "",
               );
       return (
@@ -160,7 +151,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
           className="flex justify-between gap-2 items-center py-[6px] pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
         >
           <span className="flex flex-1 text-left break-words whitespace-normal text-[14px]">
-            {node.translations[lang]}
+            {node.name}
           </span>
         </button>
       );
@@ -177,7 +168,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
             className="flex justify-between gap-2 items-center py-[6px]  pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
           >
             <span className="flex flex-1 text-left break-words whitespace-normal text-[14px]">
-              {node.translations[lang]}
+              {node.name}
             </span>
             <img
               src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
@@ -226,7 +217,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
             const sportId =
               sport.type === "combined_sport" ? 0 : (sport.sportId ?? 0);
 
-            const sportName = sport.translations?.[lang] ?? "";
+            const sportName = sport.name;
             const children = sport.children;
 
             const sportCount =

@@ -1,47 +1,26 @@
 import { FunctionComponent } from "preact";
-import {
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-} from "preact/hooks";
+import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { UpcomingMatchSkeleton } from "@/app/components/Loading";
-import { apiGetUpcomingMatches } from "@/api/special-matches/apiGetUpcomingMatches";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
-import { HorizontalTabs } from "@/app/components/HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import HighlightRender from "@/app/components/SportPage/HighlightRender";
-import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
-import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
 import { summarySportsState } from "@/state/summarySports";
-import { sortLeagues } from "@/helpers/sortLeagues";
-import { buildLeagueLabelMap } from "@/helpers/resolveSummaryLabels";
-import { leagueBucketKey } from "@/helpers/summaryIds";
-import {
-  findLeagueInRegion,
-  findRegionNode,
-  findSportNode,
-} from "@/helpers/findSidebarNodeByRoute";
-import { apiGetLeagues } from "@/api/entities/apiGetLeagues";
+import { findSportNode } from "@/helpers/findSidebarNodeByRoute";
 import { apiGetMatchesByNode } from "@/api/matches/apiGetMatchesByNode";
-import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import { loadedSidebarState } from "@/state/loadedSidebarState";
+import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
+import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
+import { apiGetUpcomingBySport } from "@/api/matches/apiGetUpcomingBySport";
+import {
+  extractUpcomingLeagueEntries,
+  sortUpcomingLeaguesBySidebar,
+  type UpcomingLeagueEntry,
+} from "@/helpers/upcomingSportCatalog";
 
 export const SportPage: FunctionComponent = () => {
-  const {
-    sportName,
-    sportIdParam,
-    regionName,
-    regionIdParam,
-    leagueName,
-    leagueIdParam,
-  } = useRouteParams();
+  const { sportName, sportIdParam } = useRouteParams();
   const [loading, setLoading] = useState(true);
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");
   const baseTheme = baseColorTheme.value;
@@ -55,6 +34,10 @@ export const SportPage: FunctionComponent = () => {
     outright: [],
     live: [],
   });
+  const [upcomingLeagues, setUpcomingLeagues] = useState<UpcomingLeagueEntry[]>(
+    [],
+  );
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
 
   const tabStyle = (tab: string) =>
     `flex-1 py-2 text-center text-[10px] font-medium transition ${
@@ -62,37 +45,49 @@ export const SportPage: FunctionComponent = () => {
         ? "bg-[var(--highlight-background)] text-white rounded-full"
         : "text-[var(--text-sub-color)]"
     }`;
-  const node = useMemo(() => {
-    return findSportNode(summarySportsState.value, sportIdParam ?? "");
-  }, [summarySportsState.value, sportIdParam]);
 
-  const featuredLeaguesOfSport = useMemo(() => {
-    return node?.children?.filter(
-      (child) => child.type === "league" || child.type === "combined_league",
-    );
-  }, [node]);
+  const sportNode = useMemo(
+    () => findSportNode(summarySportsState.value, sportIdParam ?? ""),
+    [summarySportsState.value, sportIdParam],
+  );
 
-  console.log("featuredLeaguesOfSportTest", featuredLeaguesOfSport);
+  const featuredLeaguesOfSport = useMemo(
+    () =>
+      sportNode?.children?.filter(
+        (child) => child.type === "league" || child.type === "combined_league",
+      ) ?? [],
+    [sportNode],
+  );
+
   useEffect(() => {
-    setSelectedLeagueKey(featuredLeaguesOfSport?.[0]?.id ?? "");
+    if (featuredLeaguesOfSport.length === 0) {
+      setActiveTab("competitions");
+      setSelectedLeagueKey("");
+      return;
+    }
+    setActiveTab("highlights");
+    setSelectedLeagueKey((prev) => {
+      if (prev && featuredLeaguesOfSport.some((league) => league.id === prev)) {
+        return prev;
+      }
+      return featuredLeaguesOfSport[0].id;
+    });
   }, [featuredLeaguesOfSport]);
 
-  const selectedLeagueNode = useMemo(() => {
-    const league = featuredLeaguesOfSport?.find(
-      (child) => child.id === selectedLeagueKey,
-    );
-    const regionNode = findRegionNode(
-      node?.children ?? [],
-      league?.region?.id?.toString() ?? "",
-    );
-    return findLeagueInRegion(
-      regionNode as sidebarNode,
-      league?.leagueId?.toString() ?? "",
-    );
-  }, [selectedLeagueKey, node, featuredLeaguesOfSport]);
+  const selectedLeagueNode = useMemo(
+    () =>
+      featuredLeaguesOfSport.find((child) => child.id === selectedLeagueKey),
+    [selectedLeagueKey, featuredLeaguesOfSport],
+  );
 
-  const getLeagueMathces = useCallback(async () => {
-    const response = await apiGetMatchesByNode(selectedLeagueNode?.id ?? "");
+  const fetchLeagueMatches = useCallback(async () => {
+    if (!selectedLeagueNode?.id) {
+      setMatches({ pre: [], outright: [], live: [] });
+      return;
+    }
+
+    const response = await apiGetMatchesByNode(selectedLeagueNode.id, false);
+
     response.pre.sort(
       (a, b) =>
         new Date(a.eventInfo.startTime).getTime() -
@@ -103,11 +98,6 @@ export const SportPage: FunctionComponent = () => {
         new Date(a.eventInfo.startTime).getTime() -
         new Date(b.eventInfo.startTime).getTime(),
     );
-    const sortedPreIds = response.pre.map((match) => match.eventInfo.id);
-    const sortedOutrightIds = response.outright.map(
-      (match) => match.eventInfo.id,
-    );
-    const sortedLiveIds = response.live.map((match) => match.eventInfo.id);
 
     for (const match of response.pre) {
       storeEvent(match);
@@ -120,20 +110,63 @@ export const SportPage: FunctionComponent = () => {
     }
 
     setMatches({
-      pre: sortedPreIds,
-      outright: sortedOutrightIds,
-      live: sortedLiveIds,
+      pre: response.pre.map((match) => match.eventInfo.id),
+      outright: response.outright.map((match) => match.eventInfo.id),
+      live: response.live.map((match) => match.eventInfo.id),
     });
-    setLoading(false);
-  }, [selectedLeagueNode, summarySportsState.value]);
+  }, [selectedLeagueNode?.id]);
 
   useEffect(() => {
-    getLeagueMathces();
-  }, [selectedLeagueKey]);
+    if (!loadedSidebarState.value) return;
+
+    if (!selectedLeagueNode?.id) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    (async () => {
+      try {
+        await fetchLeagueMatches();
+      } catch (error) {
+        console.error("Error fetching sport page matches:", error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLeagueNode?.id, fetchLeagueMatches, loadedSidebarState.value]);
+
+  const fetchUpcomingMatches = useCallback(async () => {
+    if (activeTab !== "upcoming") return;
+    setUpcomingLoading(true);
+    try {
+      const response = await apiGetUpcomingBySport(
+        Math.floor(new Date().getTime() / 1000),
+        Math.floor(new Date().getTime() / 1000 + 60 * 60 * 24),
+        parseInt(sportIdParam ?? "0"),
+      );
+
+      const entries = extractUpcomingLeagueEntries(response);
+      setUpcomingLeagues(sortUpcomingLeaguesBySidebar(entries, sportNode));
+    } catch (error) {
+      console.error("Error fetching upcoming matches:", error);
+      setUpcomingLeagues([]);
+    } finally {
+      setUpcomingLoading(false);
+    }
+  }, [sportIdParam, activeTab, sportNode]);
 
   useEffect(() => {
-    console.log("matchesTest", matches);
-  }, [matches]);
+    if (!loadedSidebarState.value) return;
+    if (!sportIdParam) return;
+    void fetchUpcomingMatches();
+  }, [fetchUpcomingMatches, loadedSidebarState.value]);
 
   if (!sportName) {
     return null;
@@ -144,45 +177,30 @@ export const SportPage: FunctionComponent = () => {
       case "highlights":
         return (
           <HighlightRender
-            leagueEntries={featuredLeaguesOfSport ?? []}
-            selectedLeagueKey={selectedLeagueKey ?? ""}
+            leagueEntries={featuredLeaguesOfSport}
+            selectedLeagueKey={selectedLeagueKey}
             setSelectedLeagueKey={setSelectedLeagueKey}
             sportId={Number(sportIdParam)}
             sportName={sportName}
             loading={loading}
             matches={matches}
+            markets={sportNode?.markets ?? []}
           />
         );
 
-      // case "competitions":
-      //   return (
-      //     <CompetitionsRender
-      //       data={competitionsTree}
-      //       sportName={sportName}
-      //       sportId={sportIdNum}
-      //       leagueEntries={leagueEntries}
-      //       leagueLabelMap={leagueLabelMap}
-      //     />
-      //   );
+      case "competitions":
+        return (
+          <CompetitionsRender
+            sportNode={sportNode}
+            sportName={sportName}
+            sportId={Number(sportIdParam) || 0}
+          />
+        );
 
-      // case "upcoming":
-      //   return (
-      //     <UpcomingRender
-      //       leagueEntries={upcomingLeagueEntries}
-      //       leagueLabelMap={leagueLabelMap}
-      //       selectedLeagueKey={selectedLeagueKey}
-      //       setSelectedLeagueKey={setSelectedLeagueKey}
-      //       sportId={sportIdNum}
-      //       sportName={sportName}
-      //       selectedCategory={selectedCategory}
-      //       selectedLeagueEntry={selectedLeagueEntry}
-      //       loading={upcomingHydrateLoading}
-      //       windowHours={upcomingWindowHours}
-      //       onWindowHoursChange={setUpcomingWindowHours}
-      //       BASE_ASSET_PUBLIC_URL={BASE_ASSET_PUBLIC_URL}
-      //       getFlagIconFromregionName={getFlagIconFromregionName}
-      //     />
-      //   );
+      case "upcoming":
+        return (
+          <UpcomingRender leagues={upcomingLeagues} loading={upcomingLoading} />
+        );
     }
   };
 
@@ -220,19 +238,24 @@ export const SportPage: FunctionComponent = () => {
         </div>
       </section>
       <div className="flex bg-[var(--sub-element-secondary)] mt-5 w-full rounded-full p-1 mb-6">
+        {featuredLeaguesOfSport.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("highlights")}
+            className={tabStyle("highlights")}
+          >
+            Highlights
+          </button>
+        )}
         <button
-          onClick={() => setActiveTab("highlights")}
-          className={tabStyle("highlights")}
-        >
-          Highlights
-        </button>
-        <button
+          type="button"
           onClick={() => setActiveTab("competitions")}
           className={tabStyle("competitions")}
         >
           Competitions
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("upcoming")}
           className={tabStyle("upcoming")}
         >

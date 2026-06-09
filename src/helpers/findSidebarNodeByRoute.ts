@@ -1,11 +1,11 @@
-import type { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import type { MarketInfoType, sidebarNode } from "@/api/sidebar/apiGetSidebar";
 
 const k = (...parts: (string | number)[]): string => {
   return parts.map(String).join("-");
 };
 
 const nodeLabel = (node: sidebarNode, lang: string): string =>
-  (node.translations[lang] || "").trim();
+  (node.name || "").trim();
 
 export const getRegionId = (node: sidebarNode): string => {
   if (node.type === "region") return String(node.regionId ?? "");
@@ -90,9 +90,8 @@ const toStandaloneEntry = (
 ): LeagueSelectEntry => {
   const leagueName = nodeLabel(node, lang);
   const leagueId = getLeagueId(node);
-  const regionName = node.region?.translations[lang]?.trim() || "";
-  const regionId =
-    node.region?.id != null ? String(node.region.id) : "";
+  const regionName = node.region?.name?.trim() || "";
+  const regionId = node.region?.id != null ? String(node.region.id) : "";
 
   return {
     kind: "standalone",
@@ -237,6 +236,11 @@ export const findSportNode = (
     return node.sportId === sportId;
   });
 };
+
+export const getSportMarkets = (
+  nodes: sidebarNode[],
+  sportId: number,
+): MarketInfoType[] => findSportNode(nodes, String(sportId))?.markets ?? [];
 
 export const findLeagueNodeByRoute = (
   sports: sidebarNode[],

@@ -32,6 +32,9 @@ import {
   isMoneylineSport,
   liveMatchWouldRender,
 } from "@/helpers/sidebarMarketNavigation";
+import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
+import { summarySportsState } from "@/state/summarySports";
+import { isRacingSport } from "@/helpers/isRacingSport";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 
 /** React lib used under Preact; cast for JSX compatibility */
@@ -123,6 +126,11 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     [flatList, loadedCount, storeState.value],
   );
 
+  const sportMarkets = useMemo(
+    () => getSportMarkets(summarySportsState.value, selectedSport),
+    [selectedSport, summarySportsState.value],
+  );
+
   const {
     marketOptions,
     showMarketNav,
@@ -131,9 +139,11 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     matchMarketType,
     allowAutoSelect,
   } = useSidebarMarketNavigation({
-    sportId: selectedSport,
-    sportName: selectedSportName,
+    markets: sportMarkets,
     loadedEvents: loadedEventsForMarkets,
+    suppressMarketNav:
+      isMoneylineSport(selectedSport, selectedSportName) ||
+      isRacingSport(selectedSport, selectedSportName),
   });
 
   // const selectedMarkets = useMemo(() => {

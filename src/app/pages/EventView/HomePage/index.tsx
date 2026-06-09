@@ -1,36 +1,27 @@
-import { PreMatchPanel } from "@/app/components/Specials/preMatchPanel";
 import { FunctionComponent } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { LiveMatchesPanel } from "@/app/components/Specials/LiveMatchesPanel";
-import { TopLeagueMenu } from "@/app/components/TopLeagueMenu";
-import { isMobile } from "@/state/isMobile";
-import { loadedPrematchState } from "@/state/loadedPrematch";
+import { useEffect } from "preact/hooks";
 import { UpcomingMatches } from "@/app/components/Specials/UpcomingMatches";
-import { HorizontalTabs } from "@/app/components/HorizontalTabs";
-import TrendingAccas from "@/app/components/HomePage.tsx/TrendingAccas";
+import TrendingAccas from "@/app/components/HomePage/TrendingAccas";
 import { StarPlayers } from "@/app/components/StarPlayers";
 import { loadHomeWidgetsBatch } from "@/state/homeWidgetsCache";
 import { CardListSection } from "@/app/components/CardListSection";
+import { PrimePicks } from "@/app/components/HomePage/PrimePicks";
+import { PreMatchPanel } from "@/app/components/Specials/preMatchPanel";
+import { TopLeagueMenu } from "@/app/components/TopLeagueMenu";
 
 export const HomePage: FunctionComponent = () => {
   useEffect(() => {
-    void loadHomeWidgetsBatch({ starLimit: 20, accaLimit: 5 });
+    void loadHomeWidgetsBatch();
   }, []);
 
   return (
     <div className="flex md:p-2 w-full flex-col gap-2">
       <CardListSection />
-      <HorizontalTabs>
-        <TopLeagueMenu />
-      </HorizontalTabs>
+      {/* <TopLeagueMenu /> */}
       <PreMatchPanel />
-
-      <HorizontalTabs>
-        <TrendingAccas />
-      </HorizontalTabs>
-      {/* {loadedPrematchState.value && <LiveMatchesPanel />} */}
-      {/* <PopularMatches /> */}
+      <TrendingAccas />
       <StarPlayers />
+      <PrimePicks />
       <UpcomingMatches />
     </div>
   );

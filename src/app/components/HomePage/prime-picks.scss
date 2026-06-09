@@ -1,0 +1,444 @@
+.prime-picks {
+  width: 100%;
+  margin: 20px 0;
+}
+
+.prime-picks__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.prime-picks__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prime-picks__icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.prime-picks__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-basic-color);
+}
+
+.prime-picks__view-all {
+  border: 0;
+  background: transparent;
+  color: var(--text-sub-color);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  transition: color 0.15s ease;
+}
+
+.prime-picks__view-all:hover {
+  color: var(--text-primary-color);
+}
+
+.prime-picks__carousel {
+  position: relative;
+}
+
+.prime-picks__viewport {
+  overflow: hidden;
+  width: 100%;
+}
+
+.prime-picks__track {
+  display: flex;
+  gap: 12px;
+  touch-action: pan-y;
+}
+
+.prime-picks__slide {
+  flex: 0 0 min(300px, 88vw);
+  min-width: 0;
+}
+
+.prime-picks__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  background: var(--background-element);
+  color: var(--text-basic-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+  z-index: 2;
+}
+
+.prime-picks__carousel:hover .prime-picks__nav {
+  opacity: 1;
+}
+
+.prime-picks__nav:hover {
+  background: var(--highlight-background);
+}
+
+.prime-picks__nav--prev {
+  left: 0;
+}
+
+.prime-picks__nav--next {
+  right: 0;
+}
+
+.prime-picks__nav img {
+  width: 14px;
+  height: 14px;
+  filter: brightness(0) invert(1);
+}
+
+.prime-picks__nav--prev img {
+  transform: rotate(180deg);
+}
+
+/* Card */
+.prime-picks__slide .prime-card {
+  height: 100%;
+}
+
+.prime-card {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--background-element);
+  border: 1px solid var(--border-color);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.prime-card:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--primary-color) 35%,
+    var(--border-color)
+  );
+}
+
+.prime-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--primary-soft-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.prime-card__badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary-color);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--sub-element-secondary);
+}
+
+.prime-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.prime-card__sport {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.prime-card__sport--invert {
+  filter: brightness(0) invert(1);
+}
+
+.prime-card__time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub-color);
+  white-space: nowrap;
+}
+
+.prime-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  min-height: 0;
+}
+
+.prime-card__league {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub-color);
+}
+
+.prime-card__teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+// .prime-card__team {
+//   font-size: 12px;
+//   font-weight: 700;
+//   color: var(--text-basic-color);
+//   line-height: 1.25;
+//   text-align: center;
+// }
+
+.prime-card__logos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prime-card__logo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.prime-card__match {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-basic-color);
+}
+
+.prime-card__picks {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.prime-card__pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.prime-card__pick-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 9999px;
+  border: 2px solid var(--primary-color);
+  flex-shrink: 0;
+}
+
+.prime-card__pick-text {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-basic-color);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.prime-card__odds {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--sub-element-secondary);
+  color: var(--text-basic-color);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.prime-card__odds strong {
+  color: var(--text-primary-color);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.prime-card__odds:hover {
+  background: var(--highlight-background);
+}
+
+.prime-card__odds:active {
+  transform: scale(0.99);
+}
+
+/* Modal */
+.prime-picks-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+@media (min-width: 640px) {
+  .prime-picks-modal {
+    align-items: center;
+    padding: 24px;
+  }
+}
+
+.prime-picks-modal__panel {
+  width: 100%;
+  height: min(88vh, 760px);
+  max-height: min(88vh, 760px);
+  min-height: min(480px, 88vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: var(--background-element);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .prime-picks-modal__panel {
+    width: min(520px, 100%);
+    border-radius: 16px;
+  }
+}
+
+.prime-picks-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.prime-picks-modal__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-basic-color);
+}
+
+.prime-picks-modal__close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--sub-element-secondary);
+  color: var(--text-basic-color);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.prime-picks-modal__close:hover {
+  background: var(--highlight-background);
+}
+
+.prime-picks-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.prime-picks-modal__tabs {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-element);
+}
+
+.prime-picks-modal__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prime-picks-modal__list .prime-card {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.prime-picks-modal__list .prime-card__body {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.prime-picks-modal__list .prime-card__picks {
+  flex: 0 0 auto;
+  overflow: visible;
+  min-height: auto;
+}
+
+.prime-picks-modal__empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-sub-color);
+}
+
+.prime-card--compact {
+  flex-shrink: 0;
+  height: auto;
+
+  .prime-card__body {
+    flex: none;
+  }
+
+  .prime-card__picks {
+    flex: none;
+    overflow: visible;
+    min-height: auto;
+  }
+}

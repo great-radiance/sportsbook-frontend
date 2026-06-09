@@ -1,6 +1,5 @@
 import { MarketInfoType } from "@/api/sidebar/apiGetSidebar";
 import type { MarketNavOption } from "@/app/components/marketNavigation";
-import { getAppConfig } from "@/shared/config/appConfig";
 // import type { SidebarMarketRef } frm "@/state/summarySports";
 
 /** Sport ids that use the moneyline match layout. */
@@ -10,14 +9,16 @@ export function isMoneylineSport(sportId: number, sportName?: string): boolean {
   return MONEYLINE_SPORT_IDS.has(sportId) || /hockey/i.test(sportName ?? "");
 }
 
-export function marketOptionsFromRef(
-  refs: MarketInfoType[] | undefined,
-): MarketNavOption[] {
-  if (!refs?.length) return [];
-  return refs.map((m) => ({
-    id: m.type,
-    label: m.translations[getAppConfig().lang] ?? "",
-  }));
+export function marketTypesEqual(
+  a: number[] | number,
+  b: number[] | number,
+): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => v === b[i]);
+  }
+  if (Array.isArray(a)) return a.includes(b as number);
+  if (Array.isArray(b)) return b.includes(a as number);
+  return a === b;
 }
 
 export function eventHasMarketType(
@@ -65,4 +66,14 @@ export function eventsFromStoreByIds(
   getEvent: (id: number) => unknown | undefined,
 ): unknown[] {
   return eventIds.map((id) => getEvent(id)).filter(Boolean);
+}
+
+export function marketOptionsFromMarketInfo(
+  markets: MarketInfoType[] | undefined,
+): MarketNavOption[] {
+  if (!markets?.length) return [];
+  return markets.map((m) => ({
+    id: m.candidates,
+    label: m.name || "",
+  }));
 }

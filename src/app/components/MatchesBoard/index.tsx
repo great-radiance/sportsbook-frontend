@@ -15,10 +15,6 @@ import { MatchesGroup } from "./components/MatchesGroup";
 import { Breadcrumbs } from "../Breadcrumbs";
 import { storeEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
-import {
-  isMoneylineSport,
-  marketOptionsFromRef,
-} from "@/helpers/sidebarMarketNavigation";
 import { isRacingSport } from "@/helpers/isRacingSport";
 import { summarySportsState } from "@/state/summarySports";
 import { apiGetMatchesByNode } from "@/api/matches/apiGetMatchesByNode";
@@ -406,9 +402,7 @@ export const MatchesBoard: FunctionComponent = () => {
         </HorizontalTabs>
         {node?.children?.length && node?.children?.length > 0 ? (
           <MarketNavigation
-            options={
-              node?.children?.map((c) => c.translations[lang] || "") ?? []
-            }
+            options={node?.children?.map((c) => c.name || "") ?? []}
             selectedValue={selectedMarketType.toString()}
             onSelect={(value: string) => setSelectedMarketType(Number(value))}
             className="text-[var(--text-notheme-color)]"

@@ -3,15 +3,9 @@ import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import type { BetBuilderHighlightCardResponse } from "@/api/home/homeWidgets";
-import {
-  addBetBuilderHighlightToSlip,
-  type WidgetSelectionInput,
-} from "@/helpers/homeWidgetBetslip";
-import {
-  widgetMarketDisplayName,
-  widgetOutcomeDisplayName,
-} from "@/helpers/widgetDisplayNames";
+import type { BetBuilderHighlightCardResponse } from "@/api/home/apiGetHomeWidget";
+import { addBetBuilderHighlightToSlip } from "@/helpers/homeWidgetBetslip";
+import { widgetPickToSlipInput } from "@/helpers/widgetDisplayNames";
 import {
   betBuilderHighlightsCache,
   betBuilderHighlightsSportId,
@@ -24,33 +18,13 @@ type Props = {
   sportId: number;
 };
 
-function pickToInput(
-  pick: BetBuilderHighlightCardResponse["picks"][0],
-  card: BetBuilderHighlightCardResponse,
-): WidgetSelectionInput {
-  const fields = { ...pick, competitors: card.competitors };
-  return {
-    eventId: pick.eventId,
-    marketId: pick.marketId,
-    selectionId: pick.selectionId,
-    marketName: widgetMarketDisplayName(fields),
-    outcomeName: widgetOutcomeDisplayName(fields),
-    odds: pick.odds,
-    sport: card.sport,
-    region: card.region,
-    league: card.league,
-    startTime: card.startTime,
-    matchName: card.matchName,
-  };
-}
-
 export const BetBuilderHighlights: FunctionComponent<Props> = ({ sportId }) => {
   const [cards, setCards] = useState<BetBuilderHighlightCardResponse[]>([]);
   const viewportRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<EmblaCarouselType | null>(null);
 
   useEffect(() => {
-    void loadBetBuilderHighlights({ sportId, limit: 20 });
+    void loadBetBuilderHighlights({ sportId });
   }, [sportId]);
 
   useEffect(() => {
@@ -95,8 +69,10 @@ export const BetBuilderHighlights: FunctionComponent<Props> = ({ sportId }) => {
   const scrollNext = useCallback(() => apiRef.current?.scrollNext(), []);
 
   const handleAdd = useCallback((card: BetBuilderHighlightCardResponse) => {
-    const picks = card.picks.map((p) => pickToInput(p, card));
-    void addBetBuilderHighlightToSlip(card, picks);
+    void addBetBuilderHighlightToSlip(
+      card,
+      card.picks.map((p) => widgetPickToSlipInput(p, card)),
+    );
   }, []);
 
   if (cards.length === 0) return null;

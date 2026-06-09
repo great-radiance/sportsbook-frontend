@@ -115,8 +115,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
   const renderMatch = (eventId: number) => {
     const stored = storeState.value[eventId]?.value;
     const isRacing =
-      stored &&
-      isRacingSport(stored.sport?.id ?? sportId, stored.sport?.name);
+      stored && isRacingSport(stored.sport?.id ?? sportId, stored.sport?.name);
     const isMoneyline =
       stored &&
       isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name);
@@ -131,9 +130,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
     if (isMoneyline) {
       return <MoneylineMatch key={eventId} eventId={eventId} />;
     }
-    return (
-      <Match key={eventId} eventId={eventId} allowAutoSelect={true} />
-    );
+    return <Match key={eventId} eventId={eventId} allowAutoSelect={true} />;
   };
 
   return (
@@ -146,7 +143,7 @@ export const RegionMatchesBoard: FunctionComponent = () => {
             {leagueNodes.map((league) => {
               const leagueId = getLeagueId(league);
               const isSelected = selectedLeague === leagueId;
-              const translatedName = league.translations[lang];
+              const translatedName = league.name;
 
               return (
                 <button

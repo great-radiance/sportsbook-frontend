@@ -1,5 +1,11 @@
 /** @jsxImportSource preact */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { cardListState } from "@/state/cardListState";
@@ -91,7 +97,8 @@ export const CardListSection = () => {
       scrollToStart();
     };
     viewport.querySelectorAll("img").forEach((img) => {
-      if (!img.complete) img.addEventListener("load", onImagesLoaded, { once: true });
+      if (!img.complete)
+        img.addEventListener("load", onImagesLoaded, { once: true });
     });
 
     requestAnimationFrame(() => {

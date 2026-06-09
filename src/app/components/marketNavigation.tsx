@@ -3,6 +3,7 @@ import { HorizontalTabs } from "./HorizontalTabs";
 import { isMobile } from "@/state/isMobile";
 import { MARKET_NAMES } from "@/shared/utils/marketNames";
 import { useEffect, useMemo } from "preact/hooks";
+import { marketTypesEqual } from "@/helpers/sidebarMarketNavigation";
 
 /** Sidebar `marketsRef` entry — `id` is the market type passed to `Match`. */
 export type MarketNavOption = { id: number[] | number; label: string };
@@ -78,7 +79,7 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
       >
         {navOptions.map((option) => {
           const isSelected = idMode
-            ? selectedValue === option.id
+            ? marketTypesEqual(selectedValue as number[] | number, option.id)
             : selectedValue === option.label;
           return (
             <button
@@ -86,7 +87,7 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
               aria-selected={isSelected}
               tabIndex={isSelected ? 0 : -1}
               title={option.label}
-              key={option.id}
+              key={option.label}
               type="button"
               className={`snap-start shrink-0 flex px-1 items-center justify-center whitespace-nowrap transition-colors text-[12px] ${
                 isSelected

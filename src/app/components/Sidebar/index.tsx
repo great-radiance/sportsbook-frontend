@@ -14,7 +14,6 @@ import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
 import {
   countsSummarySportsState,
-  featuredLeaguesState,
   summarySportsState,
 } from "@/state/summarySports";
 
@@ -27,19 +26,11 @@ export const Sidebar: FunctionComponent = () => {
       if (loadedSidebarState.value) return;
       try {
         setLoading(true);
-        const { data, countsSummary, featuredLeagues } = await apiGetSidebar();
+        const { data, countsSummary } = await apiGetSidebar();
         // console.log(data, countsSummary, featuredLeagues);
         summarySportsState.value = data;
         countsSummarySportsState.value = countsSummary;
-        featuredLeaguesState.value = featuredLeagues;
-        console.log(
-          "summarySportsState.value",
-          summarySportsState.value,
-          "countsSummarySportsState.value",
-          countsSummarySportsState.value,
-          "featuredLeaguesState.value",
-          featuredLeaguesState.value,
-        );
+
         // const [res1, res2, res3] = await Promise.all([
         //   apiGetSidebar({
         //     status: [1, 2],

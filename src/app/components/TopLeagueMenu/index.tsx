@@ -1,7 +1,6 @@
 import { isMobile } from "@/state/isMobile";
 import { popularLeaguesState } from "@/state/popularLeaguesState";
 import {
-  featuredLeaguesState,
   countsSummarySportsState,
   summarySportsState,
 } from "@/state/summarySports";
@@ -29,10 +28,7 @@ export const TopLeagueMenu = () => {
     }
     try {
       setLoading(true);
-      popularLeaguesState.value = buildTopLeagueItems(
-        summarySportsState.value,
-        featuredLeaguesState.value,
-      );
+      popularLeaguesState.value = buildTopLeagueItems(summarySportsState.value);
       console.log("popularLeaguesState.value", popularLeaguesState.value);
     } catch (error) {
       console.error("Error building top league items:", error);

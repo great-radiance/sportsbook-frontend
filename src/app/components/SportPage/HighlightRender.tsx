@@ -4,24 +4,19 @@ import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch"
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
-import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
 import { storeState } from "@/state/storeState";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
   eventHasMarketType,
+  eventsFromStoreByIds,
   isMoneylineSport,
 } from "@/helpers/sidebarMarketNavigation";
 import { BetBuilderHighlights } from "@/app/components/SportPage/BetBuilderHighlights";
-import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import { MarketInfoType, sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import { isRacingSport } from "@/helpers/isRacingSport";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
-
-type League = {
-  key: string;
-  regionId: number;
-  leagueId: number;
-};
+import { getLeagueId } from "@/helpers/findSidebarNodeByRoute";
 
 type Props = {
   leagueEntries: sidebarNode[];
@@ -35,6 +30,7 @@ type Props = {
     outright: number[];
     live: number[];
   };
+  markets: MarketInfoType[];
 };
 
 const HighlightRender = ({
@@ -45,7 +41,14 @@ const HighlightRender = ({
   sportName,
   loading,
   matches,
+  markets,
 }: Props) => {
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      eventsFromStoreByIds(matches.pre, (id) => storeState.value[id]?.value),
+    [matches.pre, storeState.value],
+  );
+
   const {
     marketOptions,
     showMarketNav,
@@ -54,9 +57,10 @@ const HighlightRender = ({
     matchMarketType,
     allowAutoSelect,
   } = useSidebarMarketNavigation({
-    sportId,
-    sportName,
-    loadedEvents: [],
+    markets,
+    loadedEvents: loadedEventsForMarkets,
+    suppressMarketNav:
+      isMoneylineSport(sportId, sportName) || isRacingSport(sportId, sportName),
   });
 
   const renderMatch = (eventId: number) => {
@@ -88,16 +92,15 @@ const HighlightRender = ({
 
   return (
     <>
-      <BetBuilderHighlights sportId={sportId} />
+      {/* <BetBuilderHighlights sportId={sportId} /> */}
 
       <div className="flex sticky top-0 mb-4 z-[200] bg-[var(--background-element)] flex-col w-full p-2 gap-2 rounded-b-[16px]">
         <nav role="tablist" aria-label="Leagues" className="w-full">
           <HorizontalTabs scrollerClassName="py-1">
             {leagueEntries.map((league) => {
               const isSelected = selectedLeagueKey === league.id;
-              const leagueName = league.translations[getAppConfig().lang] ?? "";
-              const regionName =
-                league.region?.translations[getAppConfig().lang] ?? "";
+              const leagueName = league.name ?? "";
+              const leagueId = getLeagueId(league);
 
               return (
                 <button
@@ -117,10 +120,10 @@ const HighlightRender = ({
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagueById/${sportId}/${league.id}.webp`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagueById/${sportId}/${leagueId}.webp`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(
-                          league.region?.translations["en"] ?? "",
+                          league.region?.name ?? "",
                         )}`;
                         e.currentTarget.className = "rounded-full w-4 h-4";
                       }}

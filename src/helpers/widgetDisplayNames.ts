@@ -3,10 +3,13 @@ import type {
   BetBuilderHighlightCardResponse,
   BetBuilderHighlightPickResponse,
   StarPlayerCardResponse,
-} from "@/api/home/homeWidgets";
+  WidgetCompetitor,
+  WidgetPickResponse,
+} from "@/api/home/apiGetHomeWidget";
+import type { WidgetSelectionInput } from "@/helpers/homeWidgetBetslip";
 import type { competitor } from "@/types/typesForSocket.ts/tEventModel";
 
-export type WidgetCompetitorRef = { id: number; name: string };
+export type WidgetCompetitorRef = WidgetCompetitor;
 
 export type WidgetNameFields = {
   marketName: string;
@@ -66,30 +69,34 @@ export function widgetOutcomeDisplayName(fields: WidgetNameFields): string {
   );
 }
 
-/** Hero name on Star Player cards — `parameters.player` on the prop leg, else `playerName`. */
-export function starPlayerDisplayName(card: StarPlayerCardResponse): string {
-  const propPick = card.picks.find((p) => p.role === "player_prop");
-  const fromPlayerParam = propPick?.parameters?.player;
-  if (typeof fromPlayerParam === "string" && fromPlayerParam.trim()) {
-    return fromPlayerParam.trim();
-  }
-  return card.playerName?.trim() ?? "";
-}
-
-/** Bet Builder highlight pick line — `label` from admin config, else market + outcome. */
-export function betBuilderHighlightPickLine(
-  pick: BetBuilderHighlightPickResponse,
-  card: BetBuilderHighlightCardResponse,
-): string {
+export function widgetPickToSlipInput(
+  pick: WidgetPickResponse,
+  card: {
+    sport: { id: number; name: string };
+    region: { id: number; name: string };
+    league: { id: number; name: string };
+    startTime: string;
+    matchName: string;
+    competitors?: WidgetCompetitor[];
+  },
+): WidgetSelectionInput {
   const fields = { ...pick, competitors: card.competitors };
-  const outcome = widgetOutcomeDisplayName(fields);
-  const label = pick.label?.trim();
-  if (label) return `${label} - ${outcome}`;
-  return `${widgetMarketDisplayName(fields)} - ${outcome}`;
+  return {
+    eventId: pick.eventId,
+    marketId: pick.marketId,
+    selectionId: pick.selectionId,
+    marketName: widgetMarketDisplayName(fields),
+    outcomeName: widgetOutcomeDisplayName(fields),
+    odds: pick.odds,
+    sport: card.sport,
+    region: card.region,
+    league: card.league,
+    startTime: card.startTime,
+    matchName: card.matchName,
+  };
 }
 
-/** Bundle odds — prefer `bbCombinedOdds` from BB price API. */
-export function betBuilderHighlightOdds(card: {
+export function widgetBundleOdds(card: {
   bbCombinedOdds?: number | null;
   combinedOdds?: number;
   picks: { odds: number }[];
@@ -111,18 +118,22 @@ export function betBuilderHighlightOdds(card: {
   return card.picks.reduce((acc, pick) => acc * pick.odds, 1);
 }
 
-/** Star Players bundle price — prefer provider BB price over leg product. */
-export function starPlayerBundleOdds(card: {
-  bbCombinedOdds?: number | null;
-  combinedOdds?: number;
-  picks: { odds: number }[];
-}): number {
-  if (
-    typeof card.bbCombinedOdds === "number" &&
-    Number.isFinite(card.bbCombinedOdds) &&
-    card.bbCombinedOdds > 0
-  ) {
-    return card.bbCombinedOdds;
-  }
-  return card.picks.reduce((acc, pick) => acc * pick.odds, 1);
+/** Hero name on Star Player cards. */
+export function starPlayerDisplayName(card: StarPlayerCardResponse): string {
+  return card.playerName?.trim() || card.picks[0]?.outcomeName || "";
 }
+
+/** Bet Builder highlight pick line — `label` from admin config, else market + outcome. */
+export function betBuilderHighlightPickLine(
+  pick: BetBuilderHighlightPickResponse,
+  card: BetBuilderHighlightCardResponse,
+): string {
+  const fields = { ...pick, competitors: card.competitors };
+  const outcome = widgetOutcomeDisplayName(fields);
+  const label = pick.label?.trim();
+  if (label) return `${label} - ${outcome}`;
+  return `${widgetMarketDisplayName(fields)} - ${outcome}`;
+}
+
+export const betBuilderHighlightOdds = widgetBundleOdds;
+export const starPlayerBundleOdds = widgetBundleOdds;

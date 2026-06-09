@@ -1,317 +1,227 @@
 import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
-
-import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { summarySports, summarySportsLive } from "@/state/summarySports";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
-import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { storeState } from "@/state/storeState";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
-import { loadedAllMatches } from "@/state/loadedAllMatches";
-import { Match } from "../MatchesBoard/components/Match";
-import { loadedMatchesState } from "@/state/loadedMatchesState";
-import { loadedPrematchState } from "@/state/loadedPrematch";
-import {
-  isEventValidForDisplay,
-  sortEventIdsByStartDate,
-} from "@/helpers/sortEventIdsByStartDate";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import { useRouteParams } from "@/hooks/useRotueParams";
-import { storeEvent } from "@/helpers/storeEvent";
 import { MarketNavigation } from "../marketNavigation";
+import { Match } from "../MatchesBoard/components/Match";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
+import { apiGetUpcomingEvents } from "@/api/matches/apiGetUpcoming";
+import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
+import { storeEvent } from "@/helpers/storeEvent";
+import { storeState } from "@/state/storeState";
 import {
-  isSoccerSport,
-  sortSoccerFlatMatches,
-} from "@/helpers/soccerLeagueTiers";
-import {
-  POPULAR_SPORT_ID,
-  SOCCER_SPORT_ID,
-  type SummaryEventRef,
-} from "@/helpers/summaryIds";
+  countsSummarySportsState,
+  summarySportsState,
+} from "@/state/summarySports";
+import { loadedSidebarState } from "@/state/loadedSidebarState";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
   eventHasMarketType,
   isMoneylineSport,
   liveMatchWouldRender,
 } from "@/helpers/sidebarMarketNavigation";
-import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
-import {
-  hasPopularTabEvents,
-  popularTabEventRefs,
-} from "@/state/featuredMatchesState";
-import { featuredSummaryData } from "@/state/summarySports";
+import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
+import { isRacingSport } from "@/helpers/isRacingSport";
 import { isDisplayablePopularEvent } from "@/helpers/buildPopularMatchesFromSidebar";
+import {
+  isEventValidForDisplay,
+  sortEventIdsByStartDate,
+} from "@/helpers/sortEventIdsByStartDate";
+import { POPULAR_SPORT_ID } from "@/helpers/summaryIds";
+import { baseColorTheme } from "@/state/baseColorTheme";
 
-const PAGE_SIZE = 10;
-const DEFAULT_SPORT_ID = 0;
+function sportsFromSidebar(isLive: boolean) {
+  const counts = isLive
+    ? countsSummarySportsState.value.liveCount.counts
+    : countsSummarySportsState.value.preMatchCount.counts;
+
+  return summarySportsState.value
+    .filter((node) => node.type === "sport" || node.type === "combined_sport")
+    .map((node) => {
+      const sportId = node.sportId ?? 0;
+      return {
+        id: sportId,
+        name: node.name,
+        count: counts[sportId] ?? 0,
+      };
+    })
+    .filter((sport) => sport.id > 0 && sport.count > 0);
+}
 
 export const PreMatchPanel: FunctionComponent = () => {
   const { t } = useTranslate("navigation");
+  const { t: tLive } = useTranslate("liveCalendar");
+  const baseTheme = baseColorTheme.value;
 
-  // `selectedSport` is a sport id (number); `POPULAR_SPORT_ID` uses `/sidebar` index `[0]`.
-  const [selectedSport, setSelectedSport] = useState<number>(DEFAULT_SPORT_ID);
-  /** upcoming = prematch (current behaviour); live = in-play. */
   const [matchView, setMatchView] = useState<"upcoming" | "live" | "">("");
-
-  const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [sportsData, setSportsData] = useState<
-    { count: number; name: string; id: number }[]
-  >([]);
-  const [isSportsListInitialized, setIsSportsListInitialized] =
-    useState<boolean>(false);
-  const [loadedCount, setLoadedCount] = useState<Record<number, number>>({});
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const { pageName } = useRouteParams();
+  const [selectedSport, setSelectedSport] = useState(POPULAR_SPORT_ID);
+  const [eventIds, setEventIds] = useState<number[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const isLiveMode = matchView === "live";
 
-  /**
-   * Flatten the tuple-tree summary for the active sport into one ordered list
-   * of `FlatItem`s. `summarySports` (prematch) and `summarySportsLive` share
-   * the same tuple shape — only the source changes by `matchView`.
-   */
-  const flatList: SummaryEventRef[] = useMemo(() => {
-    if (selectedSport === POPULAR_SPORT_ID) {
-      return popularTabEventRefs();
-    }
-    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
+  const sportsData = useMemo(
+    () => sportsFromSidebar(isLiveMode),
+    [isLiveMode, summarySportsState.value, countsSummarySportsState.value],
+  );
 
-    const sportTuple = summary.data?.find((s) => s[0] === selectedSport);
-    if (!sportTuple) return [];
+  const selectedSportName = useMemo(
+    () =>
+      sportsData.find((sport) => sport.id === selectedSport)?.name ??
+      `Sport ${selectedSport}`,
+    [sportsData, selectedSport],
+  );
 
-    const list: SummaryEventRef[] = [];
-    for (const region of sportTuple[2] ?? []) {
-      const [regionId, , leagues] = region;
-      for (const league of leagues ?? []) {
-        const [leagueId, , eventIds] = league;
-        for (const eventId of eventIds ?? []) {
-          list.push({
-            eventId,
-            sportId: selectedSport,
-            regionId,
-            leagueId,
+  const loadPage = useCallback(
+    async (nextPage: number, append: boolean) => {
+      if (!loadedSidebarState.value) return;
+
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+
+      try {
+        let ids: number[] = [];
+        let responseTotal = 0;
+        let responsePage = nextPage;
+
+        if (selectedSport === POPULAR_SPORT_ID) {
+          const response = await apiGetPopularMatches({ page: nextPage });
+          response.data.forEach((match: MatchDataResponse) =>
+            storeEvent(match),
+          );
+          ids = response.data.map((match) => match.eventInfo.id);
+          responseTotal = response.total;
+          responsePage = response.page;
+        } else {
+          const response = await apiGetUpcomingEvents({
+            sport: selectedSport,
+            page: nextPage,
+            isTrending: isLiveMode,
           });
+          response.data.forEach((match: MatchDataResponse) =>
+            storeEvent(match),
+          );
+          ids = response.data.map((match) => match.eventInfo.id);
+          responseTotal = response.total;
+          responsePage = response.page;
         }
-      }
-    }
-    if (isSoccerSport(null, selectedSport)) {
-      return sortSoccerFlatMatches(list);
-    }
-    return list;
-  }, [
-    selectedSport,
-    isLiveMode,
-    summarySports.value,
-    summarySportsLive.value,
-    featuredSummaryData.value.featuredEventRefs,
-  ]);
 
-  /**
-   * Sliced view of `flatList` based on `loadedCount[selectedSport]`, filtered
-   * down to events that have actually landed in `storeState` and still look
-   * displayable. Reading `storeState.value` here means this memo re-evaluates
-   * as events stream in.
-   */
-  const displayedEvents = useMemo(() => {
-    const loaded = loadedCount[selectedSport] ?? 0;
-    const candidates = flatList.slice(0, loaded);
-    const filtered = candidates.filter((item) => {
-      const storedEvent = storeState.value[item.eventId]?.value;
-      if (!storedEvent) return false;
-      if (selectedSport === POPULAR_SPORT_ID) {
-        return isDisplayablePopularEvent(storedEvent);
-      }
-      return isEventValidForDisplay(storedEvent);
-    });
-
-    if (selectedSport !== POPULAR_SPORT_ID) {
-      return filtered;
-    }
-
-    const order = sortEventIdsByStartDate(filtered.map((item) => item.eventId));
-    const byId = new Map(filtered.map((item) => [item.eventId, item]));
-    return order
-      .map((eventId) => byId.get(eventId))
-      .filter((item): item is SummaryEventRef => item != null);
-  }, [flatList, loadedCount, selectedSport, storeState.value]);
-
-  const activeSummary = isLiveMode
-    ? summarySportsLive.value
-    : summarySports.value;
-  const activeSportName = useMemo(
-    () =>
-      String(
-        activeSummary.data?.find((s) => s[0] === selectedSport)?.[1] ?? "",
-      ),
-    [activeSummary.data, selectedSport],
-  );
-  const loadedEventsForMarkets = useMemo(
-    () =>
-      displayedEvents
-        .map((item) => storeState.value[item.eventId]?.value)
-        .filter(Boolean),
-    [displayedEvents, storeState.value],
-  );
-  const {
-    selectedMarketType,
-    setSelectedMarketType,
-    marketOptions,
-    showMarketNav,
-    allowAutoSelect,
-    matchMarketType,
-  } = useSidebarMarketNavigation({
-    sportId: selectedSport,
-    sportName: activeSportName,
-    loadedEvents: loadedEventsForMarkets,
-    enabled: selectedSport !== POPULAR_SPORT_ID,
-  });
-
-  useEffect(() => {
-    if (selectedSport !== POPULAR_SPORT_ID) return;
-    if (!hasPopularTabEvents()) {
-      setSelectedSport(DEFAULT_SPORT_ID);
-    }
-  }, [selectedSport, featuredSummaryData.value.featuredEventRefs]);
-
-  // Reset per-sport pagination whenever the active sport or view changes.
-  useEffect(() => {
-    setLoadedCount({});
-  }, [matchView, selectedSport]);
-
-  /**
-   * Initial fetch for the active (sport, matchView). Pulls the first
-   * `PAGE_SIZE` event ids from `flatList`, fetches their details via
-   * `apiGetMatches(ids)` and stores each with `storeEvent`.
-   */
-  const getMatches = useCallback(async () => {
-    if (!loadedSidebarState.value) return;
-
-    const firstBatch = flatList.slice(0, PAGE_SIZE);
-
-    if (firstBatch.length === 0) {
-      setLoadingMatches(false);
-      setLoading(false);
-      setLoadedCount({ [selectedSport]: 0 });
-      return;
-    }
-
-    setLoadedCount({ [selectedSport]: 0 });
-    setLoadingMatches(true);
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        if (pageName) return; // Don't fetch a panel-wide page when a specific event is open.
-
-        const ids = firstBatch.map((x) => x.eventId);
-        const events = await apiGetMatches(ids);
-        if (cancelled) return;
-
-        (events ?? []).forEach((event) => storeEvent(event));
-
-        setLoadedCount({ [selectedSport]: firstBatch.length });
-        loadedPrematchState.value = true;
-        loadedAllMatches.value = true;
-      } catch (err) {
-        console.error("Error fetching prematch matches:", err);
-      } finally {
-        if (!cancelled) {
-          setLoadingMatches(false);
-          setLoading(false);
-          loadedMatchesState.value = true;
+        setEventIds((prev) => {
+          if (!append) return ids;
+          const seen = new Set(prev);
+          return [...prev, ...ids.filter((id) => !seen.has(id))];
+        });
+        setTotal(responseTotal);
+        setPage(responsePage);
+      } catch (error) {
+        console.error("Error fetching join-the-action matches:", error);
+        if (!append) {
+          setEventIds([]);
+          setTotal(0);
         }
-      }
-    })();
-  }, [selectedSport, matchView, loadedSidebarState.value, flatList, pageName]);
-
-  useEffect(() => {
-    getMatches();
-  }, [selectedSport, matchView, loadedSidebarState.value, pageName]);
-
-  const handleShowMore = useCallback(() => {
-    (async () => {
-      const current = loadedCount[selectedSport] ?? 0;
-      if (loadingMore || current >= flatList.length) return;
-      const nextBatch = flatList.slice(current, current + PAGE_SIZE);
-      if (nextBatch.length === 0) return;
-
-      setLoadingMore(true);
-      try {
-        const ids = nextBatch.map((x) => x.eventId);
-        const events = await apiGetMatches(ids);
-        (events ?? []).forEach((event) => storeEvent(event));
-        setLoadedCount((prev) => ({
-          ...prev,
-          [selectedSport]: (prev[selectedSport] ?? 0) + nextBatch.length,
-        }));
-      } catch (err) {
-        console.error("Error fetching more prematch matches:", err);
       } finally {
+        setLoading(false);
         setLoadingMore(false);
       }
-    })();
-  }, [loadingMore, loadedCount, flatList, selectedSport]);
+    },
+    [selectedSport, isLiveMode],
+  );
+
+  useEffect(() => {
+    if (!loadedSidebarState.value) return;
+    void loadPage(1, false);
+  }, [loadPage, loadedSidebarState.value]);
+
+  useEffect(() => {
+    if (selectedSport === POPULAR_SPORT_ID) return;
+    if (!sportsData.some((sport) => sport.id === selectedSport)) {
+      setSelectedSport(POPULAR_SPORT_ID);
+    }
+  }, [sportsData, selectedSport]);
+
+  const displayedEventIds = useMemo(() => {
+    const visible = eventIds.filter((id) => {
+      const event = storeState.value[id]?.value;
+      if (!event) return false;
+      if (selectedSport === POPULAR_SPORT_ID) {
+        return isDisplayablePopularEvent(event);
+      }
+      if (isLiveMode) return event.status === 3;
+      return isEventValidForDisplay(event);
+    });
+    return sortEventIdsByStartDate(visible);
+  }, [eventIds, selectedSport, isLiveMode, storeState.value]);
+
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      displayedEventIds
+        .map((id) => storeState.value[id]?.value)
+        .filter(Boolean),
+    [displayedEventIds, storeState.value],
+  );
+
+  const sportMarkets = useMemo(
+    () =>
+      selectedSport === POPULAR_SPORT_ID
+        ? []
+        : getSportMarkets(summarySportsState.value, selectedSport),
+    [selectedSport, summarySportsState.value],
+  );
+
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    markets: sportMarkets,
+    loadedEvents: loadedEventsForMarkets,
+    enabled: selectedSport !== POPULAR_SPORT_ID,
+    suppressMarketNav:
+      selectedSport === POPULAR_SPORT_ID ||
+      isMoneylineSport(selectedSport, selectedSportName) ||
+      isRacingSport(selectedSport, selectedSportName),
+  });
+
+  const activeMarketType = Array.isArray(selectedMarketType)
+    ? selectedMarketType[0]
+    : selectedMarketType;
 
   const handleSelectLiveView = useCallback(() => {
     setMatchView("live");
-    const firstLive = summarySportsLive.value.data?.find((s) => s[0]);
-    if (firstLive) setSelectedSport(firstLive[0]);
+    const firstLive = sportsFromSidebar(true)[0];
+    if (firstLive) setSelectedSport(firstLive.id);
   }, []);
 
   const handleSelectUpcomingView = useCallback(() => {
-    setLoading(true);
-    setLoadingMatches(true);
     setMatchView("upcoming");
+    setSelectedSport(POPULAR_SPORT_ID);
   }, []);
 
-  const handleDeselectUpcomingView = useCallback(() => {
-    setLoading(true);
-    setLoadingMatches(true);
-    setMatchView("");
-  }, []);
+  const hasMore = eventIds.length < total;
 
-  // Build the SportsList tabs from the active summary signal.
-  useEffect(() => {
-    const summary = isLiveMode ? summarySportsLive.value : summarySports.value;
-    const data = summary.data ?? [];
-    setSportsData(
-      data.map((sport) => {
-        const [sportId, sportName, regions] = sport;
-        const count = (regions ?? []).reduce(
-          (regionAcc, region) =>
-            regionAcc +
-            (region[2] ?? []).reduce(
-              (leagueAcc, league) => leagueAcc + (league[2] ?? []).length,
-              0,
-            ),
-          0,
-        );
-        return { count, name: sportName, id: sportId };
-      }),
-    );
-  }, [summarySports.value, summarySportsLive.value, isLiveMode]);
-
-  useEffect(() => {
-    if (sportsData.length > 0 && !isSportsListInitialized) {
-      setIsSportsListInitialized(true);
-    }
-  }, [sportsData, isSportsListInitialized]);
+  if (!loading && eventIds.length === 0 && !loadedSidebarState.value) {
+    return null;
+  }
 
   return (
-    <div
-      className={`overflow-hidden flex w-full flex-col gap-2 rounded-[16px] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
-    >
-      <div className="flex flex-col w-full sticky top-0">
-        <div className="flex w-full pt-4 pb-2 items-center justify-between">
-          <span className="text-[20px] uppercase font-bold">
+    <section className="flex w-full flex-col gap-2 overflow-hidden rounded-[16px] text-[var(--text-basic-color)]">
+      <div className="sticky top-0 flex w-full flex-col">
+        <div className="flex w-full items-center justify-between pt-4 pb-2">
+          <h2 className="m-0 text-[20px] font-bold uppercase">
             {t("Join-the-action")}
-          </span>
+          </h2>
+
           <div
-            className="flex shrink-0 items-center gap-1 rounded-[10px]  p-1"
+            className="flex shrink-0 items-center gap-1 rounded-[10px] p-1"
             role="group"
             aria-label="Match type"
           >
@@ -332,11 +242,11 @@ export const PreMatchPanel: FunctionComponent = () => {
                   className="h-4 w-4 object-contain"
                   alt=""
                 />
-                {matchView !== "upcoming" && (
+                {matchView !== "upcoming" ? (
                   <span className="truncate">{t("live")}</span>
-                )}
+                ) : null}
               </button>
-              {matchView === "live" && (
+              {matchView === "live" ? (
                 <button
                   type="button"
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[16px] leading-none text-[var(--text-sub-color)] hover:bg-black/5 hover:text-[var(--text-basic-color)]"
@@ -345,8 +255,9 @@ export const PreMatchPanel: FunctionComponent = () => {
                 >
                   ×
                 </button>
-              )}
+              ) : null}
             </div>
+
             <div
               className={`flex min-w-0 items-center rounded-[8px] border text-[12px] font-medium transition-colors ${
                 matchView === "upcoming"
@@ -361,23 +272,23 @@ export const PreMatchPanel: FunctionComponent = () => {
               >
                 <img
                   src={`${BASE_ASSET_PUBLIC_URL}/icons/clock.png`}
-                  className={`h-4 w-4 object-contain ${baseColorTheme.value === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                  className={`h-4 w-4 object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
                   alt=""
                 />
-                {matchView !== "live" && (
+                {matchView !== "live" ? (
                   <span className="truncate">{t("upcoming")}</span>
-                )}
+                ) : null}
               </button>
-              {matchView === "upcoming" && (
+              {matchView === "upcoming" ? (
                 <button
                   type="button"
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[16px] leading-none text-[var(--text-sub-color)] hover:bg-black/5 hover:text-[var(--text-basic-color)]"
-                  onClick={handleDeselectUpcomingView}
+                  onClick={() => setMatchView("")}
                   aria-label={t("live")}
                 >
                   ×
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -385,10 +296,10 @@ export const PreMatchPanel: FunctionComponent = () => {
         <SportsList
           sportsData={sportsData}
           selectedSport={selectedSport}
-          onSelectSport={(sport) => setSelectedSport(sport)}
-          loading={loading && !isSportsListInitialized}
+          onSelectSport={setSelectedSport}
+          loading={loading}
           isLive={isLiveMode}
-          showPopular={hasPopularTabEvents()}
+          showPopular
         />
 
         {showMarketNav ? (
@@ -400,91 +311,87 @@ export const PreMatchPanel: FunctionComponent = () => {
         ) : null}
       </div>
 
-      {loadingMatches ? (
-        <div className="flex flex-col mt-1 rounded-[4px]">
-          <div className="flex flex-col gap-[2px] py-[2px]">
-            <UpcomingMatchSkeleton />
-            <UpcomingMatchSkeleton />
-            <UpcomingMatchSkeleton />
-          </div>
+      {loading ? (
+        <div className="mt-1 flex flex-col gap-[2px] py-[2px]">
+          <UpcomingMatchSkeleton />
+          <UpcomingMatchSkeleton />
+          <UpcomingMatchSkeleton />
         </div>
+      ) : displayedEventIds.length === 0 ? (
+        <p className="m-0 px-2 py-4 text-[12px] text-[var(--text-sub-color)]">
+          {tLive("noDataAvailable")}
+        </p>
       ) : (
         <>
-          <div className="flex flex-col mt-1 rounded-[4px]">
-            {displayedEvents.map((item) => {
-              const storedEvent = storeState.value[item.eventId]?.value;
-              if (!storedEvent) return null;
-              if (selectedSport === POPULAR_SPORT_ID) {
-                if (!isDisplayablePopularEvent(storedEvent)) return null;
-              } else if (!isLiveMode && !isEventValidForDisplay(storedEvent)) {
-                return null;
-              }
+          <div className="mt-1 flex flex-col rounded-[4px]">
+            {displayedEventIds.map((eventId) => {
+              const stored = storeState.value[eventId]?.value;
+              if (!stored) return null;
 
               const isMoneyline = isMoneylineSport(
-                storedEvent.sport?.id ?? 0,
-                storedEvent.sport?.name,
+                stored.sport?.id ?? selectedSport,
+                stored.sport?.name,
               );
+
               if (
                 showMarketNav &&
                 !isMoneyline &&
-                !eventHasMarketType(storedEvent, selectedMarketType)
+                !eventHasMarketType(stored, activeMarketType)
               ) {
                 return null;
               }
-              const canRenderLiveMatch =
+
+              const canRenderLive =
                 !isLiveMode ||
                 isMoneyline ||
                 !showMarketNav ||
                 liveMatchWouldRender(
-                  storedEvent,
-                  selectedMarketType,
+                  stored,
+                  activeMarketType,
                   allowAutoSelect,
                 );
-              if (!canRenderLiveMatch) return null;
+              if (!canRenderLive) return null;
 
               return (
                 <div
-                  key={item.eventId}
-                  className="flex rounded-[8px] overflow-hidden mb-2"
+                  key={eventId}
+                  className="mb-2 flex overflow-hidden rounded-[8px]"
                 >
                   {isMoneyline ? (
-                    <MoneylineMatch eventId={item.eventId} />
+                    <MoneylineMatch eventId={eventId} />
                   ) : (
                     <Match
-                      eventId={item.eventId}
+                      eventId={eventId}
                       marketType={matchMarketType}
-                      showLeagueLogo={true}
+                      showLeagueLogo
                       allowAutoSelect={allowAutoSelect}
-                      allowRounded={true}
+                      allowRounded
                     />
                   )}
                 </div>
               );
             })}
-            {loadingMore && (
-              <div
-                className="flex flex-col gap-[2px] py-[2px] mt-1"
-                style={{ order: Number.MAX_SAFE_INTEGER }}
-              >
-                <UpcomingMatchSkeleton />
+
+            {loadingMore ? (
+              <div className="mt-1 flex flex-col gap-[2px] py-[2px]">
                 <UpcomingMatchSkeleton />
                 <UpcomingMatchSkeleton />
               </div>
-            )}
+            ) : null}
           </div>
-          {(loadedCount[selectedSport] ?? 0) > 0 &&
-            (loadedCount[selectedSport] ?? 0) < flatList.length && (
-              <button
-                className="text-[12px] md:mx-[5px] md:py-2 text-[var(--text-secondary-color)] rounded-full cursor-pointer bg-[var(--sub-element-secondary)] px-2 py-1 disabled:opacity-50"
-                type="button"
-                onClick={() => handleShowMore()}
-                disabled={loadingMore}
-              >
-                Show More
-              </button>
-            )}
+
+          {hasMore ? (
+            <button
+              type="button"
+              className="cursor-pointer rounded-full bg-[var(--sub-element-secondary)] px-2 py-1 text-[12px] text-[var(--text-secondary-color)] disabled:opacity-50 md:mx-[5px] md:py-2"
+              onClick={() => void loadPage(page + 1, true)}
+              disabled={loadingMore}
+            >
+              Show More
+            </button>
+          ) : null}
         </>
       )}
-    </div>
+    </section>
   );
 };

@@ -1,17 +1,21 @@
+import { FunctionComponent } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Match } from "../MatchesBoard/components/Match";
-import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { UpcomingMatchSkeleton } from "../Loading";
-import { MarketNavigation } from "../marketNavigation";
 import { storeState } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
-import { summarySports } from "@/state/summarySports";
-import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
-import {
-  eventHasMarketType,
-  isMoneylineSport,
-} from "@/helpers/sidebarMarketNavigation";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
+import type { UpcomingLeagueEntry } from "@/helpers/upcomingSportCatalog";
+
+const WINDOW_OPTIONS = [3, 12, 24] as const;
+type WindowHours = (typeof WINDOW_OPTIONS)[number];
+type SortBy = "competition" | "start-time";
+
+type Props = {
+  leagues: UpcomingLeagueEntry[];
+  loading?: boolean;
+};
 
 const eventStartMs = (eventId: number): number => {
   const startTime = storeState.value[eventId]?.value?.startTime;
@@ -20,268 +24,298 @@ const eventStartMs = (eventId: number): number => {
   return Number.isFinite(ms) ? ms : 0;
 };
 
-interface League {
-  key: string;
-  regionId: number;
-  leagueId: number;
-  eventIds: number[];
-  outrightIds: number[];
-  matchCount: number;
-}
-
-type Props = {
-  leagueEntries: League[];
-  leagueLabelMap: Map<string, LeagueLabel>;
-  selectedLeagueKey: string;
-  setSelectedLeagueKey: (key: string) => void;
-
-  sportId: number;
-  sportName?: string;
-
-  selectedCategory: "Matches" | string;
-
-  selectedLeagueEntry?: {
-    eventIds?: number[];
-    outrightIds?: number[];
-  };
-
-  loading: boolean;
-
-  /** Time window (in hours) used by the upstream `apiGetUpcomingMatches` call. */
-  windowHours: number;
-  onWindowHoursChange: (hours: number) => void;
-
-  BASE_ASSET_PUBLIC_URL: string;
-  getFlagIconFromregionName: (region: string) => string;
+const filterByWindow = (eventIds: number[], windowHours: number): number[] => {
+  const now = Date.now();
+  const windowEnd = now + windowHours * 60 * 60 * 1000;
+  return eventIds.filter((id) => {
+    const ms = eventStartMs(id);
+    return ms >= now && ms <= windowEnd;
+  });
 };
 
-const UpcomingRender = ({
-  leagueEntries,
-  leagueLabelMap,
-  selectedLeagueKey,
-  setSelectedLeagueKey,
-  sportId,
-  sportName,
-  selectedCategory,
-  selectedLeagueEntry,
-  loading,
-  windowHours,
-  onWindowHoursChange,
-  BASE_ASSET_PUBLIC_URL,
-  getFlagIconFromregionName,
-}: Props) => {
-  const [sortBy, setSortBy] = useState<"competition" | "start-time">(
-    "competition",
+const dayGroupLabel = (ms: number): string => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(ms);
+  day.setHours(0, 0, 0, 0);
+  const diffDays = Math.round(
+    (day.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
   );
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  const dd = String(day.getDate()).padStart(2, "0");
+  const mm = String(day.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}`;
+};
+
+type FilterMenuProps = {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: preact.ComponentChildren;
+};
+
+const FilterMenu: FunctionComponent<FilterMenuProps> = ({
+  label,
+  open,
+  onToggle,
+  children,
+}) => {
+  const baseTheme = baseColorTheme.value;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--sub-element-secondary)] text-[13px] text-[var(--text-basic-color)]"
+      >
+        <span>{label}</span>
+        <img
+          src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+          className={`w-4 h-4 transition-transform ${open ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+          alt=""
+        />
+      </button>
+      {open ? (
+        <div className="absolute top-full left-0 z-[300] mt-1 min-w-[200px] rounded-lg border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-3 shadow-lg">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const UpcomingRender = ({ leagues, loading = false }: Props) => {
+  const [windowHours, setWindowHours] = useState<WindowHours>(24);
+  const [sortBy, setSortBy] = useState<SortBy>("competition");
+  const [openHoursMenu, setOpenHoursMenu] = useState(false);
+  const [openSortMenu, setOpenSortMenu] = useState(false);
   const [openedLeagueKeys, setOpenedLeagueKeys] = useState<Set<string>>(
     new Set(),
   );
   const baseTheme = baseColorTheme.value;
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const visibleLeagueGroups = useMemo(() => {
-    return leagueEntries
+  const filteredLeagues = useMemo(() => {
+    return leagues
       .map((league) => ({
         ...league,
-        visibleEventIds:
-          selectedCategory === "Matches"
-            ? league.eventIds
-            : league.outrightIds,
+        key: `${league.regionId}:${league.leagueId}`,
+        eventIds: filterByWindow(league.eventIds, windowHours).sort(
+          (a, b) => eventStartMs(a) - eventStartMs(b),
+        ),
       }))
-      .filter((league) => league.visibleEventIds.length > 0);
-  }, [leagueEntries, selectedCategory]);
+      .filter((league) => league.eventIds.length > 0);
+  }, [leagues, windowHours, storeState.value]);
 
-  const loadedEventsForMarkets = useMemo(() => {
-    const ids = visibleLeagueGroups.flatMap((l) => l.visibleEventIds);
-    return ids.map((id) => storeState.value[id]?.value).filter(Boolean);
-  }, [visibleLeagueGroups, storeState.value]);
+  const autoOpenedRef = useRef<string>("");
+  useEffect(() => {
+    const signature = filteredLeagues.map((l) => l.key).join("|");
+    if (autoOpenedRef.current === signature) return;
+    autoOpenedRef.current = signature;
+    setOpenedLeagueKeys(new Set());
+  }, [filteredLeagues]);
 
-  const {
-    marketOptions,
-    showMarketNav,
-    selectedMarketType,
-    setSelectedMarketType,
-    matchMarketType,
-    allowAutoSelect,
-  } = useSidebarMarketNavigation({
-    sportId,
-    sportName,
-    loadedEvents: loadedEventsForMarkets,
-  });
+  useEffect(() => {
+    const closeMenus = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) {
+        setOpenHoursMenu(false);
+        setOpenSortMenu(false);
+      }
+    };
+    document.addEventListener("click", closeMenus);
+    return () => document.removeEventListener("click", closeMenus);
+  }, []);
 
-  const renderMatch = (eventId: number) => {
-    const stored = storeState.value[eventId]?.value;
-    if (
-      showMarketNav &&
-      stored &&
-      !isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name) &&
-      !eventHasMarketType(stored, selectedMarketType)
-    ) {
-      return null;
-    }
-    if (
-      stored &&
-      isMoneylineSport(stored.sport?.id ?? sportId, stored.sport?.name)
-    ) {
-      return <MoneylineMatch key={eventId} eventId={eventId} />;
-    }
-    return (
-      <Match
-        key={eventId}
-        eventId={eventId}
-        marketType={matchMarketType}
-        allowAutoSelect={allowAutoSelect}
-        allowRounded
-      />
+  const startTimeGroups = useMemo(() => {
+    const ids = filteredLeagues.flatMap((l) => l.eventIds);
+    const unique = [...new Set(ids)].sort(
+      (a, b) => eventStartMs(a) - eventStartMs(b),
     );
+    const groups = new Map<string, number[]>();
+    for (const id of unique) {
+      const label = dayGroupLabel(eventStartMs(id));
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label)!.push(id);
+    }
+    return [...groups.entries()];
+  }, [filteredLeagues, storeState.value]);
+
+  const toggleLeague = (key: string) => {
+    setOpenedLeagueKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
-  /** Reset auto-expansion when the league list changes (sport / category switch). */
-  const autoOpenedRef = useRef<League[] | null>(null);
-  useEffect(() => {
-    if (autoOpenedRef.current === leagueEntries) return;
-    autoOpenedRef.current = leagueEntries;
-    setOpenedLeagueKeys(new Set());
-  }, [leagueEntries]);
+  const competitionLabel = (league: UpcomingLeagueEntry) =>
+    league.regionName
+      ? `${league.regionName} - ${league.leagueName}`
+      : league.leagueName;
 
-  useEffect(() => {
-    if (openedLeagueKeys.size > 0 || visibleLeagueGroups.length === 0) return;
-    setOpenedLeagueKeys(
-      new Set(visibleLeagueGroups.slice(0, 5).map((league) => league.key)),
-    );
-  }, [visibleLeagueGroups, openedLeagueKeys.size]);
+  const isEmpty = !loading && filteredLeagues.length === 0;
+
   return (
-    <>
-      <div className="flex flex-col w-full p-2 gap-2 rounded-b-[16px]">
-        {/* League tab list */}
-        <div className="flex gap-4">
-          <select
-            value={windowHours}
-            onChange={(e) =>
-              onWindowHoursChange(Number(e.currentTarget?.value))
-            }
-            className="p-1 border border-[var(--border-color)] text-sm text-[var(--text-sub-color)] border-1 bg-[var(--sub-element-secondary)] rounded"
-          >
-            <option key={3} value={3}>
-              3 hours
-            </option>
-            <option key={6} value={6}>
-              6 hours
-            </option>
-            <option key={12} value={12}>
-              12 hours
-            </option>
-            <option key={24} value={24}>
-              24 hours
-            </option>
-          </select>
-          <select
-            value={sortBy}
-            onChange={(e) =>
-              setSortBy(e.currentTarget?.value as "competition" | "start-time")
-            }
-            className="p-1 border border-[var(--border-color)] text-sm text-[var(--text-sub-color)] border-1 bg-[var(--sub-element-secondary)] rounded"
-          >
-            <option key={"competition"} value={"competition"}>
-              Competition
-            </option>
-            <option key={"start-time"} value={"start-time"}>
-              Start time
-            </option>
-          </select>
-        </div>
-
-        {showMarketNav ? (
-          <MarketNavigation
-            options={marketOptions}
-            selectedValue={selectedMarketType}
-            onSelect={setSelectedMarketType}
-          />
-        ) : null}
-      </div>
-
-      <section className="flex flex-col gap-3 mt-5">
-        {loading ? (
-          <div className="flex flex-col w-full gap-[2px] mt-1">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <UpcomingMatchSkeleton key={`match-${index}`} />
+    <div className="flex flex-col w-full gap-3" ref={menuRef}>
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterMenu
+          label={`${windowHours} hours`}
+          open={openHoursMenu}
+          onToggle={() => {
+            setOpenHoursMenu((v) => !v);
+            setOpenSortMenu(false);
+          }}
+        >
+          <p className="text-[11px] text-[var(--text-sub-color)] mb-2">
+            Show matches in:
+          </p>
+          <div className="flex flex-col gap-1">
+            {WINDOW_OPTIONS.map((hours) => (
+              <button
+                key={hours}
+                type="button"
+                className={`w-full text-left px-2 py-1.5 rounded text-[13px] ${
+                  windowHours === hours
+                    ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
+                    : "text-[var(--text-basic-color)] hover:bg-white/5"
+                }`}
+                onClick={() => {
+                  setWindowHours(hours);
+                  setOpenHoursMenu(false);
+                }}
+              >
+                {hours} hours
+              </button>
             ))}
           </div>
-        ) : sortBy === "competition" ? (
-          visibleLeagueGroups.length === 0 ? (
-            <p className="py-4 text-center text-[12px] text-[var(--text-sub-color)]">
-              No matches in this time window
-            </p>
-          ) : (
-          visibleLeagueGroups.map((league) => {
+        </FilterMenu>
+
+        <FilterMenu
+          label={sortBy === "competition" ? "Competition" : "Start time"}
+          open={openSortMenu}
+          onToggle={() => {
+            setOpenSortMenu((v) => !v);
+            setOpenHoursMenu(false);
+          }}
+        >
+          <p className="text-[11px] text-[var(--text-sub-color)] mb-2">
+            Matches sorted by:
+          </p>
+          <div className="flex flex-col gap-1">
+            {(
+              [
+                ["competition", "Competition"],
+                ["start-time", "Start time"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`w-full text-left px-2 py-1.5 rounded text-[13px] ${
+                  sortBy === value
+                    ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
+                    : "text-[var(--text-basic-color)] hover:bg-white/5"
+                }`}
+                onClick={() => {
+                  setSortBy(value);
+                  setOpenSortMenu(false);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </FilterMenu>
+      </div>
+
+      {loading ? (
+        <div className="flex flex-col gap-[2px]">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <UpcomingMatchSkeleton key={i} />
+          ))}
+        </div>
+      ) : isEmpty ? (
+        <p className="py-6 text-center text-[12px] text-[var(--text-sub-color)]">
+          No matches in this time window
+        </p>
+      ) : sortBy === "start-time" ? (
+        <div className="flex flex-col w-full ">
+          {startTimeGroups.map(([label, eventIds]) => (
+            <div key={label} className="flex flex-col w-full ">
+              <div className="w-[72px] shrink-0 px-3 py-3 text-[12px] text-[var(--text-sub-color)]">
+                {label}
+              </div>
+              <div className="flex flex-col flex-1 min-w-0 rounded-[8px] border border-[var(--border-color)] bg-[var(--background-element)] overflow-hidden">
+                {eventIds.map((eventId, index) => (
+                  <Match
+                    key={eventId}
+                    eventId={eventId}
+                    marketType={1}
+                    allowAutoSelect
+                    allowRounded={
+                      index === 0 || index === eventIds.length - 1
+                        ? true
+                        : false
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {filteredLeagues.map((league) => {
             const isOpen = openedLeagueKeys.has(league.key);
-            const label =
-              leagueLabelMap.get(`${league.regionId}:${league.leagueId}`) ??
-              null;
-            const leagueName = label?.leagueName ?? String(league.leagueId);
-            const regionName = label?.regionName ?? "";
             return (
-              <div key={league.key} className="flex flex-col gap-2">
-                <div
-                  className="flex items-center justify-between gap-1 cursor-pointer"
-                  onClick={() => {
-                    setOpenedLeagueKeys((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(league.key)) {
-                        next.delete(league.key);
-                      } else {
-                        next.add(league.key);
-                      }
-                      return next;
-                    });
-                  }}
+              <div key={league.key} className="flex flex-col w-full">
+                <button
+                  type="button"
+                  className="flex items-center justify-between gap-2 w-full px-1 py-2 text-left"
+                  onClick={() => toggleLeague(league.key)}
                 >
-                  <div className="flex items-center gap-1">
+                  <span className="flex items-center gap-2 min-w-0">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(
-                        sportName || "",
-                      )}/${encodeURIComponent(regionName)}/${encodeURIComponent(
-                        leagueName,
-                      )}.webp`}
-                      className={`w-5 h-5 object-contain`}
-                      onError={(e) => {
-                        e.currentTarget.src = `${getFlagIconFromregionName(
-                          regionName,
-                        )}`;
-                        e.currentTarget.className = "rounded-full w-4 h-4";
-                      }}
-                      alt={leagueName}
-                    />
-                    <p className="text-sm font-semibold text-[var(--text-basic-color)]">
-                      {leagueName}
-                    </p>
-                  </div>
-                  <span className="text-[12px] text-[var(--text-sub-color)]">
-                    <img
-                      className={`w-[24px] rounded-[4px] h-[24px] transition-all shrink-0 ${
-                        isOpen ? "-rotate-90" : "rotate-90"
-                      } ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-                      src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+                      src={getFlagIconFromregionName(league.regionName)}
+                      className="w-5 h-5 rounded-full object-cover shrink-0"
                       alt=""
+                      onError={(e) => {
+                        e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                      }}
                     />
+                    <span className="text-[13px] font-medium text-[var(--text-basic-color)] truncate">
+                      {competitionLabel(league)}
+                    </span>
                   </span>
-                </div>
-                {isOpen && league.visibleEventIds.map(renderMatch)}
+                  <img
+                    className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
+                      isOpen ? "-rotate-90" : "rotate-90"
+                    } ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                    src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+                    alt=""
+                  />
+                </button>
+                {isOpen ? (
+                  <div className="flex flex-col gap-2 pl-1 pb-2">
+                    {league.eventIds.map((eventId) => (
+                      <Match
+                        key={eventId}
+                        eventId={eventId}
+                        marketType={1}
+                        allowAutoSelect
+                        allowRounded
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
             );
-          })
-          )
-        ) : (
-          leagueEntries
-            .flatMap((league) =>
-              selectedCategory === "Matches"
-                ? league.eventIds
-                : league.outrightIds,
-            )
-            .sort((a, b) => eventStartMs(a) - eventStartMs(b))
-            .map(renderMatch)
-        )}
-      </section>
-    </>
+          })}
+        </div>
+      )}
+    </div>
   );
 };
 

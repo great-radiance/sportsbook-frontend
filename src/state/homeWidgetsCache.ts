@@ -1,92 +1,58 @@
 import {
-  apiGetBetBuilderHighlights,
-  apiGetStarPlayers,
-  apiGetTrendingAccas,
+  apiGetHomeWidgets,
   type BetBuilderHighlightCardResponse,
+  type NormalizedHomeWidgets,
   type StarPlayerCardResponse,
   type TrendingAccaCouponResponse,
-} from "@/api/home/homeWidgets";
-import { getAppConfig } from "@/shared/config/appConfig";
+} from "@/api/home/apiGetHomeWidget";
 import { signal } from "@preact/signals";
 
+export const homeWidgetsCache = signal<NormalizedHomeWidgets | null>(null);
 export const starPlayersCache = signal<StarPlayerCardResponse[] | null>(null);
 export const trendingAccasCache = signal<TrendingAccaCouponResponse[] | null>(
   null,
 );
-
 export const betBuilderHighlightsCache = signal<
   BetBuilderHighlightCardResponse[]
 >([]);
 export const betBuilderHighlightsSportId = signal<number | null>(null);
 
-const bbHighlightsInFlight = new Map<number, Promise<void>>();
+let loadPromise: Promise<void> | null = null;
+
+function syncLegacySignals(data: NormalizedHomeWidgets) {
+  homeWidgetsCache.value = data;
+  starPlayersCache.value = data.starPlayers;
+  trendingAccasCache.value = data.trendingAccas;
+}
+
+export async function loadHomeWidgetsBatch(): Promise<void> {
+  if (loadPromise) return loadPromise;
+
+  loadPromise = (async () => {
+    const data = await apiGetHomeWidgets();
+    syncLegacySignals(data);
+
+    const sportId = betBuilderHighlightsSportId.value;
+    if (sportId != null) {
+      betBuilderHighlightsCache.value = data.highlightBetBuilder.filter(
+        (card) => card.sportId === sportId,
+      );
+    }
+  })().finally(() => {
+    loadPromise = null;
+  });
+
+  return loadPromise;
+}
 
 export async function loadBetBuilderHighlights(options: {
   sportId: number;
-  limit?: number;
 }): Promise<void> {
-  const { sportId, limit = 20 } = options;
-  const existing = bbHighlightsInFlight.get(sportId);
-  if (existing) return existing;
-
-  const { lang } = getAppConfig();
-  const promise = (async () => {
-    const res = await apiGetBetBuilderHighlights({
-      lang: lang || "en",
-      sportId,
-      limit,
-    });
-    betBuilderHighlightsCache.value = res?.data ?? [];
-    betBuilderHighlightsSportId.value = sportId;
-  })().finally(() => {
-    bbHighlightsInFlight.delete(sportId);
-  });
-
-  bbHighlightsInFlight.set(sportId, promise);
-  return promise;
-}
-
-export type HomeWidgetsLoadOptions = {
-  sportId?: number;
-  starLimit?: number;
-  accaLimit?: number;
-};
-
-const inFlight = new Map<string, Promise<void>>();
-
-function inFlightKey(options?: HomeWidgetsLoadOptions): string {
-  return JSON.stringify({
-    sportId: options?.sportId ?? null,
-    starLimit: options?.starLimit ?? 20,
-    accaLimit: options?.accaLimit ?? 5,
-  });
-}
-
-/** Loads both home widgets in parallel; concurrent calls with the same options share one request. */
-export async function loadHomeWidgetsBatch(
-  options?: HomeWidgetsLoadOptions,
-): Promise<void> {
-  const key = inFlightKey(options);
-  const existing = inFlight.get(key);
-  if (existing) return existing;
-
-  const { lang } = getAppConfig();
-  const base = {
-    lang: lang || "en",
-    ...(options?.sportId != null ? { sportId: options.sportId } : {}),
-  };
-
-  const promise = (async () => {
-    const [starRes, accaRes] = await Promise.all([
-      apiGetStarPlayers({ ...base, limit: options?.starLimit ?? 20 }),
-      apiGetTrendingAccas({ ...base, limit: options?.accaLimit ?? 5 }),
-    ]);
-    starPlayersCache.value = starRes?.data ?? [];
-    trendingAccasCache.value = accaRes?.data ?? [];
-  })().finally(() => {
-    inFlight.delete(key);
-  });
-
-  inFlight.set(key, promise);
-  return promise;
+  if (!homeWidgetsCache.value) {
+    await loadHomeWidgetsBatch();
+  }
+  betBuilderHighlightsCache.value = (
+    homeWidgetsCache.value?.highlightBetBuilder ?? []
+  ).filter((card) => card.sportId === options.sportId);
+  betBuilderHighlightsSportId.value = options.sportId;
 }

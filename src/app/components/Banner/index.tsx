@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import "./style.scss";
-import { featuredSummaryData } from "@/state/summarySports";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/themes/light.css";
@@ -13,6 +12,7 @@ import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useLocation } from "wouter-preact";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
 
 const formatEventTime = (event: tEventModel | undefined): string => {
   if (!event?.startTime) return "22:00";
@@ -89,7 +89,7 @@ export const EmblaBanner = () => {
   // Get winner market (usually the first market)
 
   useEffect(() => {
-    const featured = featuredSummaryData.value;
+    const featured = apiGetPopularMatches();
     const allIds =
       featured.featuredEventRefs.length > 0
         ? featured.featuredEventRefs.map((ref) => ref.eventId)

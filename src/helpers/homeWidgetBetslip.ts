@@ -15,7 +15,7 @@ import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import type {
   BetBuilderHighlightCardResponse,
   StarPlayerCardResponse,
-} from "@/api/home/homeWidgets";
+} from "@/api/home/apiGetHomeWidget";
 import {
   betBuilderCombinable,
   betBuilderPrice,

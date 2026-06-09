@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import type { BetBuilderHighlightCardResponse } from "@/api/home/homeWidgets";
+import type { BetBuilderHighlightCardResponse } from "@/api/home/apiGetHomeWidget";
 import {
   betBuilderHighlightOdds,
   betBuilderHighlightPickLine,

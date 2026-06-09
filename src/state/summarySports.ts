@@ -22,4 +22,3 @@ export const countsSummarySportsState = signal<countsSummary>({
     totalCount: 0,
   },
 });
-export const featuredLeaguesState = signal<sidebarNode[]>([]);

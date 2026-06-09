@@ -3,7 +3,7 @@ import { instance } from "../instance";
 export type MarketInfoType = {
   type: string;
   candidates: number[];
-  translations: Record<string, string>;
+  name: string;
 };
 export type NodeType =
   | "featured_leagues"
@@ -18,9 +18,9 @@ export type NodeType =
 export type sidebarNode = {
   id: string;
   order: number;
-  translations: Record<string, string>;
   type: NodeType;
   children?: sidebarNode[];
+  name: string;
   sportId?: number;
   leagueId?: number;
   leagueIds?: number[];
@@ -28,7 +28,7 @@ export type sidebarNode = {
   regionIds?: number[];
   region?: {
     id: number;
-    translations: Record<string, string>;
+    name: string;
   };
   // events?: number[];
   // bbEvents?: number[];
@@ -69,8 +69,6 @@ export const apiGetSidebar = async () => {
     "/users/sidebar",
   );
 
-  const featuredLeagues = [] as sidebarNode[];
-
   const countsSummary: countsSummary = {
     preMatchCount: {
       counts: {} as countsBySport,
@@ -110,7 +108,7 @@ export const apiGetSidebar = async () => {
 
   for (const node of response.data.config ?? []) {
     if (node.type === "featured_leagues") {
-      featuredLeagues.push(...(node.children ?? []));
+      continue;
     } else if (node.type === "sport") {
       const sportId = node.sportId ?? 0;
       countsSummary.preMatchCount.counts[sportId] = 0;
@@ -137,6 +135,5 @@ export const apiGetSidebar = async () => {
   return {
     data: response.data.config,
     countsSummary: countsSummary,
-    featuredLeagues: featuredLeagues,
   };
 };

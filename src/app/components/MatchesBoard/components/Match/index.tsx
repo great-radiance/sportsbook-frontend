@@ -20,7 +20,7 @@ import { isBuilding } from "@/state/betState";
 
 interface MatchProps {
   eventId: number;
-  marketType?: number;
+  marketType?: number[] | number;
   marketId?: number;
   showLeagueLogo?: boolean;
   allowAutoSelect?: boolean; // If true, will auto-select the first market if no marketSlug match is found
@@ -90,8 +90,12 @@ export const Match: FunctionComponent<MatchProps> = ({
   useImperativeLiveClock(clockRef, rawTime, showClock);
 
   const getSelectedMarket = useCallback(
-    (marketType: number): number => {
-      const marketId = markets.find((m) => m.type === marketType)?.id;
+    (marketType: number[] | number): number => {
+      const marketId = markets.find((m) =>
+        Array.isArray(marketType)
+          ? marketType.includes(m.type)
+          : marketType === m.type,
+      )?.id;
       if (marketId) return marketId;
       if (allowAutoSelect) {
         for (const market of markets) {
@@ -106,7 +110,7 @@ export const Match: FunctionComponent<MatchProps> = ({
   );
 
   // Get winner market (usually the first market)
-  const selectedMarket = marketId ?? getSelectedMarket(marketType ?? 0);
+  const selectedMarket = marketId ?? getSelectedMarket(marketType || 1);
   const selectionCount =
     markets.find((m) => m.id === selectedMarket)?.selections?.length ?? 0;
   const longMarket = selectionCount > 3;
@@ -307,7 +311,7 @@ export const Match: FunctionComponent<MatchProps> = ({
                   </div>
                   <div className="flex relative left-[-6px] z-[1] items-center overflow-hidden w-[14px] h-[14px] justify-center rounded-full border border-[var(--primary-border-color)] p-[1px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${event?.sport.id}/${event?.league.id}.webp`}
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagueById/${event?.sport.id}/${event?.league.id}.webp`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(event?.region.name || "")}`;
                         e.currentTarget.className =

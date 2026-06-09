@@ -1,6 +1,6 @@
 import { instance } from "../instance";
 import { getAppConfig } from "@/shared/config/appConfig";
-import type { SidebarMarketRef } from "@/state/summarySports";
+// import type { SidebarMarketRef } from "@/state/summarySports";
 
 export type MatchDataResponse = {
   eventInfo: {
@@ -51,37 +51,31 @@ export type MatchDataResponse = {
       status: number;
       settlement: number;
       deadHeatFactor: number;
-      extraParameters: {
-        [key: string]: string;
-      };
+      extraParameters: Record<string, string>;
       isBetBuilderSupported: boolean;
       competitionId: number;
       startingPrice: number;
     }[];
     type: number;
     isBestLine: boolean;
-    parameters: {
-      [key: string]: string;
-    };
-    extraParameters: {
-      [key: string]: string;
-    };
+    parameters: Record<string, string>;
+    extraParameters: Record<string, string>;
     isBetBuilderSupported: boolean;
   }[];
   /** Market type metadata and group tabs for the event detail UI. */
-  marketsRef?: SidebarMarketRef[];
-  scoreboard: any;
-  betCancellations: any[];
-  time: number;
-  eventId: number;
-  version: number;
-  correlationId: string;
-  creationTime: string;
-  sportId: number;
-  locationId: number;
-  leagueId: number;
-  updateSequence: number;
-  lastUpdatedTime: number;
+  // marketsRef?: SidebarMarketRef[];
+  // scoreboard: any;
+  // betCancellations: any[];
+  // time: number;
+  // eventId: number;
+  // version: number;
+  // correlationId: string;
+  // creationTime: string;
+  // sportId: number;
+  // locationId: number;
+  // leagueId: number;
+  // updateSequence: number;
+  // lastUpdatedTime: number;
 };
 
 export const apiGetMatchData = async (eventId: number) => {

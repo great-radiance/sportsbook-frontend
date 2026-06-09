@@ -1,4 +1,4 @@
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { storeEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
 import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";

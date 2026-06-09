@@ -1,4 +1,3 @@
-import { summarySportsLive } from "@/state/summarySports";
 import { FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { isMobile } from "@/state/isMobile";

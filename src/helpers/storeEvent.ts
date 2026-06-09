@@ -27,6 +27,7 @@ function readIsBetBuilderSupported(source: BetBuilderSupportIn): boolean {
 
 export const storeEvent = (event: MatchDataResponse) => {
   if (!event) return;
+  console.log("storeEvent", event);
   // if (
   //   new Date(event.eventInfo.startTime).getTime() <
   //   Date.now() - 1000 * 60 * 60 * 24
@@ -129,12 +130,13 @@ export const storeEvent = (event: MatchDataResponse) => {
       ...evSig.value.markets,
       ...marketsRecord,
     },
-    marketsRef: event.marketsRef?.length
-      ? event.marketsRef
-      : evSig.value.marketsRef,
-    scoreboard: event.scoreboard,
-    // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
+    // marketsRef: event.marketsRef?.length
+    //   ? event.marketsRef
+    //   : evSig.value.marketsRef,
+    // scoreboard: event.scoreboard,
+    // // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
+  console.log("evSig", evSig.value);
   console.log("competitors", competitors);
 
   syncSelectionsStoreForEvent(event.eventInfo.id);

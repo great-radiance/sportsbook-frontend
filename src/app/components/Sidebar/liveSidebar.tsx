@@ -5,7 +5,6 @@ import { BetBuilderSidebarToggle } from "@/app/components/Sidebar/components/Bet
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { liveScrollPos } from "@/state/liveScrollPos";
-import { summarySportsLive } from "@/state/summarySports";
 
 export const LiveSidebar: FunctionComponent = () => {
   const [groupByRegions, setGroupByRegions] = useState<boolean>(false);
@@ -14,6 +13,8 @@ export const LiveSidebar: FunctionComponent = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { t: tCommon } = useTranslate("common");
   const scrollPos = liveScrollPos.value;
+
+  return null;
 
   useEffect(() => {
     const el = scrollContainerRef.current;

@@ -5,7 +5,7 @@ import { MARKET_NAMES } from "@/shared/utils/marketNames";
 import { useEffect, useMemo } from "preact/hooks";
 
 /** Sidebar `marketsRef` entry — `id` is the market type passed to `Match`. */
-export type MarketNavOption = { id: number; label: string };
+export type MarketNavOption = { id: number[] | number; label: string };
 
 const FALLBACK_NAV_OPTIONS: MarketNavOption[] = [
   { id: 1, label: "Match Result" },
@@ -18,8 +18,8 @@ type MarketNavigationProps = {
 } & (
   | {
       options: MarketNavOption[];
-      selectedValue: number;
-      onSelect: (value: number) => void;
+      selectedValue: number[] | number;
+      onSelect: (value: number[] | number) => void;
     }
   | {
       options: string[];
@@ -64,7 +64,7 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
     const first = navOptions[0];
     if (!first) return;
     if (idMode) {
-      (onSelect as (value: number) => void)(first.id);
+      (onSelect as (value: number[] | number) => void)(first.id);
     } else {
       (onSelect as (value: string) => void)(first.label);
     }
@@ -95,7 +95,7 @@ export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
               } focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
               onClick={() =>
                 idMode
-                  ? (onSelect as (value: number) => void)(option.id)
+                  ? (onSelect as (value: number[] | number) => void)(option.id)
                   : (onSelect as (value: string) => void)(option.label)
               }
             >

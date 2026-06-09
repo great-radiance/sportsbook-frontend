@@ -5,21 +5,12 @@ import { Select, SelectItem } from "@/app/components/Select/index";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import {
-  marketsRef,
-  outRightSummarySports,
-  summarySports,
-} from "@/state/summarySports";
 import { Match } from "./components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
-import {
-  apiGetMatches,
-  // responseEvent
-} from "@/api/matches/apiGetMatches";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { MatchesGroup } from "./components/MatchesGroup";
 import { Breadcrumbs } from "../Breadcrumbs";
 import { storeEvent } from "@/helpers/storeEvent";
@@ -29,6 +20,56 @@ import {
   marketOptionsFromRef,
 } from "@/helpers/sidebarMarketNavigation";
 import { isRacingSport } from "@/helpers/isRacingSport";
+import { summarySportsState } from "@/state/summarySports";
+import { apiGetMatchesByNode } from "@/api/matches/apiGetMatchesByNode";
+import {
+  buildLeagueSelectValue,
+  collectLeagueSelectEntries,
+  findLeagueNodeByRoute,
+  findSportNode,
+} from "@/helpers/findSidebarNodeByRoute";
+
+const leagueSelectItemClass = (value: string, currentValue: string) =>
+  [
+    "!bg-transparent hover:!bg-white/10",
+    "flex w-full items-center px-3 py-2 pl-11",
+    "text-[14px] font-semibold text-[var(--text-notheme-color)]",
+    "rounded-[10px] transition-colors",
+    "[&>img]:hidden",
+    value === currentValue ? "!bg-white/15" : "",
+  ].join(" ");
+
+const regionSelectItemClass = (
+  value: string,
+  currentValue: string,
+  isFirst: boolean,
+) =>
+  [
+    "!bg-transparent hover:!bg-white/10",
+    "flex w-full items-center gap-2.5 px-3 py-1.5",
+    "text-[14px] font-normal text-[var(--text-notheme-color)]/80",
+    "rounded-[10px] transition-colors",
+    "[&>img]:!w-5 [&>img]:!h-5 [&>img]:rounded-full [&>img]:object-cover",
+    isFirst ? "" : "mt-2.5",
+    value === currentValue
+      ? "!bg-white/15 text-[var(--text-notheme-color)]"
+      : "",
+  ].join(" ");
+
+const standaloneSelectItemClass = (
+  value: string,
+  currentValue: string,
+  withTopGap: boolean,
+) =>
+  [
+    "!bg-transparent hover:!bg-white/10",
+    "flex w-full items-center gap-2.5 px-3 py-2",
+    "text-[14px] font-semibold text-[var(--text-notheme-color)]",
+    "rounded-[10px] transition-colors",
+    "[&>img]:!w-5 [&>img]:!h-5 [&>img]:rounded-full [&>img]:object-cover",
+    withTopGap ? "mt-2.5" : "",
+    value === currentValue ? "!bg-white/15" : "",
+  ].join(" ");
 
 const switchCategory = (
   category: string,
@@ -76,7 +117,6 @@ const switchCategory = (
 };
 
 export const MatchesBoard: FunctionComponent = () => {
-  const CATEGORIES = ["Matches", "Outright"];
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
   const { t } = useTranslate("markets");
   const {
@@ -91,103 +131,103 @@ export const MatchesBoard: FunctionComponent = () => {
   const [loading, setLoading] = useState(true);
   const [selectedMarketType, setSelectedMarketType] = useState(1);
   const sportId = Number(sportIdParam) || 0;
-  const sportRegions =
-    summarySports.value.data?.find((s) => s[0] === Number(sportIdParam))?.[2] ||
-    undefined;
-  const eventIds: number[] =
-    sportRegions
-      ?.find((r) => r[0] === Number(regionIdParam))?.[2]
-      ?.find((l) => l[0] === Number(leagueIdParam))?.[2] || ([] as number[]);
+  const lang = getAppConfig().lang;
+  const sportNode = useMemo(
+    () => findSportNode(summarySportsState.value, sportIdParam ?? ""),
+    [sportIdParam, summarySportsState.value],
+  );
 
-  const outrightEventIds =
-    outRightSummarySports.value?.data
-      ?.find((s) => s[0] === Number(sportIdParam))?.[2]
-      ?.find((r) => r[0] === Number(regionIdParam))?.[2]
-      ?.find((l) => l[0] === Number(leagueIdParam))?.[2] || [];
+  const leagueSelectEntries = useMemo(
+    () =>
+      collectLeagueSelectEntries(sportNode, lang, getFlagIconFromregionName),
+    [sportNode, lang, summarySportsState.value],
+  );
 
-  const marketOptions = useMemo(() => {
-    if (loading || !sportId || isMoneylineSport(sportId, sportName)) return [];
-
-    const refs = marketsRef.value[String(sportId)];
-    const options = marketOptionsFromRef(refs);
-    if (!options.length) return [];
-
-    const events = eventIds
-      .map((id) => storeState.value[id]?.value)
-      .filter(Boolean);
-    if (!events.length) return [];
-
-    return options.filter((opt) =>
-      events.some((ev) =>
-        Object.values(
-          (ev as { markets?: Record<string, { value?: { type?: number } }> })
-            .markets ?? {},
-        ).some((sig) => sig?.value?.type === opt.id),
+  const selectValue = useMemo(
+    () =>
+      buildLeagueSelectValue(
+        regionName || "",
+        regionIdParam || "",
+        leagueName || "",
+        leagueIdParam || "",
       ),
+    [regionName, regionIdParam, leagueName, leagueIdParam],
+  );
+
+  const selectedLeagueIcon = useMemo((): string => {
+    for (const entry of leagueSelectEntries) {
+      if (entry.kind === "standalone" && entry.value === selectValue) {
+        return entry.icon ?? getFlagIconFromregionName("International");
+      }
+      if (entry.kind === "region") {
+        const league = entry.leagues.find((item) => item.value === selectValue);
+        if (league)
+          return league.icon ?? getFlagIconFromregionName(entry.regionLabel);
+        if (entry.regionValue === selectValue) {
+          return entry.icon ?? getFlagIconFromregionName(entry.regionLabel);
+        }
+      }
+    }
+    return getFlagIconFromregionName(regionName || "");
+  }, [leagueSelectEntries, selectValue, regionName]);
+
+  const node = useMemo(() => {
+    if (!sportIdParam) return undefined;
+
+    const hasNestedLeagueRoute = Boolean(regionIdParam && leagueIdParam);
+    const hasStandaloneLeagueRoute = Boolean(
+      regionName && regionIdParam && !leagueIdParam,
+    );
+
+    if (!hasNestedLeagueRoute && !hasStandaloneLeagueRoute) return undefined;
+
+    return findLeagueNodeByRoute(
+      summarySportsState.value,
+      sportIdParam,
+      regionName,
+      regionIdParam ?? "",
+      leagueName,
+      leagueIdParam ?? "",
+      lang,
     );
   }, [
-    loading,
-    sportId,
-    sportName,
-    eventIds,
-    storeState.value,
-    marketsRef.value,
+    sportIdParam,
+    regionName,
+    regionIdParam,
+    leagueName,
+    leagueIdParam,
+    lang,
+    summarySportsState.value,
   ]);
-
-  const isRacingLeague = isRacingSport(sportId, sportName);
-  const showMarketNav =
-    !loading &&
-    selectedCategory === "Matches" &&
-    marketOptions.length > 0 &&
-    !isMoneylineSport(sportId, sportName) &&
-    !isRacingLeague;
-
-  const matchMarketType = showMarketNav ? selectedMarketType : undefined;
-  const allowAutoSelect = !showMarketNav;
-
-  useEffect(() => {
-    if (!marketOptions.length) return;
-    if (!marketOptions.some((o) => o.id === selectedMarketType)) {
-      setSelectedMarketType(marketOptions[0].id);
-    }
-  }, [marketOptions, selectedMarketType]);
-
-  const selectValue =
-    regionName || (regionIdParam && leagueName) || leagueIdParam
-      ? `${regionName}/${regionIdParam}/${leagueName}/${leagueIdParam}`
-      : "";
+  const categories = useMemo(() => {
+    if (node?.pre?.length !== 0 && node?.outright?.length !== 0)
+      return ["Matches", "Outright"];
+    if (node?.pre?.length !== 0) return ["Matches"];
+    if (node?.outright?.length !== 0) return ["Outright"];
+    return [];
+  }, [node]);
 
   const getMatchesBoard = useCallback(async () => {
+    const hasNestedLeagueRoute = Boolean(
+      sportIdParam && regionIdParam && leagueIdParam,
+    );
+    const hasStandaloneLeagueRoute = Boolean(
+      sportIdParam && regionName && regionIdParam && !leagueIdParam,
+    );
+
     if (
-      !sportIdParam ||
-      !regionIdParam ||
-      !leagueIdParam ||
-      !eventIds.length ||
-      summarySports.value.data
-        ?.find((s) => s[0] === Number(sportIdParam))?.[2]
-        ?.find((r) => r[0] === Number(regionIdParam))?.[2]
-        ?.find((l) => l[0] === Number(leagueIdParam))?.[2]?.length === 0
+      (!hasNestedLeagueRoute && !hasStandaloneLeagueRoute) ||
+      (!node?.pre?.length && !node?.outright?.length)
     )
       return;
     try {
-      const eventIds: number[] =
-        summarySports.value.data
-          .find((s) => s[0] === Number(sportIdParam))?.[2]
-          .find((r) => r[0] === Number(regionIdParam))?.[2]
-          ?.find((l) => l[0] === Number(leagueIdParam))?.[2] ||
-        ([] as number[]);
-      const [res, resOutright] = await Promise.all([
-        apiGetMatches(eventIds),
-        // apiGetMatchesAuto(eventIds),
-        // apiGetOutrightMatchs(outrightEventIds),
-        apiGetMatches(outrightEventIds),
-      ]);
-      const newEvents = res?.sort(
+      const res = await apiGetMatchesByNode(node?.id || "");
+      const newEvents = res?.pre?.sort(
         (a, b) =>
           new Date(a.eventInfo.startTime).getTime() -
           new Date(b.eventInfo.startTime).getTime(),
       );
-      const newOutrightEvents = resOutright?.sort(
+      const newOutrightEvents = res?.outright?.sort(
         (a, b) =>
           new Date(a.eventInfo.startTime).getTime() -
           new Date(b.eventInfo.startTime).getTime(),
@@ -206,7 +246,7 @@ export const MatchesBoard: FunctionComponent = () => {
     } catch (error) {
       console.error("Error fetching matches board:", error);
     }
-  }, [sportIdParam, regionIdParam, leagueIdParam, summarySports.value]);
+  }, [sportIdParam, regionName, regionIdParam, leagueIdParam, node]);
 
   // useEffect(() => {
   //   (async () => {
@@ -224,12 +264,10 @@ export const MatchesBoard: FunctionComponent = () => {
     if (!loadedSidebarState.value) return;
     if (
       sportIdParam &&
-      regionIdParam &&
-      leagueIdParam &&
-      summarySports.value.data
-        .find((s) => s[0] === Number(sportIdParam))?.[2]
-        .find((r) => r[0] === Number(regionIdParam))?.[2]
-        ?.find((l) => l[0] === Number(leagueIdParam))?.[2]?.length
+      node &&
+      (node?.outright?.length || node?.pre?.length) &&
+      ((regionIdParam && leagueIdParam) ||
+        (regionName && regionIdParam && !leagueIdParam))
     ) {
       setLoading(true);
       (async () => {
@@ -246,7 +284,7 @@ export const MatchesBoard: FunctionComponent = () => {
       setLoading(false);
       return;
     }
-  }, [loadedSidebarState.value, sportIdParam, regionIdParam, leagueIdParam]);
+  }, [loadedSidebarState.value, node]);
 
   return (
     <div
@@ -256,23 +294,13 @@ export const MatchesBoard: FunctionComponent = () => {
         items={[
           { label: "Home", href: "/event-view" },
           {
-            label:
-              summarySports.value.data.find(
-                (s) => s[0] === Number(sportIdParam),
-              )?.[1] || "",
+            label: sportName || "",
           },
           {
-            label:
-              summarySports.value.data
-                .find((s) => s[0] === Number(sportIdParam))?.[2]
-                .find((r) => r[0] === Number(regionIdParam))?.[1] || "",
+            label: regionName || "",
           },
           {
-            label:
-              summarySports.value.data
-                .find((s) => s[0] === Number(sportIdParam))?.[2]
-                .find((r) => r[0] === Number(regionIdParam))?.[2]
-                ?.find((l) => l[0] === Number(leagueIdParam))?.[1] || "",
+            label: leagueName || "",
           },
         ]}
       />
@@ -297,55 +325,76 @@ export const MatchesBoard: FunctionComponent = () => {
           <Select
             value={selectValue}
             onSelect={(val: string) => {
-              // ignore region header selections
-              if (!val || val.startsWith("region__")) return;
-              // setSelectedleagueNameLocal(val.split("/")[1]);
-              const newPath = `/event-view/pre-match/${sportName}/${sportIdParam}/${val}`;
-              setLocation(newPath);
+              if (!val) return;
+              setLocation(
+                `/event-view/pre-match/${sportName}/${sportIdParam}/${val}`,
+              );
             }}
-            className="text-black"
+            className="min-w-0 w-full max-w-[360px]"
             classNames={{
               trigger:
-                "max-w-fit gap-3 text-[20px] text-[var(--text-notheme-color)]",
-              panel: `bg-[var(--sub-element-color)] gap-1 rounded-[8px] min-w-fit border border-[var(--primary-border-color)] max-h-[60vh] overflow-auto`,
-              item: `flex text-[var(--text-basic-color)] min-w-fit rounded-[4px] transition-colors `,
+                "w-full min-w-[280px] gap-3 px-0 py-0 !bg-transparent border-0 shadow-none text-[20px] font-bold text-[var(--text-notheme-color)] [&_img]:!w-7 [&_img]:!h-7 [&_img]:rounded-full [&_img]:object-cover",
+              panel:
+                "bg-[var(--sub-element-color)] py-2 px-1 rounded-[12px] min-w-[300px] max-w-[360px] border-0 max-h-[60vh] overflow-auto shadow-xl",
+              item: "!bg-transparent shadow-none",
             }}
             notInvert
           >
-            {sportRegions?.length === 0 ? (
+            {leagueSelectEntries.length === 0 ? (
               <SelectItem value="">{t("noResults")}</SelectItem>
             ) : (
-              sportRegions?.map((region) => (
-                <Fragment key={region[0]}>
-                  <SelectItem
-                    key={`region-${region[0]}`}
-                    value={`region__${region[0]}`}
-                    disabled
-                    className="flex font-bold text-[13px] items-center gap-2"
-                  >
-                    <img
-                      src={getFlagIconFromregionName(region[1] || "")}
-                      alt={region[1] || ""}
-                      className="w-5 h-5 rounded-full"
-                    />
-                    {region[1] || ""}
-                  </SelectItem>
-                  {region[2]?.map((l) => (
+              leagueSelectEntries.map((entry, index) => {
+                if (entry.kind === "standalone") {
+                  return (
                     <SelectItem
-                      key={`${region[1]}/${region[0]}/${l[1]}/${l[0]}`}
-                      value={`${region[1]}/${region[0]}/${l[1]}/${l[0]}`}
-                      className="pl-6 text-[12px] text-[var(--text-basic-color)] hover:bg-black/20 rounded-[4px]"
+                      key={entry.key}
+                      value={entry.value}
+                      icon={entry.icon}
+                      className={standaloneSelectItemClass(
+                        entry.value,
+                        selectValue,
+                        index > 0,
+                      )}
                     >
-                      {l[1] || ""}
+                      {entry.label}
                     </SelectItem>
-                  ))}
-                </Fragment>
-              ))
+                  );
+                }
+
+                return (
+                  <Fragment key={entry.key}>
+                    <SelectItem
+                      value={entry.regionValue}
+                      icon={entry.icon}
+                      className={regionSelectItemClass(
+                        entry.regionValue,
+                        selectValue,
+                        index === 0,
+                      )}
+                    >
+                      {entry.regionLabel}
+                    </SelectItem>
+                    {entry.leagues.map((league) => (
+                      <SelectItem
+                        key={league.key}
+                        value={league.value}
+                        // icon={league.icon}
+                        className={leagueSelectItemClass(
+                          league.value,
+                          selectValue,
+                        )}
+                      >
+                        {league.label}
+                      </SelectItem>
+                    ))}
+                  </Fragment>
+                );
+              })
             )}
           </Select>
         </div>
         <HorizontalTabs>
-          {CATEGORIES.map((category: string) => (
+          {categories.map((category: string) => (
             <button
               key={category}
               className={`px-4 py-[6px] text-[12px] font-bold ${selectedCategory === category ? "bg-white rounded-full text-black" : ""}`}
@@ -355,11 +404,13 @@ export const MatchesBoard: FunctionComponent = () => {
             </button>
           ))}
         </HorizontalTabs>
-        {showMarketNav ? (
+        {node?.children?.length && node?.children?.length > 0 ? (
           <MarketNavigation
-            options={marketOptions}
-            selectedValue={selectedMarketType}
-            onSelect={setSelectedMarketType}
+            options={
+              node?.children?.map((c) => c.translations[lang] || "") ?? []
+            }
+            selectedValue={selectedMarketType.toString()}
+            onSelect={(value: string) => setSelectedMarketType(Number(value))}
             className="text-[var(--text-notheme-color)]"
           />
         ) : null}
@@ -375,10 +426,10 @@ export const MatchesBoard: FunctionComponent = () => {
         ) : (
           switchCategory(
             selectedCategory,
-            eventIds,
-            outrightEventIds,
-            matchMarketType,
-            allowAutoSelect,
+            node?.pre ?? [],
+            node?.outright ?? [],
+            selectedMarketType,
+            false,
           )
         )}
       </div>

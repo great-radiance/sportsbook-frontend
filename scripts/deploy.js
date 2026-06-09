@@ -21,7 +21,7 @@ const ROOT = join(__dirname, "..");
 const DIST = join(ROOT, "dist");
 
 const BUCKET = process.env.S3_BUCKET ?? "tekio";
-const PREFIX = (process.env.S3_PREFIX ?? "integration/stoiximan").replace(
+const PREFIX = (process.env.S3_PREFIX ?? "integration/staging").replace(
   /\/?$/,
   "/",
 );

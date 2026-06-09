@@ -1,198 +1,142 @@
-import type {
-  SidebarFeaturedLeagueRow,
-  SidebarFeaturedMatches,
-  SidebarFetchedSummary,
-  SidebarMarketsRef,
-} from "@/state/summarySports";
 import { instance } from "../instance";
-import { getAppConfig } from "@/shared/config/appConfig";
-import { tCounts, tSportResponse } from "./apiGetSummaryArray";
 
-/** League tuple — `[leagueId, name, eventCount, eventIds[], regionId?, sportId?]`. */
-export type SidebarLeagueRow = [
-  number,
-  string,
-  number,
-  number[],
-  number?,
-  number?,
-];
+export type MarketInfoType = {
+  type: string;
+  candidates: number[];
+  translations: Record<string, string>;
+};
+export type NodeType =
+  | "featured_leagues"
+  | "sport"
+  | "custom_region"
+  | "region"
+  | "combined_region"
+  | "league"
+  | "combined_league"
+  | "combined_sport";
 
-/** `[regionId, regionName, regionEventCount, leagues]` */
-export type SidebarRegionRow = [number, string, number, SidebarLeagueRow[]];
-
-/**
- * Sport row: `[sportId, name, eventCount, famousLeagues[], regions[]]`.
- * Legacy: `[sportId, name, eventCount, regions[]]` (regions at index 3).
- */
-export type SidebarSportRow =
-  | [number, string, number, SidebarFeaturedLeagueRow[], SidebarRegionRow[]]
-  | [number, string, number, SidebarRegionRow[]];
-
-type SidebarApiBody = {
-  data: SidebarArr;
-  marketsRef?: SidebarMarketsRef;
-  cached?: boolean;
-  ms?: number;
+export type sidebarNode = {
+  id: string;
+  order: number;
+  translations: Record<string, string>;
+  type: NodeType;
+  children?: sidebarNode[];
+  sportId?: number;
+  leagueId?: number;
+  leagueIds?: number[];
+  regionId?: number;
+  regionIds?: number[];
+  region?: {
+    id: number;
+    translations: Record<string, string>;
+  };
+  // events?: number[];
+  // bbEvents?: number[];
+  pre?: number[];
+  live?: number[];
+  outright?: number[];
+  bbPre?: number[];
+  bbLive?: number[];
+  markets?: MarketInfoType[];
 };
 
-/** `[featuredMatches, featuredLeagues, ...sports]` */
-export type SidebarArr = [
-  SidebarFeaturedMatches,
-  SidebarFeaturedLeagueRow[],
-  ...SidebarSportRow[],
-];
+export type countsBySport = Record<number, number>;
 
-type tProps = {
-  status: number[];
-  tradingStatus: number;
-  isOutright: boolean;
-  isBetBuilderSupported?: boolean;
-};
-
-function regionsFromSportRow(sport: SidebarSportRow): SidebarRegionRow[] {
-  const s = sport as readonly unknown[];
-  if (s.length >= 5 && Array.isArray(s[4])) {
-    return s[4] as SidebarRegionRow[];
-  }
-  if (s.length === 4 && Array.isArray(s[3])) {
-    return s[3] as SidebarRegionRow[];
-  }
-  return [];
-}
-
-function famousLeaguesFromSportRow(
-  sport: SidebarSportRow,
-): SidebarFeaturedLeagueRow[] {
-  const s = sport as readonly unknown[];
-  if (s.length >= 5 && Array.isArray(s[3]) && Array.isArray(s[4])) {
-    return s[3] as SidebarFeaturedLeagueRow[];
-  }
-  return [];
-}
-
-/** Strip count / reserved slots and map sidebar sports tuples to `tSportResponse`. */
-export function convertResponse(sports: SidebarSportRow[]): tSportResponse {
-  return sports.map((sport) => {
-    const sportId = sport[0] as number;
-    const sportName = sport[1] as string;
-    const regions = regionsFromSportRow(sport);
-    return [
-      sportId,
-      sportName,
-      regions.map(([regionId, regionName, , leagues]) => [
-        regionId,
-        regionName,
-        leagues.map(([leagueId, leagueName, , eventIds]) => [
-          leagueId,
-          leagueName,
-          eventIds,
-        ]),
-      ]),
-    ];
-  });
-}
-
-function buildCountsFromSportResponse(resData: tSportResponse): tCounts {
-  const counts = {} as tCounts;
-  for (const sport of resData) {
-    const regionArray = sport[2];
-    if (!regionArray) {
-      continue;
-    }
-    let sportTotal = 0;
-    for (const region of regionArray) {
-      const leagueArray = region[2];
-      if (!leagueArray) {
-        continue;
-      }
-      let regionTotal = 0;
-      const leagueCounts: Record<number, number> = {};
-      for (const league of leagueArray) {
-        const eventArray = league[2];
-        if (!eventArray) {
-          continue;
-        }
-        const leagueTotal = eventArray.length;
-        leagueCounts[league[0]] = leagueTotal;
-        regionTotal += leagueTotal;
-      }
-      counts[sport[0]] ??= { total: 0, regions: {} };
-      counts[sport[0]].regions![region[0]] = {
-        total: regionTotal,
-        leagues: leagueCounts,
-      };
-
-      sportTotal += regionTotal;
-    }
-    counts[sport[0]] ??= { total: 0, regions: {} };
-    counts[sport[0]].total = sportTotal;
-  }
-  return counts;
-}
-
-export const apiGetSidebar = async ({
-  status = [1],
-  tradingStatus = 0,
-  isOutright = false,
-  isBetBuilderSupported,
-}: tProps): Promise<SidebarFetchedSummary> => {
-  const params = new URLSearchParams();
-  params.append("status", status.join(","));
-  params.append("tradingStatus", tradingStatus.toString());
-  params.append("isOutright", isOutright.toString());
-  params.append("lang", getAppConfig().lang);
-  if (isBetBuilderSupported) {
-    params.append("isBetBuilderSupported", isBetBuilderSupported.toString());
-  }
-
-  const response = await instance.get<SidebarApiBody>(
-    `/sidebar?${params.toString()}`,
-  );
-  const arr = response.data.data;
-  const marketsRef = response.data.marketsRef ?? {};
-  const sportsRaw = arr.slice(2) as SidebarSportRow[];
-  const resData = convertResponse(sportsRaw);
-  const counts = buildCountsFromSportResponse(resData);
-  const fm = arr[0];
-  const featuredMatches: SidebarFeaturedMatches | undefined =
-    Array.isArray(fm) &&
-    fm.length >= 2 &&
-    typeof fm[0] === "number" &&
-    Array.isArray(fm[1])
-      ? [fm[0], fm[1] as number[]]
-      : undefined;
-  const featuredLeagues = Array.isArray(arr[1])
-    ? (arr[1] as SidebarFeaturedLeagueRow[])
-    : [];
-
-  const featuredLeaguesBySport: Record<number, SidebarFeaturedLeagueRow[]> = {};
-  for (const sport of sportsRaw) {
-    const sportId = sport[0] as number;
-    const famous = famousLeaguesFromSportRow(sport);
-    if (famous.length) {
-      featuredLeaguesBySport[sportId] = famous;
-    }
-  }
-
-  return {
-    data: resData,
-    counts,
-    TotalCount: (Object.values(counts) as { total: number }[]).reduce(
-      (acc, curr) => acc + curr.total,
-      0,
-    ),
-    featuredMatches,
-    featuredLeagues,
-    featuredLeaguesBySport,
-    marketsRef,
+export type SidebarApiBody = sidebarNode[];
+export type countsSummary = {
+  preMatchCount: {
+    counts: countsBySport;
+    totalCount: number;
+  };
+  liveCount: {
+    counts: countsBySport;
+    totalCount: number;
+  };
+  outrightCount: {
+    counts: countsBySport;
+    totalCount: number;
   };
 };
 
-/** @deprecated Featured data lives in `featuredSummaryData` / `marketsRef` signals. */
-export function withPrematchSidebarFeatured(
-  prematch: SidebarFetchedSummary,
-  other: SidebarFetchedSummary,
-): SidebarFetchedSummary {
-  return other;
-}
+const COMBINED_SPORT_ID = 0;
+
+const deleteZeroCount = (counts: countsBySport, sportId: number) => {
+  if (counts[sportId] === 0) delete counts[sportId];
+};
+
+export const apiGetSidebar = async () => {
+  const response = await instance.get<{ config: sidebarNode[] }>(
+    "/users/sidebar",
+  );
+
+  const featuredLeagues = [] as sidebarNode[];
+
+  const countsSummary: countsSummary = {
+    preMatchCount: {
+      counts: {} as countsBySport,
+      totalCount: 0,
+    },
+    liveCount: {
+      counts: {} as countsBySport,
+      totalCount: 0,
+    },
+    outrightCount: {
+      counts: {} as countsBySport,
+      totalCount: 0,
+    },
+  };
+
+  const buildCounts = (node: sidebarNode, sportId: number) => {
+    if (node.type === "league" || node.type === "combined_league") {
+      const pre = node.pre?.length ?? 0;
+      const live = node.live?.length ?? 0;
+      const outright = node.outright?.length ?? 0;
+
+      countsSummary.preMatchCount.counts[sportId] =
+        (countsSummary.preMatchCount.counts[sportId] ?? 0) + pre;
+      countsSummary.preMatchCount.totalCount += pre;
+      countsSummary.liveCount.counts[sportId] =
+        (countsSummary.liveCount.counts[sportId] ?? 0) + live;
+      countsSummary.liveCount.totalCount += live;
+      countsSummary.outrightCount.counts[sportId] =
+        (countsSummary.outrightCount.counts[sportId] ?? 0) + outright;
+      countsSummary.outrightCount.totalCount += outright;
+    } else {
+      for (const child of node.children ?? []) {
+        buildCounts(child, sportId);
+      }
+    }
+  };
+
+  for (const node of response.data.config ?? []) {
+    if (node.type === "featured_leagues") {
+      featuredLeagues.push(...(node.children ?? []));
+    } else if (node.type === "sport") {
+      const sportId = node.sportId ?? 0;
+      countsSummary.preMatchCount.counts[sportId] = 0;
+      countsSummary.liveCount.counts[sportId] = 0;
+      countsSummary.outrightCount.counts[sportId] = 0;
+      for (const sportChild of node.children ?? []) {
+        buildCounts(sportChild, sportId);
+      }
+      // deleteZeroCount(countsSummary.preMatchCount.counts, sportId);
+      // deleteZeroCount(countsSummary.liveCount.counts, sportId);
+      // deleteZeroCount(countsSummary.outrightCount.counts, sportId);
+    } else if (node.type === "combined_sport") {
+      countsSummary.preMatchCount.counts[COMBINED_SPORT_ID] = 0;
+      countsSummary.liveCount.counts[COMBINED_SPORT_ID] = 0;
+      countsSummary.outrightCount.counts[COMBINED_SPORT_ID] = 0;
+      for (const combinedSportChild of node.children ?? []) {
+        buildCounts(combinedSportChild, COMBINED_SPORT_ID);
+      }
+      // deleteZeroCount(countsSummary.preMatchCount.counts, COMBINED_SPORT_ID);
+      // deleteZeroCount(countsSummary.liveCount.counts, COMBINED_SPORT_ID);
+      // deleteZeroCount(countsSummary.outrightCount.counts, COMBINED_SPORT_ID);
+    }
+  }
+  return {
+    data: response.data.config,
+    countsSummary: countsSummary,
+    featuredLeagues: featuredLeagues,
+  };
+};

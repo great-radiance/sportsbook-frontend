@@ -1,5 +1,5 @@
 import { FunctionComponent } from "preact";
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { summarySportsLive } from "@/state/summarySports";
 import {

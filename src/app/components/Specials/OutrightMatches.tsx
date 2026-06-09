@@ -6,7 +6,7 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader } from "../Loading";
 // import { orderConfigState } from "@/state/orderConfigState";
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { Match } from "../MatchesBoard/components/Match";
 

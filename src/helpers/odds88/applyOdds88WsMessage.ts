@@ -15,7 +15,7 @@ import { normalizeWsEventPayload } from "./normalizeWsEventPayload";
 import { patchEventMarkets } from "./patchEventMarkets";
 import {
   isTerminalEventStatus,
-  removeEventFromSummariesAndStore,
+  // removeEventFromSummariesAndStore,
 } from "./removeEventFromSummaries";
 
 /** Delta message `type` (integer). */
@@ -180,9 +180,9 @@ function applyEventStatus(change: WsDelta, ctx: Odds88WsContext): void {
   const status = change.status ?? prev.status;
 
   if (isTerminalEventStatus(status)) {
-    removeEventFromSummariesAndStore(eventId, prev, {
-      keepIfViewingEventId: ctx.activeEventId,
-    });
+    // removeEventFromSummariesAndStore(eventId, prev, {
+    //   keepIfViewingEventId: ctx.activeEventId,
+    // });
     if (ctx.activeEventId === eventId) {
       willBeDeletedEventIds.value = eventId;
     }

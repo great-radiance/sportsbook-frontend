@@ -30,7 +30,7 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
 import { OddsChangedDialog } from "../components/BetSlip/OddsChangedDialog";
 import { useLocation } from "wouter-preact";
-import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
+// import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
 import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
 import { loadPlayerSession } from "@/helpers/loadPlayerSession";
 import { notify } from "@/shared/toast";
@@ -56,11 +56,11 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     [sportIdParam, regionIdParam],
   );
 
-  useOdds88WebSocket({
-    activeEventId,
-    ...routeIds,
-    enabled: true,
-  });
+  // useOdds88WebSocket({
+  //   activeEventId,
+  //   ...routeIds,
+  //   enabled: true,
+  // });
 
   useEffect(() => {
     console.log("selectedOdds-mainlayout", selectedOdds.value);
@@ -69,6 +69,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
       window.localStorage.removeItem("selectedBets");
       return;
     }
+
     const selectedBetsData = {
       selectedOdds: selectedOdds.value,
       selectedBetType: selectedBetType.value,

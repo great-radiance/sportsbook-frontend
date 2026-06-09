@@ -4,7 +4,7 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { SportsList } from "../SportsList";
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { MarketNavigation } from "../marketNavigation";
 import { storeEvent } from "@/helpers/storeEvent";
 import { Match } from "../MatchesBoard/components/Match";

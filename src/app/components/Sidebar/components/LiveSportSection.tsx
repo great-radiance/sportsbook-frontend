@@ -3,11 +3,10 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { isMobile } from "@/state/isMobile";
 import { MiniMatch } from "@/app/components/MatchesBoard/components/Match/MiniMatch";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { summarySportsLive } from "@/state/summarySports";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { storeEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
 import { loadedSidebarState } from "@/state/loadedSidebarState";
@@ -40,6 +39,8 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
   );
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const pendingDeleteRef = useRef<number[]>([]);
+
+  return null;
 
   // Find the sport tuple by name. `summarySportsLive.value.data` is now a
   // `tSportResponse` tuple array — `[sportId, sportName, regions[]]`.

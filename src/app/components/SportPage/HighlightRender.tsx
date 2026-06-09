@@ -6,7 +6,6 @@ import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
 import type { LeagueLabel } from "@/helpers/resolveSummaryLabels";
-import { summarySports } from "@/state/summarySports";
 import { storeState } from "@/state/storeState";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
@@ -14,6 +13,9 @@ import {
   isMoneylineSport,
 } from "@/helpers/sidebarMarketNavigation";
 import { BetBuilderHighlights } from "@/app/components/SportPage/BetBuilderHighlights";
+import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
+import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 
 type League = {
   key: string;
@@ -22,52 +24,28 @@ type League = {
 };
 
 type Props = {
-  leagueEntries: League[];
-  leagueLabelMap: Map<string, LeagueLabel>;
+  leagueEntries: sidebarNode[];
   selectedLeagueKey: string;
   setSelectedLeagueKey: (key: string) => void;
   sportId: number;
   sportName?: string;
-  selectedCategory: "Matches" | string;
-  selectedLeagueEntry?: {
-    eventIds?: number[];
-    outrightIds?: number[];
-  };
   loading: boolean;
-  BASE_ASSET_PUBLIC_URL: string;
-  getFlagIconFromregionName: (region: string) => string;
+  matches: {
+    pre: number[];
+    outright: number[];
+    live: number[];
+  };
 };
 
 const HighlightRender = ({
   leagueEntries,
-  leagueLabelMap,
   selectedLeagueKey,
   setSelectedLeagueKey,
   sportId,
   sportName,
-  selectedCategory,
-  selectedLeagueEntry,
   loading,
-  BASE_ASSET_PUBLIC_URL,
-  getFlagIconFromregionName,
+  matches,
 }: Props) => {
-  const sortedEventIds = sortEventIdsByStartDate(
-    selectedLeagueEntry?.eventIds || [],
-  );
-  const sortedOutrightIds = sortEventIdsByStartDate(
-    selectedLeagueEntry?.outrightIds || [],
-  );
-  const activeEventIds =
-    selectedCategory === "Matches" ? sortedEventIds : sortedOutrightIds;
-
-  const loadedEventsForMarkets = useMemo(
-    () =>
-      activeEventIds
-        .map((id) => storeState.value[id]?.value)
-        .filter(Boolean),
-    [activeEventIds, storeState.value],
-  );
-
   const {
     marketOptions,
     showMarketNav,
@@ -78,7 +56,7 @@ const HighlightRender = ({
   } = useSidebarMarketNavigation({
     sportId,
     sportName,
-    loadedEvents: loadedEventsForMarkets,
+    loadedEvents: [],
   });
 
   const renderMatch = (eventId: number) => {
@@ -116,16 +94,14 @@ const HighlightRender = ({
         <nav role="tablist" aria-label="Leagues" className="w-full">
           <HorizontalTabs scrollerClassName="py-1">
             {leagueEntries.map((league) => {
-              const isSelected = selectedLeagueKey === league.key;
-              const label =
-                leagueLabelMap.get(`${league.regionId}:${league.leagueId}`) ??
-                null;
-              const leagueName = label?.leagueName ?? String(league.leagueId);
-              const regionName = label?.regionName ?? "";
+              const isSelected = selectedLeagueKey === league.id;
+              const leagueName = league.translations[getAppConfig().lang] ?? "";
+              const regionName =
+                league.region?.translations[getAppConfig().lang] ?? "";
 
               return (
                 <button
-                  key={league.key}
+                  key={league.id}
                   role="tab"
                   aria-selected={isSelected}
                   tabIndex={isSelected ? 0 : -1}
@@ -137,23 +113,18 @@ const HighlightRender = ({
                       ? "bg-[var(--highlight-background)] font-bold border-[2px] border-[var(--border-color)]"
                       : "bg-[var(--sub-element-secondary)] hover:bg-[var(--highlight-background)]",
                   ].join(" ")}
-                  onClick={() => setSelectedLeagueKey(league.key)}
+                  onClick={() => setSelectedLeagueKey(league.id)}
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagues/${encodeURIComponent(
-                        sportName || "",
-                      )}/${encodeURIComponent(regionName)}/${encodeURIComponent(
-                        leagueName,
-                      )}.webp`}
-                      className="w-5 h-5 object-contain"
+                      src={`${BASE_ASSET_PUBLIC_URL}/logo/leagueById/${sportId}/${league.id}.webp`}
                       onError={(e) => {
                         e.currentTarget.src = `${getFlagIconFromregionName(
-                          regionName,
+                          league.region?.translations["en"] ?? "",
                         )}`;
                         e.currentTarget.className = "rounded-full w-4 h-4";
                       }}
-                      alt={leagueName}
+                      className="w-5 h-5 object-contain"
                     />
                   </div>
 
@@ -181,7 +152,7 @@ const HighlightRender = ({
             ))}
           </div>
         ) : (
-          activeEventIds.map(renderMatch)
+          matches.pre.map(renderMatch)
         )}
       </section>
     </>

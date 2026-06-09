@@ -1,7 +1,7 @@
 import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
-import { apiGetMatches } from "@/api/matches/apiGetMatches";
+import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { summarySports, summarySportsLive } from "@/state/summarySports";
 import { SportsList } from "../SportsList";

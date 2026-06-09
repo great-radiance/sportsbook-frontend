@@ -1,11 +1,6 @@
 import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import type { tCounts, tSportResponse } from "@/api/sidebar/apiGetSummaryArray";
-import {
-  outRightSummarySports,
-  summarySports,
-  summarySportsLive,
-  type summaryData,
-} from "@/state/summarySports";
+import { type summaryData } from "@/state/summarySports";
 import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 
 function cloneSummaryData(summary: summaryData): tSportResponse {
@@ -80,7 +75,10 @@ function addEventIdToSummary(
 
   summary.data = data;
   summary.counts = counts;
-  summary.TotalCount = Object.values(counts).reduce((acc, c) => acc + c.total, 0);
+  summary.TotalCount = Object.values(counts).reduce(
+    (acc, c) => acc + c.total,
+    0,
+  );
   return true;
 }
 
@@ -147,9 +145,7 @@ export function addEventIdToSummaries(
   source: MatchDataResponse | tEventModel,
 ): void {
   const meta =
-    "eventInfo" in source
-      ? metaFromMatch(source)
-      : metaFromStored(source);
+    "eventInfo" in source ? metaFromMatch(source) : metaFromStored(source);
   if (!meta) return;
 
   const summarySig = getSummarySignal(

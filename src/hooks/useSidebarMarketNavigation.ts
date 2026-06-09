@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { marketsRef } from "@/state/summarySports";
 import {
   filterMarketOptionsByEvents,
   isMoneylineSport,
-  marketOptionsFromRef,
 } from "@/helpers/sidebarMarketNavigation";
 import { isRacingSport } from "@/helpers/isRacingSport";
+import { summarySportsState } from "@/state/summarySports";
+import { getAppConfig } from "@/shared/config/appConfig";
 
 type UseSidebarMarketNavigationArgs = {
   sportId: number;
@@ -21,15 +21,21 @@ export function useSidebarMarketNavigation({
   loadedEvents,
   enabled = true,
 }: UseSidebarMarketNavigationArgs) {
-  const [selectedMarketType, setSelectedMarketType] = useState(1);
+  const [selectedMarketType, setSelectedMarketType] = useState<
+    number[] | number
+  >(1);
 
-  const sidebarMarketOptions = useMemo(
-    () =>
-      enabled && sportId > 0
-        ? marketOptionsFromRef(marketsRef.value[String(sportId)])
-        : [],
-    [enabled, sportId, marketsRef.value],
-  );
+  const sidebarMarketOptions = useMemo(() => {
+    const sportMarkets =
+      summarySportsState.value.find((s) => s.sportId === sportId)?.markets ??
+      [];
+    return enabled && sportId > 0
+      ? sportMarkets.map((m) => ({
+          id: m.candidates,
+          label: m.translations[getAppConfig().lang] ?? "",
+        }))
+      : [];
+  }, [enabled, sportId, summarySportsState.value]);
 
   const marketOptions = useMemo(
     () => filterMarketOptionsByEvents(sidebarMarketOptions, loadedEvents),
@@ -56,7 +62,7 @@ export function useSidebarMarketNavigation({
   useEffect(() => {
     if (!showMarketNav || !marketOptions.length) return;
     if (!marketOptions.some((o) => o.id === selectedMarketType)) {
-      setSelectedMarketType(marketOptions[0].id);
+      setSelectedMarketType(marketOptions[0].id as number);
     }
   }, [showMarketNav, marketOptions, selectedMarketType]);
 

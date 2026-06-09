@@ -1,6 +1,10 @@
 import { isMobile } from "@/state/isMobile";
 import { popularLeaguesState } from "@/state/popularLeaguesState";
-import { featuredSummaryData, summarySports } from "@/state/summarySports";
+import {
+  featuredLeaguesState,
+  countsSummarySportsState,
+  summarySportsState,
+} from "@/state/summarySports";
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
@@ -14,8 +18,11 @@ export const TopLeagueMenu = () => {
   const baseTheme = baseColorTheme.value;
 
   useEffect(() => {
-    const summary = summarySports.value;
-    if (!summary?.data?.length || summary.TotalCount <= 0) {
+    const summary = summarySportsState.value;
+    if (
+      !summary?.length ||
+      countsSummarySportsState.value.preMatchCount.totalCount <= 0
+    ) {
       popularLeaguesState.value = [];
       setLoading(false);
       return;
@@ -23,8 +30,8 @@ export const TopLeagueMenu = () => {
     try {
       setLoading(true);
       popularLeaguesState.value = buildTopLeagueItems(
-        summary,
-        featuredSummaryData.value.featuredLeaguesBySport,
+        summarySportsState.value,
+        featuredLeaguesState.value,
       );
       console.log("popularLeaguesState.value", popularLeaguesState.value);
     } catch (error) {
@@ -34,9 +41,9 @@ export const TopLeagueMenu = () => {
       setLoading(false);
     }
   }, [
-    summarySports.value.data,
-    summarySports.value.TotalCount,
-    featuredSummaryData.value.featuredLeaguesBySport,
+    summarySportsState.value,
+    countsSummarySportsState.value.preMatchCount.totalCount,
+    featuredLeaguesState.value,
     isMobile.value,
   ]);
 

@@ -1,56 +1,25 @@
-import { FunctionComponent } from "preact";
+import { Fragment, FunctionComponent } from "preact";
+import type { JSX } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
-import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { translationState } from "@/state/translationState";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { featuredSummaryData, summarySports } from "@/state/summarySports";
+import {
+  summarySportsState,
+  featuredLeaguesState,
+  countsSummarySportsState,
+} from "@/state/summarySports";
 import { RACING_SPORT_IDS } from "@/helpers/isRacingSport";
+import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import { buildPrematchPath } from "@/helpers/buildPrematchPath";
 
-type SportRow = (typeof summarySports.value.data)[number];
-type RegionRow = SportRow[2][number];
-type LeagueRow = RegionRow[2][number];
-
-function buildPrematchPath(
-  sportName: string,
-  sportId: number,
-  regionName?: string,
-  regionId?: number,
-  leagueName?: string,
-  leagueId?: number,
-): string {
-  const parts = [
-    sportName,
-    String(sportId),
-    regionName,
-    regionId == null ? "" : String(regionId),
-    leagueName,
-    leagueId == null ? "" : String(leagueId),
-  ]
-    .map((p) => (p ?? "").trim())
-    .filter(Boolean);
-  return `/event-view/pre-match/${parts.join("/")}`;
-}
-
-function k(...parts: (string | number)[]) {
-  return parts.join(":");
-}
-
-function regionNameForSport(
-  sport: SportRow | undefined,
-  regionId: number,
-): string {
-  if (!sport) return "";
-  for (const region of sport[2] ?? []) {
-    if (region[0] === regionId) {
-      return String(region[1] ?? "");
-    }
-  }
-  return "";
-}
+const k = (...parts: (string | number)[]): string => {
+  return parts.map(String).join("-");
+};
 
 export const PrematchSportsNavigation: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
@@ -66,11 +35,10 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
   const [expandedRegions, setExpandedRegions] = useState<Set<string>>(
     () => new Set(),
   );
-
-  const sports = useMemo(
-    () => summarySports.value.data ?? [],
-    [summarySports.value.data],
-  );
+  const [expandedCustomRegions, setExpandedCustomRegions] = useState<
+    Set<string>
+  >(() => new Set());
+  const lang = getAppConfig().lang;
 
   useEffect(() => {
     const spId = Number(sportIdParam);
@@ -97,7 +65,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
     });
   };
 
-  const toggleRegion = (sportId: number, regionId: number) => {
+  const toggleRegion = (sportId: number, regionId: number | string) => {
     const key = k(sportId, regionId);
     setExpandedRegions((prev) => {
       const next = new Set(prev);
@@ -105,6 +73,130 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
       else next.add(key);
       return next;
     });
+  };
+
+  const toggleCustomRegion = (customRegionId: string) => {
+    setExpandedCustomRegions((prev) => {
+      const next = new Set(prev);
+      if (next.has(customRegionId)) next.delete(customRegionId);
+      else next.add(customRegionId);
+      return next;
+    });
+  };
+
+  const NodeComponent = (
+    node: sidebarNode,
+    sportName: string,
+    sportId: number,
+    isChild: boolean = false,
+  ): JSX.Element | null => {
+    if (node.type === "league" || node.type === "combined_league") {
+      const leagueId =
+        node.type === "league" ? node.leagueId : k(...(node.leagueIds ?? []));
+      return (
+        <button
+          key={k("l", sportId, node?.region?.id ?? 0, leagueId || "")}
+          type="button"
+          onClick={(e) => {
+            linkButtonOnClick(
+              e,
+              buildPrematchPath(
+                sportName,
+                sportId,
+                node.region?.translations[lang],
+                node.region?.id,
+                node.translations[lang],
+                leagueId || "",
+              ),
+              setLocation,
+            );
+          }}
+          style={{ paddingLeft: isChild ? 30 : 18 }}
+          className="flex justify-between gap-2 items-start py-[6px] pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
+        >
+          <span className="flex flex-col text-left break-words whitespace-normal text-[11px]">
+            {node.translations[lang]}
+            <span className="text-[10px]">
+              {node.region?.translations[lang]}
+            </span>
+          </span>
+        </button>
+      );
+    } else if (
+      node.type === "combined_region" ||
+      node.type === "region" ||
+      node.type === "sport"
+    ) {
+      const regionId =
+        node.type === "combined_region"
+          ? k(...(node.regionIds ?? []))
+          : node.regionId || "";
+
+      const path =
+        node.type === "sport"
+          ? `/event-view/pre-match/${sportName}/${sportId}/${node.translations[lang]}/${node.sportId}`
+          : node.children?.length && node.children?.length > 1
+            ? buildPrematchPath(
+                sportName,
+                sportId,
+                node.translations[lang],
+                regionId || "",
+              )
+            : buildPrematchPath(
+                sportName,
+                sportId,
+                node.translations[lang],
+                regionId || "",
+                node.children?.[0]?.translations[lang],
+                node.children?.[0]?.leagueId || "",
+              );
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            linkButtonOnClick(e, path, setLocation);
+          }}
+          style={{ paddingLeft: isChild ? 30 : 18 }}
+          className="flex justify-between gap-2 items-center py-[6px] pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
+        >
+          <span className="flex flex-1 text-left break-words whitespace-normal text-[14px]">
+            {node.translations[lang]}
+          </span>
+        </button>
+      );
+    } else if (node.type === "custom_region") {
+      const children = node.children;
+      return (
+        <Fragment key={node.id}>
+          <button
+            type="button"
+            onClick={() => {
+              toggleCustomRegion(node.id);
+            }}
+            style={{ paddingLeft: isChild ? 30 : 18 }}
+            className="flex justify-between gap-2 items-center py-[6px]  pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
+          >
+            <span className="flex flex-1 text-left break-words whitespace-normal text-[14px]">
+              {node.translations[lang]}
+            </span>
+            <img
+              src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+              className={`w-[26px] inline-block ml-1 transition-all duration-300 ${expandedCustomRegions.has(node.id) ? "-rotate-90" : "rotate-90"}`}
+              alt={tAlt("arrowRight")}
+            />
+          </button>
+          {expandedCustomRegions.has(node.id)
+            ? children?.map((child) => (
+                <Fragment key={child.id}>
+                  {NodeComponent(child, sportName, sportId, true)}
+                </Fragment>
+              ))
+            : null}
+        </Fragment>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -124,24 +216,28 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
         />
       </button>
 
-      {!isNavExpanded ? null : sports.length === 0 ? (
+      {!isNavExpanded ? null : summarySportsState.value.length === 0 ? (
         <div className="py-2 pl-1">{tCommon("noDataAvailable")}</div>
       ) : (
         <div className="flex flex-col w-full gap-[2px] rounded-[4px]">
-          {sports.map((sport) => {
-            const sportId = sport[0] as number;
-            const sportName = String(sport[1] ?? "");
-            const regions = (sport[2] ?? []) as RegionRow[];
+          {summarySportsState.value.map((sport) => {
+            if (!sport) return null;
+            if (sport.type === "featured_leagues") return null;
+            const sportId =
+              sport.type === "combined_sport" ? 0 : (sport.sportId ?? 0);
+
+            const sportName = sport.translations?.[lang] ?? "";
+            const children = sport.children;
 
             const sportCount =
-              summarySports.value.counts?.[sportId]?.total ?? 0;
-            if (sportCount <= 0) return null;
+              countsSummarySportsState.value.preMatchCount.counts[sportId];
+
+            // if (sportCount <= 0) return null;
             if (RACING_SPORT_IDS.has(sportId)) return null;
 
             const isSportExpanded = expandedSports.has(sportId);
 
-            const sportLabel =
-              translationState.value.translations[sportName] || sportName;
+            const path = `/event-view/pre-match/${sportName}/${sportId}`;
 
             return (
               <div
@@ -153,11 +249,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                   onClick={(e) => {
                     // click = expand/collapse sport (and also navigate to sport level)
                     toggleSport(sportId);
-                    linkButtonOnClick(
-                      e,
-                      buildPrematchPath(sportName, sportId),
-                      setLocation,
-                    );
+                    linkButtonOnClick(e, path, setLocation);
                   }}
                   className="flex justify-between gap-2 items-center pl-1 py-2 px-1 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
                 >
@@ -174,7 +266,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
                       />
                     </div>
                     <span className="flex flex-1 text-left break-words whitespace-normal text-[14px]">
-                      {sportLabel}
+                      {sportName}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -193,160 +285,11 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
 
                 {isSportExpanded ? (
                   <div className="flex flex-col rounded-md bg-white/5 gap-0 overflow-hidden">
-                    {featuredSummaryData.value.featuredLeaguesBySport?.[
-                      sportId
-                    ]?.map((featuredLeague) => {
-                      const leagueId = featuredLeague[0] as number;
-                      const leagueName = String(featuredLeague[1] ?? "");
-                      const regionId = featuredLeague[4] as number;
-                      const leagueSportId =
-                        (featuredLeague[5] as number) ?? sportId;
-                      const leagueSport =
-                        sports.find((s) => s[0] === leagueSportId) ?? sport;
-                      const pathSportName = String(leagueSport[1] ?? sportName);
-                      const regionName = regionNameForSport(
-                        leagueSport,
-                        regionId,
-                      );
-                      return (
-                        <button
-                          key={k("l", sportId, leagueId)}
-                          type="button"
-                          onClick={(e) => {
-                            linkButtonOnClick(
-                              e,
-                              buildPrematchPath(
-                                pathSportName,
-                                leagueSportId,
-                                regionName,
-                                regionId,
-                                leagueName,
-                                leagueId,
-                              ),
-                              setLocation,
-                            );
-                          }}
-                          style={{ paddingLeft: 18 }}
-                          className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
-                        >
-                          <span className="flex flex-1 text-left break-words whitespace-normal text-[12px]">
-                            {leagueName}
-                          </span>
-                        </button>
-                      );
-                    })}
-                    {regions.map((region) => {
-                      const regionId = region[0] as number;
-                      const regionName = String(region[1] ?? "");
-                      const leagues = (region[2] ?? []) as LeagueRow[];
-
-                      const regionCount =
-                        summarySports.value.counts?.[sportId]?.regions?.[
-                          regionId
-                        ]?.total ?? 0;
-                      if (regionCount <= 0) return null;
-
-                      const regionKey = k(sportId, regionId);
-                      const isRegionExpanded = expandedRegions.has(regionKey);
-
-                      const regionLabel =
-                        translationState.value.translations[regionName] ||
-                        regionName;
-
-                      return (
-                        <div
-                          key={k("r", sportId, regionId)}
-                          className="flex flex-col"
-                        >
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              toggleRegion(sportId, regionId);
-                              linkButtonOnClick(
-                                e,
-                                buildPrematchPath(
-                                  sportName,
-                                  sportId,
-                                  regionName,
-                                  regionId,
-                                ),
-                                setLocation,
-                              );
-                            }}
-                            style={{ paddingLeft: 18 }}
-                            className="flex justify-between gap-2 items-center py-2 px-1 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
-                          >
-                            <span className="flex flex-1 text-left break-words whitespace-normal text-[15px]">
-                              {regionLabel}
-                            </span>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[12px] opacity-80">
-                                {regionCount}
-                              </span>
-                              <img
-                                className={`w-[24px] flex rounded-[4px] h-[24px] transition-all shrink-0 ${isRegionExpanded ? "-rotate-90" : "rotate-90"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-                                src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-                                alt=""
-                                onClick={(ev) => {
-                                  ev.stopPropagation();
-                                  toggleRegion(sportId, regionId);
-                                }}
-                              />
-                            </div>
-                          </button>
-
-                          {isRegionExpanded ? (
-                            <div className="flex flex-col">
-                              {leagues.map((league) => {
-                                const leagueId = league[0] as number;
-                                const leagueName = String(league[1] ?? "");
-                                const leagueCount =
-                                  summarySports.value.counts?.[sportId]
-                                    ?.regions?.[regionId]?.leagues?.[
-                                    leagueId
-                                  ] ?? 0;
-                                if (leagueCount <= 0) return null;
-
-                                const leagueLabel =
-                                  translationState.value.translations[
-                                    leagueName
-                                  ] || leagueName;
-
-                                return (
-                                  <button
-                                    key={k("l", sportId, regionId, leagueId)}
-                                    type="button"
-                                    onClick={(e) => {
-                                      linkButtonOnClick(
-                                        e,
-                                        buildPrematchPath(
-                                          sportName,
-                                          sportId,
-                                          regionName,
-                                          regionId,
-                                          leagueName,
-                                          leagueId,
-                                        ),
-                                        setLocation,
-                                      );
-                                    }}
-                                    style={{ paddingLeft: 30 }}
-                                    className="flex justify-between gap-2 items-start py-2 pl-1 pr-3 font-medium transition-colors md:hover:bg-white/10 md:hover:text-[var(--text-primary-color)]"
-                                  >
-                                    <span className="flex flex-1 text-left break-words whitespace-normal text-[12px]">
-                                      {leagueLabel}
-                                    </span>
-                                    <span className="flex text-[12px] opacity-80 shrink-0">
-                                      {leagueCount}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                    {children?.map((node) => (
+                      <Fragment key={node.id}>
+                        {NodeComponent(node, sportName, sportId)}
+                      </Fragment>
+                    ))}
                   </div>
                 ) : null}
               </div>

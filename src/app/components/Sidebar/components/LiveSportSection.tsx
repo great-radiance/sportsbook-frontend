@@ -2,23 +2,51 @@ import { FunctionComponent } from "preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { isMobile } from "@/state/isMobile";
 import { MiniMatch } from "@/app/components/MatchesBoard/components/Match/MiniMatch";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
-import { storeEvent } from "@/helpers/storeEvent";
 import { storeState } from "@/state/storeState";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../../Loading";
 import { liveScrollPos } from "@/state/liveScrollPos";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import {
+  countsSummarySportsState,
+  summarySportsLiveState,
+} from "@/state/summarySports";
+import { loadedLiveState } from "@/state/loadedLiveState";
+import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
 
 interface LiveSportSectionProps {
   selectedSportName: string;
   isExpanded?: boolean;
   toggleSport?: (sportSlug: string) => void;
   groupByRegions: boolean;
+}
+
+type LeagueRow = {
+  key: string;
+  regionName: string;
+  leagueName: string;
+  eventIds: number[];
+};
+
+function leaguesForSport(sport: LiveSidebarStoreSport | undefined): LeagueRow[] {
+  if (!sport) return [];
+
+  const rows: LeagueRow[] = [];
+  for (const region of sport.regions) {
+    for (const league of region.leagues) {
+      if (!league.events.length) continue;
+      rows.push({
+        key: `${region.id}-${league.id}`,
+        regionName: region.name,
+        leagueName: league.name,
+        eventIds: league.events,
+      });
+    }
+  }
+  return rows;
 }
 
 export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
@@ -29,307 +57,190 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
 }) => {
   const baseTheme = baseColorTheme.value;
   const { t: tCommon } = useTranslate("common");
-  const { sportName, regionName, leagueName, eventId } = useRouteParams();
+  const { leagueName, eventId } = useRouteParams();
 
-  const [expandedRegions, setExpandedRegions] = useState<Set<string>>(
-    new Set([]),
+  const [liveSports, setLiveSports] = useState(summarySportsLiveState.value);
+  const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(
+    new Set(),
   );
-  const [unExpandedLeagues, setUnExpandedLeagues] = useState<Set<string>>(
-    new Set([]),
-  );
-  const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
-  const pendingDeleteRef = useRef<number[]>([]);
-
-  return null;
-
-  // Find the sport tuple by name. `summarySportsLive.value.data` is now a
-  // `tSportResponse` tuple array — `[sportId, sportName, regions[]]`.
-  const sportTuple = useMemo(
-    () =>
-      summarySportsLive.value.data?.find((s) => s[1] === selectedSportName) ??
-      null,
-    [summarySportsLive.value.data, selectedSportName],
-  );
-  const sportId = sportTuple?.[0];
-  const regions = sportTuple?.[2] ?? [];
-  const matchCount =
-    sportId != null ? (summarySportsLive.value.counts[sportId]?.total ?? 0) : 0;
 
   useEffect(() => {
-    pendingDeleteRef.current = [];
-    if (!isExpanded || !sportName || !loadedSidebarState.value) {
-      setLoadingMatches(false);
-      return;
-    }
+    return summarySportsLiveState.subscribe(setLiveSports);
+  }, []);
 
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoadingMatches(true);
-        const eventIds: number[] = [];
-        for (const region of regions) {
-          for (const league of region[2] ?? []) {
-            for (const id of league[2] ?? []) {
-              if (typeof id === "number") {
-                eventIds.push(id);
-                pendingDeleteRef.current.push(id);
-              }
-            }
-          }
-        }
-        if (eventIds.length === 0) {
-          if (!cancelled) setLoadingMatches(false);
-          return;
-        }
-        const events = await apiGetMatches(eventIds);
-        if (cancelled) return;
-        const sorted = (events ?? []).sort(
-          (a, b) =>
-            new Date(b.eventInfo.startTime).getTime() -
-            new Date(a.eventInfo.startTime).getTime(),
-        );
-        sorted.forEach((e) => storeEvent(e));
-      } catch (err) {
-        console.error("Error fetching live matches:", err);
-      } finally {
-        if (!cancelled) setLoadingMatches(false);
-      }
-    })();
+  const sport = useMemo(
+    () => liveSports.find((s) => s.name === selectedSportName),
+    [liveSports, selectedSportName],
+  );
 
-    return () => {
-      cancelled = true;
-      // Don't evict the event the user is currently viewing on the
-      // markets/event-view page.
-      const currentEventId = parseInt(eventId ?? "0");
-      pendingDeleteRef.current.forEach((id) => {
-        if (id === currentEventId) return;
-        delete storeState.value[id];
-      });
-      pendingDeleteRef.current = [];
-    };
-  }, [isExpanded, loadedSidebarState.value, regions]);
+  const leagueRows = useMemo(() => leaguesForSport(sport), [sport]);
+
+  const matchCount =
+    sport != null
+      ? (countsSummarySportsState.value.liveCount.counts[sport.id] ?? 0)
+      : 0;
+
+  const loading = isExpanded && !loadedLiveState.value;
 
   useEffect(() => {
     if (groupByRegions) {
-      setUnExpandedLeagues(new Set([]));
+      setCollapsedLeagues(new Set());
     }
   }, [groupByRegions]);
 
   useEffect(() => {
-    if (regionName) {
-      setExpandedRegions((prev) => {
-        const newSet = new Set(prev);
-        newSet.add(regionName);
-        return newSet;
-      });
-    }
-    if (leagueName) {
-      setUnExpandedLeagues((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(leagueName);
-        return newSet;
-      });
-    }
-  }, [regionName, leagueName]);
-
-  const toggleRegion = (name: string) => {
-    setExpandedRegions((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(name)) {
-        newSet.delete(name);
-      } else {
-        newSet.add(name);
-      }
-      return newSet;
+    if (!leagueName) return;
+    const row = leagueRows.find((r) => r.leagueName === leagueName);
+    if (!row) return;
+    setCollapsedLeagues((prev) => {
+      const next = new Set(prev);
+      next.delete(row.key);
+      return next;
     });
-  };
+  }, [leagueName, leagueRows]);
 
-  const toggleLeague = (name: string) => {
-    setUnExpandedLeagues((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(name)) {
-        newSet.delete(name);
-      } else {
-        newSet.add(name);
-      }
-      return newSet;
+  const toggleLeague = useCallback((key: string) => {
+    setCollapsedLeagues((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
     });
-  };
+  }, []);
+
+  const chevronClass = (expanded: boolean) =>
+    [
+      "h-6 w-6 shrink-0 rounded-[4px] transition-all duration-300",
+      expanded ? "-rotate-90" : "rotate-90",
+      baseTheme === "dark" ? "brightness-0 invert" : "brightness-0",
+    ].join(" ");
 
   return (
-    <div className={`flex w-full gap-2 flex-col`}>
-      {/* Sport Item */}
-      {!isMobile.value && (
+    <div className="flex w-full flex-col gap-2">
+      {!isMobile.value ? (
         <button
-          onClick={() => toggleSport?.(selectedSportName || "")}
-          className={`flex items-center justify-between px-[5px] py-2  rounded-[4px] text-[var(--text-basic-color)] font-medium transition-colors ${!isMobile.value ? "hover:" : ""}`}
+          type="button"
+          onClick={() => toggleSport?.(selectedSportName)}
+          className="flex w-full items-center justify-between rounded-[4px] px-[5px] py-2 font-medium text-[var(--text-basic-color)] transition-colors"
         >
-          <div className="flex items-center gap-2 flex-1">
-            <div className="w-[20px] h-full text-[16px]">
-              <img
-                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportId}.svg`}
-                onError={(e) => {
-                  e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
-                }}
-                alt={selectedSportName}
-                className={`w-[20px] h-[20px] ${baseTheme === "dark" ? "invert" : ""}`}
-              />
-            </div>
+          <div className="flex flex-1 items-center gap-2">
+            <img
+              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sport?.id ?? 0}.svg`}
+              onError={(e) => {
+                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+              }}
+              alt={selectedSportName}
+              className={`h-5 w-5 ${baseTheme === "dark" ? "invert" : ""}`}
+            />
             <span className="flex-1 text-left">{selectedSportName}</span>
             <span className="pr-[10px]">{matchCount}</span>
           </div>
           <img
-            className={`w-[24px] rounded-[4px] h-[24px] transition-all duration-300 ${
-              isExpanded ? "-rotate-90" : "rotate-90"
-            } ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+            className={chevronClass(isExpanded)}
             src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-            alt="arrow-right"
+            alt=""
           />
         </button>
-      )}
+      ) : null}
 
       {isExpanded ? (
-        loadingMatches ? (
-          <div className="flex flex-col mt-1 rounded-[4px]">
+        loading ? (
+          <div className="mt-1 flex flex-col rounded-[4px]">
             {Array.from({ length: 3 }).map((_, index) => (
               <MiniMatchLoader key={index} />
             ))}
           </div>
         ) : (
-          <div className="overflow-hidden gap-2 transition-all duration-300 ease-in-out">
-            <div className="flex flex-col mt-1 rounded-[4px]">
-              {regions.length === 0 ? (
-                <div className="px-2 py-2 text-[var(--text-sub-color)] ">
-                  {tCommon("noDataAvailable")}
-                </div>
-              ) : (
-                regions.map((region) => {
-                  const regionId = region[0];
-                  const regionNameRow = region[1];
-                  const leagues = region[2] ?? [];
-                  const flagIcon = getFlagIconFromregionName(
-                    regionNameRow || "",
-                  );
-                  const regionCounts =
-                    sportId != null
-                      ? summarySportsLive.value.counts[sportId]?.regions?.[
-                          regionId
-                        ]
-                      : undefined;
-                  if ((regionCounts?.total ?? 0) === 0) {
-                    return null;
-                  }
-                  return (
-                    <div key={regionId}>
-                      {leagues.map((league) => {
-                        const leagueId = league[0];
-                        const leagueNameRow = league[1];
-                        const leagueEventIds = league[2] ?? [];
-                        const leagueCount =
-                          regionCounts?.leagues?.[leagueId] ?? 0;
-                        if (leagueCount === 0) {
-                          return null;
-                        }
-                        // Only render leagues that already have at least one
-                        // event loaded into the global store — avoids a
-                        // flash of empty league rows while the per-event
-                        // fetch is in flight.
-                        const hasLoadedEvents = leagueEventIds.some(
-                          (id) => !!storeState.value[id]?.value,
-                        );
-                        if (!hasLoadedEvents) return null;
-                        const collapsed = unExpandedLeagues.has(
-                          leagueNameRow || "",
-                        );
-                        return (
-                          <div
-                            key={`${regionId}-${leagueId}`}
-                            className={`flex flex-col px-[5px] ${!collapsed ? "pb-[5px]" : ""}`}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleRegion(regionNameRow || "");
-                                toggleLeague(leagueNameRow || "");
-                              }}
-                              className={`flex items-center h-[36px] justify-between px-2 pt-2 pb-1 rounded-[4px]  transition-colors w-full`}
-                            >
-                              <div className="flex items-center gap-[10px] min-w-0">
-                                {flagIcon ? (
-                                  <img
-                                    src={flagIcon}
-                                    alt={regionNameRow || ""}
-                                    className="w-[16px] h-[16px] rounded-full shrink-0"
-                                  />
-                                ) : (
-                                  <div className="w-[18px] h-[12px] shrink-0" />
-                                )}
-                                <span className="flex-1 text-left truncate min-w-0">
-                                  {regionNameRow} {leagueNameRow}
-                                </span>
-                              </div>
-                              <img
-                                className={`w-[24px] rounded-[4px] h-[24px] transition-all duration-300 ${
-                                  !collapsed ? "-rotate-90" : "rotate-90"
-                                } ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-                                src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-                                alt="arrow-right"
-                              />
-                            </button>
+          <div className="mt-1 flex flex-col gap-2 overflow-hidden rounded-[4px] transition-all duration-300 ease-in-out">
+            {leagueRows.length === 0 ? (
+              <div className="px-2 py-2 text-[var(--text-sub-color)]">
+                {tCommon("noDataAvailable")}
+              </div>
+            ) : (
+              leagueRows.map((row) => {
+                const hasLoadedEvents = row.eventIds.some(
+                  (id) => !!storeState.value[id]?.value,
+                );
+                if (!hasLoadedEvents) return null;
 
-                            {!collapsed && (
-                              <div className="overflow-hidden transition-all duration-300 ease-in-out">
-                                <div className="flex flex-col w-full h-full gap-2 rounded-[4px]">
-                                  {leagueEventIds.length > 0 ? (
-                                    leagueEventIds.map((matchId) => {
-                                      const isSelectedMatch =
-                                        matchId === parseInt(eventId ?? "0");
-                                      return (
-                                        <div
-                                          key={matchId}
-                                          ref={(el) => {
-                                            if (el && isSelectedMatch) {
-                                              const scrollParent = el.closest(
-                                                "[class*='overflow-y-auto']",
-                                              ) as HTMLElement | null;
-                                              if (scrollParent) {
-                                                liveScrollPos.value =
-                                                  el.getBoundingClientRect()
-                                                    .top -
-                                                  scrollParent.getBoundingClientRect()
-                                                    .top +
-                                                  scrollParent.scrollTop;
-                                              } else {
-                                                liveScrollPos.value =
-                                                  el.offsetTop;
-                                              }
-                                            }
-                                          }}
-                                        >
-                                          <MiniMatch
-                                            selectedEventId={matchId}
-                                            marketSlug={"match-result"}
-                                            loading={loadingMatches}
-                                          />
-                                        </div>
-                                      );
-                                    })
-                                  ) : (
-                                    <div className="px-2 py-2 text-[var(--text-sub-color)] text-[12px]">
-                                      No matches available
-                                    </div>
-                                  )}
-                                </div>
+                const isLeagueExpanded = !collapsedLeagues.has(row.key);
+                const flagIcon = getFlagIconFromregionName(row.regionName);
+
+                return (
+                  <div
+                    key={row.key}
+                    className={`flex flex-col px-[5px] ${isLeagueExpanded ? "pb-[5px]" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLeague(row.key);
+                      }}
+                      className="flex h-[36px] w-full items-center justify-between rounded-[4px] px-2 pb-1 pt-2 transition-colors"
+                    >
+                      <div className="flex min-w-0 items-center gap-[10px]">
+                        {flagIcon ? (
+                          <img
+                            src={flagIcon}
+                            alt={row.regionName}
+                            className="h-4 w-4 shrink-0 rounded-full"
+                          />
+                        ) : (
+                          <div className="h-3 w-[18px] shrink-0" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate text-left">
+                          {row.regionName} {row.leagueName}
+                        </span>
+                      </div>
+                      <img
+                        className={chevronClass(isLeagueExpanded)}
+                        src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+                        alt=""
+                      />
+                    </button>
+
+                    {isLeagueExpanded ? (
+                      <div className="overflow-hidden transition-all duration-300 ease-in-out">
+                        <div className="flex h-full w-full flex-col gap-2 rounded-[4px]">
+                          {row.eventIds.map((matchId) => {
+                            const isSelectedMatch =
+                              matchId === parseInt(eventId ?? "0");
+                            return (
+                              <div
+                                key={matchId}
+                                ref={(el) => {
+                                  if (el && isSelectedMatch) {
+                                    const scrollParent = el.closest(
+                                      "[class*='overflow-y-auto']",
+                                    ) as HTMLElement | null;
+                                    if (scrollParent) {
+                                      liveScrollPos.value =
+                                        el.getBoundingClientRect().top -
+                                        scrollParent.getBoundingClientRect()
+                                          .top +
+                                        scrollParent.scrollTop;
+                                    } else {
+                                      liveScrollPos.value = el.offsetTop;
+                                    }
+                                  }
+                                }}
+                              >
+                                <MiniMatch
+                                  selectedEventId={matchId}
+                                  marketSlug="match-result"
+                                  loading={false}
+                                />
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
           </div>
         )
       ) : null}

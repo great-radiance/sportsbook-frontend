@@ -1,135 +1,138 @@
 import { FunctionComponent } from "preact";
-import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { summarySportsLive } from "@/state/summarySports";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "preact/hooks";
 import { SportsList } from "../SportsList";
-import {
-  LiveMatchesPanelLoader,
-  UpcomingMatchSkeleton,
-} from "@/app/components/Loading";
-import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
+import { LiveMatchesPanelLoader } from "@/app/components/Loading";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useLocation } from "wouter-preact";
 import { storeState } from "@/state/storeState";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
-import { loadedAllMatches } from "@/state/loadedAllMatches";
 import { Match } from "../MatchesBoard/components/Match";
-import InfiniteScroll from "react-infinite-scroll-component";
 import { MarketNavigation } from "../marketNavigation";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import { storeEvent } from "@/helpers/storeEvent";
-import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
-import { firstEventState } from "@/state/firstEventState";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
+  eventHasMarketType,
   isMoneylineSport,
-  liveMatchWouldRender,
 } from "@/helpers/sidebarMarketNavigation";
-import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
-import { summarySportsState } from "@/state/summarySports";
+import {
+  countsSummarySportsState,
+  summarySportsLiveState,
+} from "@/state/summarySports";
 import { isRacingSport } from "@/helpers/isRacingSport";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+import { apiGetLiveSidebar } from "@/api/sidebar/apiGetLiveSidebar";
+import { loadedLiveState } from "@/state/loadedLiveState";
+import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
+import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
 
-/** React lib used under Preact; cast for JSX compatibility */
-const InfiniteScrollComponent = InfiniteScroll as any;
+type LeagueRow = {
+  key: string;
+  regionName: string;
+  leagueName: string;
+  eventIds: number[];
+};
+
+function sportEventCount(sport: LiveSidebarStoreSport): number {
+  let count = 0;
+  for (const region of sport.regions) {
+    for (const league of region.leagues) {
+      count += league.events.length;
+    }
+  }
+  return count;
+}
+
+function leaguesForSport(
+  sport: LiveSidebarStoreSport | undefined,
+): LeagueRow[] {
+  if (!sport) return [];
+
+  const rows: LeagueRow[] = [];
+  for (const region of sport.regions) {
+    for (const league of region.leagues) {
+      if (!league.events.length) continue;
+      rows.push({
+        key: `${region.id}-${league.id}`,
+        regionName: region.name,
+        leagueName: league.name,
+        eventIds: league.events,
+      });
+    }
+  }
+  return rows;
+}
 
 export const LiveMatchesPanel: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
   const [, setLocation] = useLocation();
-  const baseTheme = baseColorTheme.value;
-  const [selectedSport, setSelectedSport] = useState<number>(1);
-
-  const pendingDeleteRef = useRef<number[]>([]);
-  const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [sportsData, setSportsData] = useState<
-    { count: number; name: string; id: number }[]
-  >([]);
   const { pageName } = useRouteParams();
-  const [loadedCount, setLoadedCount] = useState<number>(0);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const baseTheme = baseColorTheme.value;
 
-  // useEffect(() => {
-  //   (async () => {
-  //     const lang = getAppConfig().lang;
-  //     if (lang === "en") return;
-  //     const data = summarySportsLive.value.data;
-  //     if (!data?.length) return;
-  //     const sourceTexts: string[] = [];
-  //     for (const sport of data) {
-  //       sourceTexts.push(sport[1]);
-  //       for (const region of sport[2] ?? []) {
-  //         sourceTexts.push(region[1]);
-  //         for (const league of region[2] ?? []) {
-  //           sourceTexts.push(league[1]);
-  //         }
-  //       }
-  //     }
-  //     await getTranslate(sourceTexts);
-  //   })();
-  // }, [summarySportsLive.value]);
+  const [liveSports, setLiveSports] = useState(summarySportsLiveState.value);
+  const [selectedSportId, setSelectedSportId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(
+    new Set(),
+  );
 
-  const sportRegions = useMemo(() => {
-    return (
-      summarySportsLive.value.data?.find((s) => s[0] === selectedSport)?.[2] ??
-      []
-    );
-  }, [selectedSport, summarySportsLive.value.data]);
+  useEffect(() => {
+    return summarySportsLiveState.subscribe(setLiveSports);
+  }, []);
 
-  const selectedSportName = useMemo(() => {
-    return (
-      summarySportsLive.value.data?.find((s) => s[0] === selectedSport)?.[1] ??
-      ""
-    );
-  }, [selectedSport, summarySportsLive.value.data]);
-
-  const flatList = useMemo(() => {
-    const flat: number[] = [];
-    for (const region of sportRegions) {
-      for (const league of region[2] ?? []) {
-        flat.push(...league[2]);
+  useEffect(() => {
+    (async () => {
+      if (liveSports.length > 0) {
+        setLoading(false);
+        return;
       }
-    }
-    return flat;
-  }, [sportRegions]);
-
-  const groupedLimited = useMemo(() => {
-    const grouped: Record<number, Record<number, number[]>> = {};
-    let count = 0;
-    outer: for (const region of sportRegions) {
-      const regionId = region[0];
-      for (const league of region[2] ?? []) {
-        const leagueId = league[0];
-        if (count >= loadedCount) break outer;
-        if (!grouped[regionId]) grouped[regionId] = {};
-        if (!grouped[regionId][leagueId]) grouped[regionId][leagueId] = [];
-        grouped[regionId][leagueId].push(...league[2]);
-        count++;
+      try {
+        await apiGetLiveSidebar();
+      } catch (error) {
+        console.error("Error loading live sidebar:", error);
+      } finally {
+        loadedLiveState.value = true;
+        setLoading(false);
       }
-    }
-    return grouped;
-  }, [sportRegions, loadedCount]);
+    })();
+  }, [liveSports.length]);
 
-  const loadedEventsForMarkets = useMemo(
+  useEffect(() => {
+    if (!liveSports.length) return;
+    if (!liveSports.some((sport) => sport.id === selectedSportId)) {
+      setSelectedSportId(liveSports[0].id);
+    }
+  }, [liveSports, selectedSportId]);
+
+  useEffect(() => {
+    setCollapsedLeagues(new Set());
+  }, [selectedSportId]);
+
+  const selectedSport = useMemo(
+    () => liveSports.find((sport) => sport.id === selectedSportId),
+    [liveSports, selectedSportId],
+  );
+
+  const sportsData = useMemo(
     () =>
-      flatList
-        .slice(0, loadedCount)
-        .map((id) => storeState.value[id]?.value)
-        .filter(Boolean),
-    [flatList, loadedCount, storeState.value],
+      liveSports.map((sport) => ({
+        id: sport.id,
+        name: sport.name,
+        count: sportEventCount(sport),
+      })),
+    [liveSports],
   );
 
-  const sportMarkets = useMemo(
-    () => getSportMarkets(summarySportsState.value, selectedSport),
-    [selectedSport, summarySportsState.value],
+  const leagueRows = useMemo(
+    () => leaguesForSport(selectedSport),
+    [selectedSport],
   );
+
+  const loadedEvents = useMemo(() => {
+    if (!selectedSport) return [];
+    const ids = leagueRows.flatMap((row) => row.eventIds);
+    return ids.map((id) => storeState.value[id]?.value).filter(Boolean);
+  }, [selectedSport, leagueRows, storeState.value]);
 
   const {
     marketOptions,
@@ -139,318 +142,246 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     matchMarketType,
     allowAutoSelect,
   } = useSidebarMarketNavigation({
-    markets: sportMarkets,
-    loadedEvents: loadedEventsForMarkets,
+    markets: selectedSport?.markets ?? [],
+    loadedEvents,
     suppressMarketNav:
-      isMoneylineSport(selectedSport, selectedSportName) ||
-      isRacingSport(selectedSport, selectedSportName),
+      !selectedSport ||
+      isMoneylineSport(selectedSport.id, selectedSport.name) ||
+      isRacingSport(selectedSport.id, selectedSport.name),
   });
 
-  // const selectedMarkets = useMemo(() => {
-  //   return (
-  //     summarySportsLive.value.config.find(
-  //       (s) =>
-  //         s.sportSlug ===
-  //         slugify(selectedSport, { lower: true, trim: true, strict: true }),
-  //     )?.selectedMarkets || []
-  //   );
-  // }, [selectedSport, summarySportsLive.value]);
+  const totalLive = countsSummarySportsState.value.liveCount.totalCount;
+  const selectedSportCount = selectedSport ? sportEventCount(selectedSport) : 0;
 
-  // useEffect(() => {
-  //   setSelectedMarketSlug(
-  //     selectedMarekts.length > 0 ? selectedMarekts[0] || "" : "",
-  //   );
-  // }, [selectedMarkets.length]);
+  const visibleLeagueRows = useMemo(() => {
+    if (!selectedSport) return [];
 
-  // Fetch first 10 live matches when sport/data is ready.
-  useEffect(() => {
-    pendingDeleteRef.current = [];
-    if (!loadedSidebarState.value || !summarySportsLive.value.data) return;
-
-    const firstBatch = flatList.slice(0, 10);
-    const eventIds = firstBatch;
-
-    setLoadedCount(0);
-
-    // No live events for the selected sport — turn off the loaders so the
-    // SportsList can render its tabs (and the panel its empty state) instead
-    // of staying stuck on a skeleton.
-    if (eventIds.length === 0) {
-      setLoadingMatches(false);
-      setLoading(false);
-      return;
-    }
-
-    pendingDeleteRef.current = [...eventIds];
-    let cancelled = false;
-
-    setLoading(true);
-    // setLoadingMatches(true);
-
-    (async () => {
-      try {
-        const events = await apiGetMatches(eventIds);
-        if (cancelled) return;
-        const sorted = (events ?? []).sort(
-          (a, b) =>
-            new Date(b.eventInfo.startTime).getTime() -
-            new Date(a.eventInfo.startTime).getTime(),
-        );
-        sorted.forEach((event) => storeEvent(event));
-        setLoadedCount(eventIds.length);
-        loadedAllMatches.value = true;
-      } catch (err) {
-        console.error("Error fetching live matches:", err);
-      } finally {
-        if (!cancelled) {
-          setLoadingMatches(false);
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      pendingDeleteRef.current.forEach((id) => {
-        delete storeState.value[id];
-      });
-      pendingDeleteRef.current = [];
-    };
-  }, [
-    selectedSport,
-    pageName,
-    loadedSidebarState.value,
-    sportRegions,
-    flatList,
-  ]);
-
-  useEffect(() => {
-    const data = summarySportsLive.value.data ?? [];
-    setSportsData(
-      data.map((sport) => {
-        const sportId = sport[0];
-        const sportName = sport[1];
-        const count = (sport[2] ?? []).reduce(
-          (sum, region) =>
-            sum +
-            (region[2] ?? []).reduce(
-              (lsum, league) => lsum + (league[2] ?? []).length,
-              0,
-            ),
-          0,
-        );
-        return { count, name: sportName, id: sportId };
-      }),
-    );
-  }, [summarySportsLive.value]);
-
-  useEffect(() => {
-    if (!showMarketNav && !allowAutoSelect) return;
-
-    const loadedIds = flatList.slice(0, loadedCount);
-    const firstVisibleId =
-      loadedIds.find((id) =>
-        liveMatchWouldRender(
-          storeState.value[id]?.value,
-          selectedMarketType,
-          allowAutoSelect,
-        ),
-      ) ?? null;
-
-    if (firstVisibleId != null) {
-      firstEventState.value = [selectedSportName, firstVisibleId];
-    }
-  }, [
-    selectedSport,
-    selectedSportName,
-    selectedMarketType,
-    showMarketNav,
-    allowAutoSelect,
-    flatList,
-    loadedCount,
-  ]);
-
-  const loadMore = useCallback(() => {
-    if (loadingMore || loadedCount >= flatList.length) return;
-    const nextBatch = flatList.slice(loadedCount, loadedCount + 10);
-    if (nextBatch.length === 0) return;
-    const eventIds = nextBatch;
-    setLoadingMore(true);
-    apiGetMatches(eventIds)
-      .then((events) => {
-        const sorted = (events ?? []).sort(
-          (a, b) =>
-            new Date(b.eventInfo.startTime).getTime() -
-            new Date(a.eventInfo.startTime).getTime(),
-        );
-        sorted.forEach((event) => storeEvent(event));
-        setLoadedCount((prev) => prev + nextBatch.length);
+    return leagueRows
+      .map((row) => {
+        const visibleIds = row.eventIds.filter((eventId) => {
+          const event = storeState.value[eventId]?.value;
+          if (!event) return false;
+          if (
+            isMoneylineSport(
+              event.sport?.id ?? selectedSportId ?? 0,
+              event.sport?.name,
+            )
+          ) {
+            return true;
+          }
+          if (!showMarketNav) return true;
+          return eventHasMarketType(event, selectedMarketType);
+        });
+        return { ...row, visibleIds };
       })
-      .catch((err) => console.error("Error fetching more live matches:", err))
-      .finally(() => setLoadingMore(false));
-  }, [loadingMore, loadedCount, flatList, selectedSport]);
+      .filter((row) => row.visibleIds.length > 0);
+  }, [
+    selectedSport,
+    leagueRows,
+    selectedSportId,
+    showMarketNav,
+    selectedMarketType,
+    storeState.value,
+  ]);
 
-  const infiniteLoader = (
-    <div className="flex flex-col gap-[2px] py-[2px]">
-      <UpcomingMatchSkeleton />
-      <UpcomingMatchSkeleton />
-      <UpcomingMatchSkeleton />
-    </div>
-  ) as any;
+  const allLeaguesExpanded = useMemo(
+    () =>
+      visibleLeagueRows.length > 0 &&
+      visibleLeagueRows.every((row) => !collapsedLeagues.has(row.key)),
+    [visibleLeagueRows, collapsedLeagues],
+  );
+
+  const toggleLeague = useCallback((key: string) => {
+    setCollapsedLeagues((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleAllLeagues = useCallback(() => {
+    setCollapsedLeagues((prev) => {
+      if (visibleLeagueRows.every((row) => !prev.has(row.key))) {
+        return new Set(visibleLeagueRows.map((row) => row.key));
+      }
+      return new Set();
+    });
+  }, [visibleLeagueRows]);
+
+  const leagueChevronClass = (expanded: boolean) =>
+    [
+      "h-6 w-6 shrink-0 rounded-[4px] transition-all duration-300",
+      expanded ? "-rotate-90" : "rotate-90",
+      baseTheme === "dark" ? "brightness-0 invert" : "brightness-0",
+    ].join(" ");
+
+  if (!loading && liveSports.length === 0) return null;
 
   return (
-    <div
-      className={`overflow-hidden flex w-full flex-col gap-2 md:p-2 rounded-[16px] bg-[var(--background-color)] transition-all duration-300 ease-in-out text-[var(--text-basic-color)]`}
-    >
-      <InfiniteScrollComponent
-        dataLength={loadedCount}
-        next={loadMore}
-        hasMore={loadedCount < flatList.length}
-        loader={infiniteLoader}
-      >
-        <div className="flex flex-col w-full sticky top-0">
-          <div className="flex w-full pt-4 pb-2 px-2 items-center">
-            <div className="flex flex-1 items-center gap-2">
-              <img
-                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/live.png`}
-                className={`w-[24px] h-[24px] object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-              />
-              <span className="text-[20px] font-bold">
-                {tCommon("liveMatches")}({summarySportsLive.value.TotalCount})
+    <section className="flex w-full flex-col gap-2 overflow-hidden rounded-[16px] bg-[var(--background-color)] p-2 text-[var(--text-basic-color)]">
+      <div className="sticky top-0 flex w-full flex-col">
+        <div className="flex w-full items-center pt-4 pb-2">
+          <div className="flex flex-1 items-center gap-2">
+            <img
+              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/live.png`}
+              alt=""
+              className={`h-6 w-6 object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+            />
+            <span className="text-[20px] font-bold">
+              {tCommon("liveMatches")}({totalLive})
+            </span>
+          </div>
+
+          {pageName !== "live" ? (
+            <button
+              type="button"
+              className="flex items-center gap-2"
+              onClick={() => setLocation("/event-view/live")}
+            >
+              <span className="rounded-full bg-[var(--sub-element-secondary)] px-2 py-1 text-[12px] font-bold text-[var(--text-secondary-color)]">
+                {totalLive} {tCommon("liveMatches")}
               </span>
-            </div>
-            {pageName !== "live" && (
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] text-[var(--text-secondary-color)] font-bold rounded-full cursor-default bg-[var(--sub-element-secondary)] px-2 py-1">
-                  {summarySportsLive.value.TotalCount} {tCommon("liveMatches")}
-                </span>
+              <img
+                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/arrow.png`}
+                alt=""
+                className={`h-3 w-3 object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+              />
+            </button>
+          ) : null}
+        </div>
+
+        <SportsList
+          sportsData={sportsData}
+          selectedSport={selectedSportId ?? 0}
+          onSelectSport={setSelectedSportId}
+          loading={loading}
+          isLive
+        />
+      </div>
+
+      {loading ? (
+        <LiveMatchesPanelLoader showMarketTabs={pageName === "live"} />
+      ) : (
+        <>
+          {selectedSport ? (
+            <div className="flex items-center justify-between py-2 md:px-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <img
-                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/arrow.png`}
-                  className={`w-[12px] h-[12px] object-contain cursor-pointer ${pageName === "live" && "hidden"} ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-                  alt="arrow"
-                  onClick={() => {
-                    if (pageName !== "live") {
-                      setLocation("/event-view/live");
-                    }
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${selectedSport.id}.svg`}
+                  alt=""
+                  className={`h-5 w-5 shrink-0 object-contain ${baseTheme === "dark" ? "invert" : ""}`}
+                  onError={(e) => {
+                    e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
                   }}
                 />
+                <span className="truncate text-[16px] font-bold">
+                  {selectedSport.name} ({selectedSportCount})
+                </span>
               </div>
+              {/* <button
+                type="button"
+                className="flex h-8 w-8 shrink-0 items-center justify-center"
+                onClick={toggleAllLeagues}
+                aria-label={tCommon("expandCollapse")}
+                title={tCommon("expandCollapse")}
+              >
+                <img
+                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/column.png`}
+                  alt=""
+                  className={`h-5 w-5 object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"} ${allLeaguesExpanded ? "" : "rotate-180"}`}
+                />
+              </button> */}
+            </div>
+          ) : null}
+
+          {showMarketNav ? (
+            <MarketNavigation
+              options={marketOptions}
+              selectedValue={selectedMarketType}
+              onSelect={setSelectedMarketType}
+            />
+          ) : null}
+
+          <div className="mt-1 flex flex-col rounded-[4px]">
+            {visibleLeagueRows.length === 0 ? (
+              <p className="px-2 py-2 text-[12px] text-[var(--text-sub-color)]">
+                {tCommon("noDataAvailable")}
+              </p>
+            ) : (
+              visibleLeagueRows.map((row) => {
+                const isExpanded = !collapsedLeagues.has(row.key);
+                const isMoneyline = isMoneylineSport(
+                  selectedSportId ?? 0,
+                  selectedSport?.name,
+                );
+
+                return (
+                  <div
+                    key={row.key}
+                    className={`flex flex-col md:px-[5px] ${isExpanded ? "pb-[5px]" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className="flex h-[34px] w-full items-center justify-between gap-2 py-2 text-[12px] md:px-2"
+                      onClick={() => toggleLeague(row.key)}
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <img
+                          src={`${BASE_ASSET_PUBLIC_URL}/icons/star.png`}
+                          alt=""
+                          className={`h-4 w-4 shrink-0 object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
+                        />
+                        <img
+                          src={getFlagIconFromregionName(row.regionName)}
+                          alt=""
+                          className="h-4 w-4 shrink-0 rounded-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = getFlagIconFromregionName(
+                              row.regionName,
+                            );
+                          }}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-left">
+                          {row.regionName} - {row.leagueName}
+                        </span>
+                      </div>
+                      <img
+                        src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
+                        alt=""
+                        className={leagueChevronClass(isExpanded)}
+                      />
+                    </button>
+
+                    {isExpanded ? (
+                      <div
+                        className={`flex flex-col ${isMoneyline ? "gap-1" : "overflow-hidden rounded-[8px] border border-[var(--border-color)] bg-[var(--sub-element-color)]"}`}
+                      >
+                        {row.visibleIds.map((eventId, index) =>
+                          isMoneyline ? (
+                            <MoneylineMatch key={eventId} eventId={eventId} />
+                          ) : (
+                            <Match
+                              key={eventId}
+                              eventId={eventId}
+                              marketType={matchMarketType}
+                              allowAutoSelect={allowAutoSelect}
+                              allowRounded={
+                                index === 0 ||
+                                index === row.visibleIds.length - 1
+                              }
+                            />
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </div>
-          <SportsList
-            sportsData={sportsData}
-            selectedSport={selectedSport}
-            onSelectSport={(sportId) => {
-              const sport = summarySportsLive.value.data?.find(
-                (s) => s[0] === sportId,
-              );
-              if (sport != null) setSelectedSport(sport[0]);
-            }}
-            loading={loadingMatches}
-            isLive={true}
-          />
-        </div>
-        {loading ? (
-          <LiveMatchesPanelLoader showMarketTabs={pageName === "live"} />
-        ) : (
-          <>
-            {showMarketNav ? (
-              <MarketNavigation
-                options={marketOptions}
-                selectedValue={selectedMarketType}
-                onSelect={setSelectedMarketType}
-              />
-            ) : null}
-            <div className="flex flex-col mt-1 rounded-[4px]">
-              <>
-                {flatList.length === 0 ? (
-                  <div className="px-2 py-2">{tCommon("noDataAvailable")}</div>
-                ) : (
-                  Object.entries(groupedLimited).flatMap(
-                    ([regionId, leagues]) =>
-                      Object.entries(leagues).map(([leagueId, eventIds]) => {
-                        const visibleEventIds = eventIds.filter((id) => {
-                          const ev = storeState.value[id]?.value;
-                          if (!ev) return false;
-                          return liveMatchWouldRender(
-                            ev,
-                            selectedMarketType,
-                            allowAutoSelect,
-                          );
-                        });
-                        if (visibleEventIds.length === 0) return null;
-                        return (
-                          <div
-                            key={`${regionId}-${leagueId}`}
-                            className={`flex flex-col md:px-[5px]`}
-                          >
-                            <button
-                              className={`flex items-center h-[34px] justify-start py-2 transition-colors w-full`}
-                            >
-                              <div className="flex items-center text-[12px] md:px-2 pb-1 pt-2 gap-2 flex-1 min-w-0">
-                                <img
-                                  src={`${BASE_ASSET_PUBLIC_URL}/icons/star.png`}
-                                  className={`w-[16px] h-[16px] object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-                                />
-                                <span className="flex-1 text-left truncate min-w-0">
-                                  {summarySportsLive.value.data
-                                    ?.find((s) => s[0] === selectedSport)?.[2]
-                                    ?.find(
-                                      (r) => r[0] === Number(regionId),
-                                    )?.[1] ?? regionId}
-                                  {" - "}
-                                  {summarySportsLive.value.data
-                                    ?.find((s) => s[0] === selectedSport)?.[2]
-                                    ?.find(
-                                      (r) => r[0] === Number(regionId),
-                                    )?.[2]
-                                    ?.find(
-                                      (l) => l[0] === Number(leagueId),
-                                    )?.[1] ?? leagueId}
-                                </span>
-                              </div>
-                            </button>
-
-                            <div className="overflow-hidden transition-all duration-300 ease-in-out">
-                              <div className="flex flex-col w-full h-full gap-[2px] py-[2px]">
-                                <div
-                                  className={`flex flex-col mt-[2px] rounded-[8px] overflow-hidden border-[1px] w-full border-[var(--border-color)] bg-[var(--sub-element-color)]`}
-                                >
-                                  {visibleEventIds.map((eventId) => {
-                                    const ev = storeState.value[eventId]?.value;
-                                    const isMoneyline =
-                                      ev &&
-                                      isMoneylineSport(
-                                        ev.sport?.id ?? selectedSport,
-                                        ev.sport?.name,
-                                      );
-                                    return isMoneyline ? (
-                                      <MoneylineMatch
-                                        key={eventId}
-                                        eventId={eventId}
-                                      />
-                                    ) : (
-                                      <Match
-                                        key={eventId}
-                                        eventId={eventId}
-                                        marketType={matchMarketType}
-                                        allowAutoSelect={allowAutoSelect}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }),
-                  )
-                )}
-              </>
-            </div>
-          </>
-        )}
-      </InfiniteScrollComponent>
-    </div>
+        </>
+      )}
+    </section>
   );
 };

@@ -19,6 +19,7 @@ export const LiveEventView: FunctionComponent = () => {
       </div>
       <div className="flex w-full h-full overflow-hidden">
         {eventId ? <MarketsBoard /> : <LiveMatchesPanel />}
+        {/* <LiveMatchesPanel /> */}
       </div>
       <div
         className="absolute min-h-screen h-full z-[25] bottom-[70px] top-0 left-1 right-1 flex flex-col md:h-screen md:shrink-0 md:w-[480px] md:mt-2 md:mx-2 md:sticky md:top-0"
@@ -26,7 +27,7 @@ export const LiveEventView: FunctionComponent = () => {
           display: isOpenedMyBet.value ? "flex" : "none",
         }}
       >
-        <RightSidebar />
+        {/* <RightSidebar /> */}
       </div>
     </div>
   );

@@ -46,3 +46,9 @@ export const baseUrl: string =
   "https://tekio.s3.eu-north-1.amazonaws.com/sportsbook";
 export const BASE_ASSET_PUBLIC_URL =
   "https://tekio.s3.eu-north-1.amazonaws.com/cybet-sportsbook";
+
+export const modeBySport: Record<number, number> = {
+  1: 10,
+  8: 8,
+  4: 6,
+};

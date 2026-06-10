@@ -132,7 +132,7 @@ export const storeEvent = (event: MatchDataResponse) => {
     // marketsRef: event.marketsRef?.length
     //   ? event.marketsRef
     //   : evSig.value.marketsRef,
-    // scoreboard: event.scoreboard,
+    scoreboard: event.scoreboard ?? null,
     // // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
   syncSelectionsStoreForEvent(event.eventInfo.id);

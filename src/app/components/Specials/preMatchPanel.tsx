@@ -32,6 +32,7 @@ import {
 } from "@/helpers/sortEventIdsByStartDate";
 import { POPULAR_SPORT_ID } from "@/helpers/summaryIds";
 import { baseColorTheme } from "@/state/baseColorTheme";
+import { popularMatchesState } from "@/state/popularMatchesState";
 
 function sportsFromSidebar(isLive: boolean) {
   const counts = isLive
@@ -91,13 +92,14 @@ export const PreMatchPanel: FunctionComponent = () => {
         let responsePage = nextPage;
 
         if (selectedSport === POPULAR_SPORT_ID) {
-          const response = await apiGetPopularMatches({ page: nextPage });
-          response.data.forEach((match: MatchDataResponse) =>
-            storeEvent(match),
+          const matches = popularMatchesState.value.slice(
+            (nextPage - 1) * 10,
+            nextPage * 10,
           );
-          ids = response.data.map((match) => match.eventInfo.id);
-          responseTotal = response.total;
-          responsePage = response.page;
+          matches;
+          ids = matches.map((match) => match.eventInfo.id);
+          responseTotal = popularMatchesState.value.length;
+          responsePage = nextPage;
         } else {
           const response = await apiGetUpcomingEvents({
             sport: selectedSport,
@@ -121,6 +123,8 @@ export const PreMatchPanel: FunctionComponent = () => {
         setPage(responsePage);
       } catch (error) {
         console.error("Error fetching join-the-action matches:", error);
+        setLoading(false);
+        setLoadingMore(false);
         if (!append) {
           setEventIds([]);
           setTotal(0);
@@ -130,7 +134,7 @@ export const PreMatchPanel: FunctionComponent = () => {
         setLoadingMore(false);
       }
     },
-    [selectedSport, isLiveMode],
+    [selectedSport, isLiveMode, popularMatchesState.value],
   );
 
   useEffect(() => {
@@ -345,11 +349,7 @@ export const PreMatchPanel: FunctionComponent = () => {
                 !isLiveMode ||
                 isMoneyline ||
                 !showMarketNav ||
-                liveMatchWouldRender(
-                  stored,
-                  activeMarketType,
-                  allowAutoSelect,
-                );
+                liveMatchWouldRender(stored, activeMarketType, allowAutoSelect);
               if (!canRenderLive) return null;
 
               return (

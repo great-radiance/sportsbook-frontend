@@ -4,6 +4,7 @@ import {
   countsSummarySportsState,
   summarySportsState,
 } from "@/state/summarySports";
+import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
@@ -12,24 +13,29 @@ import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { baseColorTheme } from "@/state/baseColorTheme";
 
 export const TopLeagueMenu = () => {
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
   const baseTheme = baseColorTheme.value;
 
+  const [sidebarNodes, setSidebarNodes] = useState(summarySportsState.value);
+  const [sidebarLoaded, setSidebarLoaded] = useState(loadedSidebarState.value);
+
+  useEffect(() => summarySportsState.subscribe(setSidebarNodes), []);
+  useEffect(() => loadedSidebarState.subscribe(setSidebarLoaded), []);
+
   useEffect(() => {
-    const summary = summarySportsState.value;
     if (
-      !summary?.length ||
+      !sidebarLoaded ||
+      !sidebarNodes.length ||
       countsSummarySportsState.value.preMatchCount.totalCount <= 0
     ) {
       popularLeaguesState.value = [];
-      setLoading(false);
+      setLoading(!sidebarLoaded);
       return;
     }
+
     try {
-      setLoading(true);
-      popularLeaguesState.value = buildTopLeagueItems(summarySportsState.value);
-      console.log("popularLeaguesState.value", popularLeaguesState.value);
+      popularLeaguesState.value = buildTopLeagueItems(sidebarNodes);
     } catch (error) {
       console.error("Error building top league items:", error);
       popularLeaguesState.value = [];
@@ -37,9 +43,9 @@ export const TopLeagueMenu = () => {
       setLoading(false);
     }
   }, [
-    summarySportsState.value,
+    sidebarLoaded,
+    sidebarNodes,
     countsSummarySportsState.value.preMatchCount.totalCount,
-    featuredLeaguesState.value,
     isMobile.value,
   ]);
 
@@ -58,7 +64,7 @@ export const TopLeagueMenu = () => {
   if (loading) {
     const skeletonCount = 8;
     return (
-      <div className="w-full overflow-x-auto mt-3 scrollbar-none">
+      <div className="mt-3 w-full overflow-x-auto scrollbar-none">
         <div
           className="grid gap-2 py-2 pr-3"
           style={{
@@ -87,7 +93,7 @@ export const TopLeagueMenu = () => {
   if (leagueItems.length === 0) return null;
 
   return (
-    <div className="w-full overflow-x-auto mt-3 font-bold scrollbar-none">
+    <div className="mt-3 w-full overflow-x-auto font-bold scrollbar-none">
       <div
         className="grid gap-2 py-2 pr-3"
         style={{
@@ -103,25 +109,25 @@ export const TopLeagueMenu = () => {
             onClick={(e) => onLeagueClick(e, path)}
             className="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-white/10"
           >
-            <div className="flex items-center justify-center rounded-md border border-[#FFFFFF20] p-1 relative">
+            <div className="relative flex items-center justify-center rounded-md border border-[#FFFFFF20] p-1">
               <img
                 src={`${BASE_ASSET_PUBLIC_URL}/logo/leagueById/${sport.id}/${league.id}.webp`}
                 onError={(e) => {
                   e.currentTarget.src = getFlagIconFromregionName(region.name);
-                  e.currentTarget.className = "rounded-full w-4 h-4";
+                  e.currentTarget.className = "h-4 w-4 rounded-full";
                 }}
                 alt=""
-                className={`h-5 w-5 shrink-0`}
+                className="h-5 w-5 shrink-0"
               />
-              <div className="absolute -bottom-[6px] rounded-full mx-auto p-[1px] bg-[var(--background-element)]">
+              <div className="absolute -bottom-[6px] mx-auto rounded-full bg-[var(--background-element)] p-[1px]">
                 <img
                   src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sport.id}.svg`}
                   onError={(e) => {
                     e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
-                    e.currentTarget.className = "w-4 h-4";
+                    e.currentTarget.className = "h-4 w-4";
                   }}
                   alt=""
-                  className={`w-[14px] h-[14px] ${baseTheme === "dark" ? "invert" : ""}`}
+                  className={`h-[14px] w-[14px] ${baseTheme === "dark" ? "invert" : ""}`}
                 />
               </div>
             </div>

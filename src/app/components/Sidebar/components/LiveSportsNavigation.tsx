@@ -3,6 +3,10 @@ import { useEffect, useState } from "preact/hooks";
 import { isMobile } from "@/state/isMobile";
 import { LiveSportSection } from "@/app/components/Sidebar/components/LiveSportSection";
 import { useRouteParams } from "@/hooks/useRotueParams";
+import {
+  countsSummarySportsState,
+  summarySportsLiveState,
+} from "@/state/summarySports";
 
 interface LiveSportsNavigationProps {
   selectedSport?: string;
@@ -12,7 +16,7 @@ interface LiveSportsNavigationProps {
 export const LiveSportsNavigation: FunctionComponent<
   LiveSportsNavigationProps
 > = ({ selectedSport, groupByRegions = false }) => {
-  const { pageName, sportName, eventId } = useRouteParams();
+  const { pageName, sportName } = useRouteParams();
   const [expandedSports, setExpandedSports] = useState<Set<string>>(
     new Set(["Soccer"]),
   ); // Football expanded by default
@@ -45,12 +49,14 @@ export const LiveSportsNavigation: FunctionComponent<
 
   return (
     <div className="flex flex-col w-full gap-[2px] rounded-[4px]">
-      {(summarySportsLive.value.data ?? []).map((sportTuple) => {
-        const sportId = sportTuple[0];
-        const sportName = sportTuple[1];
-        if ((summarySportsLive.value.counts[sportId]?.total ?? 0) === 0)
+      {(summarySportsLiveState.value ?? []).map((sportTuple) => {
+        const sportId = sportTuple.id;
+        const sportName = sportTuple.name;
+        if (
+          (countsSummarySportsState.value.liveCount?.counts[sportId] ?? 0) === 0
+        )
           return null;
-        const isExpanded = expandedSports.has(sportName) && !!eventId;
+        const isExpanded = expandedSports.has(sportName);
         if (!isExpanded && isMobile.value) return null;
         return (
           <div className="flex w-full" key={sportId}>

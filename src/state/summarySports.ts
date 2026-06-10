@@ -5,8 +5,10 @@ import type {
   countsSummary,
   sidebarNode,
 } from "@/api/sidebar/apiGetSidebar";
+import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
 
 export const summarySportsState = signal<sidebarNode[]>([]);
+export const summarySportsLiveState = signal<LiveSidebarStoreSport[]>([]);
 
 export const countsSummarySportsState = signal<countsSummary>({
   preMatchCount: {

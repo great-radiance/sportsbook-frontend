@@ -21,7 +21,7 @@ export const EventView: FunctionComponent = () => {
       <div className="flex w-full min-w-0 h-full">
         {pageName === "live" ? (
           <div className="flex w-full min-w-0 min-h-0">
-            {/* <LiveEventView /> */}
+            <LiveEventView />
           </div>
         ) : (
           <>
@@ -29,11 +29,11 @@ export const EventView: FunctionComponent = () => {
               {!pageName && <EmblaBanner />}
               <div className="flex flex-col md:flex-row p-2 w-full min-w-0 h-full">
                 <div className="flex w-full md:max-w-[calc(100%-320px)] h-full shrink-0">
-                  {/* <SwitchMachesBoard /> */}
+                  <SwitchMachesBoard />
                   {/* <SportPage /> */}
                   {/* <RegionMatchesBoard /> */}
                   {/* <MatchesBoard /> */}
-                  <HomePage />
+                  {/* <HomePage /> */}
                 </div>
                 <div
                   className="absolute min-h-screen h-full z-[25] bottom-[70px] top-0 left-1 right-1 flex flex-col md:shrink-0 md:w-[320px] md:mt-2 md:mx-2 md:relative md:left-0 md:right-0"

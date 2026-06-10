@@ -9,7 +9,7 @@ import {
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MarketBoardLoader } from "@/app/components/Loading/MarketBoardLoader";
-import { stateScoreBoardId } from "@/state/summarySports";
+// import { stateScoreBoardId } from "@/state/summarySports";
 import { isMobile } from "@/state/isMobile";
 import { StateScoreBoard } from "../StateScoreBoard";
 import { isBuilding } from "@/state/betState";
@@ -139,11 +139,13 @@ export const MarketsBoard: FunctionComponent = () => {
     try {
       if (!eventId) return;
       const res = await apiGetMatchData(parseInt(eventId));
-      storeEvent(res);
+      if (res) {
+        storeEvent(res);
+      }
       if (pageName === "live") {
         // mappingInfo carries feed-side identifiers; pick the first one for
         // the scoreboard widget (e.g. sportradar) if present.
-        stateScoreBoardId.value = res.eventInfo.mappingInfo?.[0]?.id ?? "";
+        // stateScoreBoardId.value = res.eventInfo.mappingInfo?.[0]?.id ?? "";
       }
     } catch (error) {
       console.error("Error fetching market data:", error);

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import "./style.scss";
-import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { BASE_ASSET_PUBLIC_URL, modeBySport } from "@/shared/config/appConfig";
 import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/themes/light.css";
 import { Market } from "../MatchesBoard/components/Match/Market";
@@ -13,6 +13,8 @@ import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useLocation } from "wouter-preact";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
+import { popularMatchesState } from "@/state/popularMatchesState";
+import { storeEvent } from "@/helpers/storeEvent";
 
 const formatEventTime = (event: tEventModel | undefined): string => {
   if (!event?.startTime) return "22:00";
@@ -44,11 +46,8 @@ export const EmblaBanner = () => {
   const [, setLocation] = useLocation();
   const baseIndex = Math.floor((new Date().getTime() / (3600 * 24)) % 10);
   console.log("baseIndex", baseIndex);
-  const modeBySport: Record<number, number> = {
-    1: 10,
-    8: 8,
-    4: 6,
-  };
+
+  console.log("events", events);
 
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -77,23 +76,34 @@ export const EmblaBanner = () => {
   // helper to normalize different market wrappers to the raw market object
 
   const getSelectedMarket = (event: tEventModel) => {
-    const markets = Object.values(event?.markets ?? {});
+    const markets = Object.keys(event?.markets ?? {});
     const preferred = markets.find((m) => {
-      const n = m.value.name.toLowerCase();
+      if (event.markets[parseInt(m)].value.type === 1) return true;
+      const n = event.markets[parseInt(m)].value.name.toLowerCase();
       return n.includes("winner") || n.includes("match result");
     });
 
-    return preferred?.value ?? markets[0]?.value;
+    return parseInt(preferred ?? markets[0]);
   };
 
   // Get winner market (usually the first market)
 
   useEffect(() => {
-    const featured = apiGetPopularMatches();
-    const allIds =
-      featured.featuredEventRefs.length > 0
-        ? featured.featuredEventRefs.map((ref) => ref.eventId)
-        : (featured.featuredMatches[1] ?? []);
+    const allIds = popularMatchesState.value.map((match) => match.eventInfo.id);
+    popularMatchesState.value.forEach((match) => storeEvent(match));
+    // console.log("storeState", storeState.value);
+    // console.log(
+    //   "popularMatchesStateMarketsTradingStatus",
+    //   [
+    //     ...popularMatchesState.value.map((match) =>
+    //       match.markets.map((market) => market.tradingStatus),
+    //     ),
+    //   ].flat(),
+    // );
+    allIds.forEach((id) => {
+      const event = storeState.value[id];
+      console.log("marketsIds", Object.keys(event?.value?.markets || {}));
+    });
     setEvents(
       allIds
         .filter(
@@ -109,7 +119,9 @@ export const EmblaBanner = () => {
           return eventA?.value?.sport?.id - eventB?.value?.sport?.id;
         }),
     );
-  }, [featuredSummaryData.value, storeState.value, loadedMatchesState.value]);
+  }, [popularMatchesState.value, storeState.value, loadedMatchesState.value]);
+
+  console.log("events", events);
 
   return (
     <div class="embla">
@@ -122,6 +134,7 @@ export const EmblaBanner = () => {
             const eventTime = formatEventTime(event?.value);
             const eventDateLabel = formatEventDate(event?.value);
             const selectedMarket = getSelectedMarket(event?.value);
+            console.log("selectedMarket", selectedMarket);
             return (
               <div
                 key={eventId}
@@ -178,7 +191,7 @@ export const EmblaBanner = () => {
                       {selectedMarket && (
                         <Market
                           eventId={event?.value?.id}
-                          marketId={selectedMarket.id}
+                          marketId={selectedMarket}
                           // single={true}
                         />
                       )}

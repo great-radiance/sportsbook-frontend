@@ -62,6 +62,7 @@ export type MatchDataResponse = {
     extraParameters: Record<string, string>;
     isBetBuilderSupported: boolean;
   }[];
+  scoreboard?: any;
   /** Market type metadata and group tabs for the event detail UI. */
   // marketsRef?: SidebarMarketRef[];
   // scoreboard: any;
@@ -79,8 +80,8 @@ export type MatchDataResponse = {
 };
 
 export const apiGetMatchData = async (eventId: number) => {
-  const response = await instance.get<{ data: MatchDataResponse }>(
-    `/odds88/events/${eventId}?lang=${getAppConfig().lang}`,
+  const response = await instance.get<MatchDataResponse | null>(
+    `users/events/${eventId}/snapshot`,
   );
-  return response.data.data;
+  return response.data ?? null;
 };

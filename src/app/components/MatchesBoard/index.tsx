@@ -24,6 +24,7 @@ import {
   findLeagueNodeByRoute,
   findSportNode,
 } from "@/helpers/findSidebarNodeByRoute";
+import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
 
 const leagueSelectItemClass = (value: string, currentValue: string) =>
   [
@@ -74,6 +75,7 @@ const switchCategory = (
   marketType: number | undefined,
   allowAutoSelect: boolean,
 ) => {
+  const { sportIdParam, sportName } = useRouteParams();
   switch (category) {
     case "Hot":
       return (
@@ -95,6 +97,10 @@ const switchCategory = (
       return (
         <MatchesGroup
           events={eventIds}
+          isMoneyline={isMoneylineSport(
+            parseInt(sportIdParam ?? "0"),
+            sportName ?? "",
+          )}
           marketType={marketType}
           allowAutoSelect={allowAutoSelect}
         />

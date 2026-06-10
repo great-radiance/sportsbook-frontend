@@ -28,6 +28,8 @@ interface MatchProps {
 }
 
 import { formatStartDate, formatStartTime } from "@/helpers/formatEventTime";
+import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
+import { MoneylineMatch } from "./MoneylineMatch";
 
 export { formatStartDate, formatStartTime };
 
@@ -60,6 +62,12 @@ export const Match: FunctionComponent<MatchProps> = ({
 }) => {
   const event = storeState.value[eventId]?.value;
   if (!event) return null;
+
+  const isMoneyline = isMoneylineSport(event?.sport?.id, event?.sport?.name);
+
+  if (isMoneyline) {
+    return <MoneylineMatch eventId={eventId} />;
+  }
 
   const showLeague =
     showLeagueLogo || event?.sport.id === 1 || event?.sport.id === 8;

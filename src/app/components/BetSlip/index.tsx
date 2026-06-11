@@ -226,7 +226,7 @@ export const BetSlip: FunctionComponent = () => {
   const betTypeTabs = [
     { value: "single", label: t("single"), enabled: true },
     { value: "multi", label: t("multiple"), enabled: multiBetEnabled },
-    // { value: "system", label: t("system"), enabled: systemBetEnabled },
+    { value: "system", label: t("system"), enabled: systemBetEnabled },
   ];
 
   useEffect(() => {
@@ -542,10 +542,11 @@ export const BetSlip: FunctionComponent = () => {
               try {
                 const call = await apiPlaceBetWithRetry({
                   idempotencyKey: currentBetSlipIdempotencyKey(),
-                  betType: "parlay",
+                  betType: "system",
                   stake,
                   currency: cur,
                   selections: slipSelectionsPayload(regularSlipOdds),
+                  systemMinCombination: index + 1,
                 });
                 if (
                   call.providerRegistrationFailed ||

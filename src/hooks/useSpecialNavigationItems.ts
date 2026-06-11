@@ -31,14 +31,14 @@ export const useSpecialNavigationItems = () => {
         isExpandable: false,
         link: "/event-view/special/outright",
       },
-      {
-        id: "popular",
-        name: t("top_matches"),
-        icon: "special",
-        color: "purple",
-        isExpandable: false,
-        link: "/event-view/special/popular",
-      },
+      // {
+      //   id: "popular",
+      //   name: t("top_matches"),
+      //   icon: "special",
+      //   color: "purple",
+      //   isExpandable: false,
+      //   link: "/event-view/special/popular",
+      // },
       // {
       //   id: "boosted",
       //   name: t("Odds-on_coupon"),

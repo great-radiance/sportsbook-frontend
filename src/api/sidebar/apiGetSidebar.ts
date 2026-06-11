@@ -30,6 +30,10 @@ export type sidebarNode = {
     id: number;
     name: string;
   };
+  sport?: {
+    id: number;
+    name: string;
+  };
   // events?: number[];
   // bbEvents?: number[];
   pre?: number[];
@@ -53,7 +57,7 @@ export type countsSummary = {
     totalCount: number;
   };
   outrightCount: {
-    counts: countsBySport;
+    counts: Record<number, { count: number; name: string }>;
     totalCount: number;
   };
 };
@@ -79,12 +83,16 @@ export const apiGetSidebar = async () => {
       totalCount: 0,
     },
     outrightCount: {
-      counts: {} as countsBySport,
+      counts: {} as Record<number, { count: number; name: string }>,
       totalCount: 0,
     },
   };
 
-  const buildCounts = (node: sidebarNode, sportId: number) => {
+  const buildCounts = (
+    node: sidebarNode,
+    sportId: number,
+    sportName: string,
+  ) => {
     if (node.type === "league" || node.type === "combined_league") {
       const pre = node.pre?.length ?? 0;
       const live = node.live?.length ?? 0;
@@ -96,12 +104,15 @@ export const apiGetSidebar = async () => {
       countsSummary.liveCount.counts[sportId] =
         (countsSummary.liveCount.counts[sportId] ?? 0) + live;
       countsSummary.liveCount.totalCount += live;
-      countsSummary.outrightCount.counts[sportId] =
-        (countsSummary.outrightCount.counts[sportId] ?? 0) + outright;
+      countsSummary.outrightCount.counts[sportId] = {
+        count:
+          (countsSummary.outrightCount.counts[sportId]?.count ?? 0) + outright,
+        name: sportName,
+      };
       countsSummary.outrightCount.totalCount += outright;
     } else {
       for (const child of node.children ?? []) {
-        buildCounts(child, sportId);
+        buildCounts(child, sportId, sportName);
       }
     }
   };
@@ -111,21 +122,29 @@ export const apiGetSidebar = async () => {
       continue;
     } else if (node.type === "sport") {
       const sportId = node.sportId ?? 0;
+      const sportName = node.sport?.name ?? "";
       countsSummary.preMatchCount.counts[sportId] = 0;
       countsSummary.liveCount.counts[sportId] = 0;
-      countsSummary.outrightCount.counts[sportId] = 0;
+      countsSummary.outrightCount.counts[sportId] = {
+        count: 0,
+        name: sportName,
+      };
       for (const sportChild of node.children ?? []) {
-        buildCounts(sportChild, sportId);
+        buildCounts(sportChild, sportId, sportName);
       }
       // deleteZeroCount(countsSummary.preMatchCount.counts, sportId);
       // deleteZeroCount(countsSummary.liveCount.counts, sportId);
       // deleteZeroCount(countsSummary.outrightCount.counts, sportId);
     } else if (node.type === "combined_sport") {
+      const sportName = node.name ?? "";
       countsSummary.preMatchCount.counts[COMBINED_SPORT_ID] = 0;
       countsSummary.liveCount.counts[COMBINED_SPORT_ID] = 0;
-      countsSummary.outrightCount.counts[COMBINED_SPORT_ID] = 0;
+      countsSummary.outrightCount.counts[COMBINED_SPORT_ID] = {
+        count: 0,
+        name: sportName,
+      };
       for (const combinedSportChild of node.children ?? []) {
-        buildCounts(combinedSportChild, COMBINED_SPORT_ID);
+        buildCounts(combinedSportChild, COMBINED_SPORT_ID, sportName);
       }
       // deleteZeroCount(countsSummary.preMatchCount.counts, COMBINED_SPORT_ID);
       // deleteZeroCount(countsSummary.liveCount.counts, COMBINED_SPORT_ID);

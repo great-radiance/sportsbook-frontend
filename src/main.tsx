@@ -19,10 +19,7 @@ if (import.meta.env.DEV && typeof document !== "undefined") {
       themeEditorData: import.meta.env.VITE_THEME_COLORS as string,
       disallowUrlChange: true,
       allowToChangeParentStyles: true,
-      xOperatorId:
-        import.meta.env.VITE_OPERATOR_ID ||
-        import.meta.env.VITE_API_ID ||
-        "a57f61c93d95b624",
+      xOperatorId: "betway-stage",
       xSportsbookToken: import.meta.env.VITE_USER_JWT as string | undefined,
       xUserId: "00005abb",
       xUserName: "test1",

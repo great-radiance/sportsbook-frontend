@@ -20,7 +20,7 @@ export const countsSummarySportsState = signal<countsSummary>({
     totalCount: 0,
   },
   outrightCount: {
-    counts: {} as countsBySport,
+    counts: {} as Record<number, { count: number; name: string }>,
     totalCount: 0,
   },
 });

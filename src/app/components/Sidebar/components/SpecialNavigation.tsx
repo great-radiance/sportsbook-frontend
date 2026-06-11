@@ -8,12 +8,12 @@ import {
   useSpecialNavigationItems,
 } from "@/hooks/useSpecialNavigationItems";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { featuredSummaryData, summarySports } from "@/state/summarySports";
-import type { SidebarFeaturedLeagueRow } from "@/state/summarySports";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { baseColorTheme } from "@/state/baseColorTheme";
-import type { tSportResponse } from "@/api/sidebar/apiGetSummaryArray";
+import { summarySportsState } from "@/state/summarySports";
+import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 
 interface SpecialNavigationProps {}
 
@@ -39,76 +39,6 @@ function buildPrematchPath(
   return `/event-view/pre-match/${parts.join("/")}`;
 }
 
-/** Build path from featured league tuple when API includes regionId/sportId. */
-function prematchPathFromFeaturedRow(
-  row: SidebarFeaturedLeagueRow,
-  sportsData: tSportResponse,
-): { path: string; sportName: string; regionName: string } | null {
-  const leagueId = row[0];
-  const leagueName = String(row[1] ?? "").trim();
-  const regionId = row[4];
-  const sportId = row[5];
-  if (regionId == null || sportId == null || !leagueName) {
-    return prematchPathForFeaturedLeague(sportsData, leagueId);
-  }
-  const sport = sportsData.find((s) => s[0] === sportId);
-  const sportName = sport ? String(sport[1] ?? "").trim() : "";
-  if (!sportName) return prematchPathForFeaturedLeague(sportsData, leagueId);
-  let regionName = "";
-  for (const region of sport?.[2] ?? []) {
-    if (region[0] === regionId) {
-      regionName = String(region[1] ?? "").trim();
-      break;
-    }
-  }
-  return {
-    path: buildPrematchPath(
-      sportName,
-      sportId,
-      regionName,
-      regionId,
-      leagueName,
-      leagueId,
-    ),
-    sportName,
-    regionName,
-  };
-}
-
-/** Resolve sport/region for a featured league id using the prematch summary tree. */
-function prematchPathForFeaturedLeague(
-  sportsData: tSportResponse,
-  leagueId: number,
-): { path: string; sportName: string; regionName: string } | null {
-  for (const sport of sportsData ?? []) {
-    const sportId = sport[0] as number;
-    const sportName = String(sport[1] ?? "").trim();
-    if (!sportName) continue;
-    for (const region of sport[2] ?? []) {
-      const regionId = region[0] as number;
-      const regionName = String(region[1] ?? "").trim();
-      for (const league of region[2] ?? []) {
-        const id = league[0] as number;
-        if (id !== leagueId) continue;
-        const leagueName = String(league[1] ?? "").trim();
-        return {
-          path: buildPrematchPath(
-            sportName,
-            sportId,
-            regionName,
-            regionId,
-            leagueName,
-            leagueId,
-          ),
-          sportName,
-          regionName,
-        };
-      }
-    }
-  }
-  return null;
-}
-
 export const SpecialNavigation: FunctionComponent<
   SpecialNavigationProps
 > = () => {
@@ -117,20 +47,12 @@ export const SpecialNavigation: FunctionComponent<
   const { t: tCommon } = useTranslate("common");
   const baseTheme = baseColorTheme.value;
 
-  const featuredLeagues = useMemo(
-    () => featuredSummaryData.value.featuredLeagues ?? [],
-    [featuredSummaryData.value.featuredLeagues],
-  );
-
-  const LinkButtonOnClick = (e: MouseEvent, path: string) => {
-    e.stopPropagation();
-    if (e.ctrlKey || e.metaKey) {
-      const fullUrl = `${window.location.origin}${window.location.pathname}#sportsbook=${path}`;
-      window.open(fullUrl, "_blank");
-    } else {
-      setLocation(path);
-    }
-  };
+  const featuredLeagues = useMemo(() => {
+    return (
+      summarySportsState.value.find((node) => node.type === "featured_leagues")
+        ?.children ?? []
+    );
+  }, [summarySportsState.value]);
 
   const [itemExpanded, setItemExpanded] = useState<Record<string, boolean>>({});
   const navigationItems = useSpecialNavigationItems();
@@ -218,30 +140,31 @@ export const SpecialNavigation: FunctionComponent<
                     {tCommon("noDataAvailable")}
                   </div>
                 ) : (
-                  featuredLeagues.map((row: SidebarFeaturedLeagueRow) => {
-                    const leagueId = row[0];
-                    const leagueName = String(row[1] ?? "");
-                    const resolved = prematchPathFromFeaturedRow(
-                      row,
-                      summarySports.value.data ?? [],
+                  featuredLeagues.map((row: sidebarNode) => {
+                    const leagueId = row.leagueId;
+                    const leagueName = row.name;
+                    const sportId = row.sport?.id;
+                    const sportName = row.sport?.name;
+                    const path = buildPrematchPath(
+                      sportName ?? "",
+                      sportId ?? 0,
+                      row.region?.name ?? "",
+                      row.region?.id ?? 0,
+                      leagueName ?? "",
+                      leagueId ?? 0,
                     );
-                    const sportIcon = resolved?.sportName ?? "all-sports";
                     return (
                       <div
                         key={`featured-league-${leagueId}`}
                         onClick={(e) => {
-                          if (!resolved) return;
-                          LinkButtonOnClick(e, resolved.path);
+                          e.stopPropagation();
+                          linkButtonOnClick(e, path, setLocation);
                           if (isMobile.value) isOpenedSidebar.value = false;
                         }}
-                        className={`flex items-center text-[12px] justify-between pl-1 py-1 gap-[8px] rounded-[4px] bg-white/5 transition-colors w-full ${
-                          resolved
-                            ? `cursor-pointer ${!isMobile.value ? "hover:bg-white/10" : ""}`
-                            : "opacity-60 cursor-default"
-                        }`}
+                        className={`flex items-center text-[12px] justify-between pl-1 py-1 gap-[8px] rounded-[4px] bg-white/5 transition-colors w-full cursor-pointer ${!isMobile.value ? "hover:bg-white/10" : ""}`}
                       >
                         <img
-                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportIcon}.svg`}
+                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportId}.svg`}
                           className={`w-[24px] h-[24px] shrink-0 ${baseTheme === "dark" ? "invert" : ""}`}
                           alt=""
                           onError={(e) => {
@@ -254,9 +177,9 @@ export const SpecialNavigation: FunctionComponent<
                           <span className="flex-1 text-left text-[var(--text-primary-color)] truncate">
                             {leagueName}
                           </span>
-                          {resolved ? (
+                          {row.region ? (
                             <span className="text-[11px] text-[var(--text-sub-color)] truncate">
-                              {resolved.regionName}
+                              {row.region.name}
                             </span>
                           ) : (
                             <span className="text-[11px] text-[var(--text-sub-color)]">

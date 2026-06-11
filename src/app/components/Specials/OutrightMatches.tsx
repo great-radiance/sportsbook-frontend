@@ -1,28 +1,16 @@
 import { FunctionComponent } from "preact";
-import { outRightSummarySports } from "@/state/summarySports";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { storeEvent } from "@/helpers/storeEvent";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader } from "../Loading";
 // import { orderConfigState } from "@/state/orderConfigState";
-import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { Match } from "../MatchesBoard/components/Match";
+import { countsSummarySportsState } from "@/state/summarySports";
 
 /** `apiGetMatches` sends all ids in one URL; chunk to avoid very long query strings. */
 const MAX_EVENT_IDS_PER_REQUEST = 80;
-
-async function fetchMatchesInChunks(eventIds: number[]): Promise<void> {
-  const unique = [...new Set(eventIds)].filter(
-    (id) => Number.isFinite(id) && id > 0,
-  );
-  for (let i = 0; i < unique.length; i += MAX_EVENT_IDS_PER_REQUEST) {
-    const slice = unique.slice(i, i + MAX_EVENT_IDS_PER_REQUEST);
-    const events = await apiGetMatches(slice);
-    (events ?? []).forEach((event) => storeEvent(event));
-  }
-}
 
 export const OutrightMatches: FunctionComponent = () => {
   // Default to Soccer (sportId 1); the SportsList will let the user pick
@@ -30,77 +18,25 @@ export const OutrightMatches: FunctionComponent = () => {
   const [selectedSport, setSelectedSport] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const { t } = useTranslate("sidebar");
-  const { t: tLiveCal } = useTranslate("liveCalendar");
 
   // const popularEventIds = useMemo(
   //   () => outRightSummarySports.value.featuredMatches?.[1] ?? [],
   //   [outRightSummarySports.value],
   // );
 
-  const sportsWithCount = useMemo<
-    { count: number; name: string; id: number }[]
-  >(() => {
-    const data = outRightSummarySports.value.data ?? [];
-    return data.map((sport) => {
-      const sportId = sport[0];
-      const sportName = sport[1];
-      const count = (sport[2] ?? []).reduce(
-        (regionAcc, region) =>
-          regionAcc +
-          (region[2] ?? []).reduce(
-            (leagueAcc, league) => leagueAcc + (league[2] ?? []).length,
-            0,
-          ),
-        0,
-      );
-      return { count, name: sportName, id: sportId };
+  const sportsListData = useMemo<{ name: string; id: number }[]>(() => {
+    const data = countsSummarySportsState.value.outrightCount.counts;
+    return Object.entries(data).map(([id, obj]: [string, any]) => {
+      const sportName = obj.name;
+      return { id: Number(id), name: sportName };
     });
-  }, [outRightSummarySports.value]);
-
-  const selectedSportTuple = useMemo(
-    () =>
-      outRightSummarySports.value.data?.find((s) => s[0] === selectedSport) ??
-      null,
-    [outRightSummarySports.value.data, selectedSport],
-  );
-
-  const selectedSportName = selectedSportTuple?.[1] ?? "";
-  const regions = useMemo(
-    () => selectedSportTuple?.[2] ?? [],
-    [selectedSportTuple],
-  );
-
-  // First league across the selected sport — opened by default so users
-  // immediately see at least one outright bracket without having to click.
-  const firstLeagueId = useMemo<number | null>(() => {
-    for (const region of regions) {
-      for (const league of region[2] ?? []) {
-        return league[0];
-      }
-    }
-    return null;
-  }, [regions]);
+  }, [countsSummarySportsState.value]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoading(true);
-        const eventIds: number[] = [];
-        for (const region of regions) {
-          for (const league of region[2] ?? []) {
-            for (const id of league[2] ?? []) {
-              if (typeof id === "number") eventIds.push(id);
-            }
-          }
-        }
-        if (eventIds.length === 0) {
-          if (!cancelled) setLoading(false);
-          return;
-        }
-
-        await fetchMatchesInChunks(eventIds);
-        if (cancelled) return;
       } catch (error) {
         console.error("Error fetching outright matches:", error);
       } finally {
@@ -110,7 +46,7 @@ export const OutrightMatches: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [outRightSummarySports.value, selectedSport, regions]);
+  }, [countsSummarySportsState.value, selectedSport]);
 
   return (
     <div

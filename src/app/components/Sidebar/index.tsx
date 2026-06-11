@@ -39,6 +39,10 @@ export const Sidebar: FunctionComponent = () => {
           const { data, countsSummary } = await apiGetSidebar();
           summarySportsState.value = data;
           countsSummarySportsState.value = countsSummary;
+          console.log(
+            "countsSummarySportsState",
+            countsSummarySportsState.value,
+          );
         }
       } catch (error) {
         console.error("Error fetching summary or oders:", error);
@@ -118,7 +122,7 @@ export const Sidebar: FunctionComponent = () => {
         <>
           <div className="flex flex-col w-full flex-1 min-h-0 pr-[2px] rounded-[4px] gap-[2px] overflow-y-auto scrollbar-none">
             <BetBuilderSidebarToggle />
-            {/* <SpecialNavigation /> */}
+            <SpecialNavigation />
             {loading ? (
               <PrematchLoader
                 sportsCount={3}

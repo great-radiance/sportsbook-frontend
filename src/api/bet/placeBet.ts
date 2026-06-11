@@ -16,10 +16,11 @@ export type PlaceBetSelectionPayload = {
 
 export type PlaceBetPayload = {
   idempotencyKey: string;
-  betType: "single" | "parlay";
+  betType: "single" | "parlay" | "system";
   stake: number;
   currency: string;
   selections: PlaceBetSelectionPayload[];
+  systemMinCombination?: number;
 };
 
 export type PlaceBetAccepted = {
@@ -62,7 +63,7 @@ export async function apiPlaceBet(
     await navigator.clipboard.writeText(JSON.stringify(payload));
     const { data, status } = await instance.post<
       PlaceBetResult | { data: PlaceBetResult }
-    >("/bets/place", payload);
+    >("users/bets/place", payload);
     return {
       httpStatus: status,
       result: unwrapPlaceBetResponse(data),

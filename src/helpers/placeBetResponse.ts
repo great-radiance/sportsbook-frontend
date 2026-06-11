@@ -2,8 +2,8 @@ import type {
   PlaceBetCallResult,
   PlaceBetResult,
 } from "@/api/bet/placeBet";
-import { loadBetDetail } from "@/api/bet/apiBetDetail";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
+import { requestBetHistoryRefresh } from "@/state/betHistoryState";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import { notify } from "@/shared/toast";
 
@@ -34,7 +34,7 @@ export async function handlePlaceBetCallResult(
 
   if (call.httpStatus === 409) {
     if (call.result?.betId) {
-      await loadBetDetail(call.result.betId);
+      requestBetHistoryRefresh();
       notify("This bet was already submitted.", "primary", "info-circle", 3500);
       effects.clearSlip();
       rotateBetSlipIdempotencyKey();

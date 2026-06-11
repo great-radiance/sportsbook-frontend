@@ -8,6 +8,7 @@ import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getAppConfig } from "@/shared/config/appConfig";
 import {
+  betHistoryRefreshNonce,
   betHistoryState,
   openBetsTabState,
   totalPagesState,
@@ -32,7 +33,7 @@ export const OpenBets: FunctionComponent = () => {
   useEffect(() => {
     if (!xUserId || !sessionReady) return;
 
-    const fetchKey = `${xUserId}|${page}|${selectedTab}|${refreshToken}`;
+    const fetchKey = `${xUserId}|${page}|${selectedTab}|${refreshToken}|${betHistoryRefreshNonce.value}`;
     if (lastFetchedKeyRef.current === fetchKey) return;
 
     let cancelled = false;
@@ -82,7 +83,7 @@ export const OpenBets: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [xUserId, sessionReady, page, selectedTab, refreshToken]);
+  }, [xUserId, sessionReady, page, selectedTab, refreshToken, betHistoryRefreshNonce.value]);
 
   const handleTabChange = (tab: "open" | "settled") => {
     if (tab === selectedTab) return;

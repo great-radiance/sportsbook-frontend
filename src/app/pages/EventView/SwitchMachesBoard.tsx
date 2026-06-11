@@ -1,7 +1,7 @@
 import { MatchesBoard } from "@/app/components/MatchesBoard";
 import { BoostedOdds } from "@/app/components/Specials/BoostedOdds";
-import { OutrightMatches } from "@/app/components/Specials/OutrightMatches";
-import { PopularMatches } from "@/app/components/Specials/PopularMatches";
+// import { OutrightMatches } from "@/app/components/Specials/OutrightMatches";
+// import { PopularMatches } from "@/app/components/Specials/PopularMatches";
 import { UpcomingMatches } from "@/app/components/Specials/UpcomingMatches";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { FunctionComponent } from "preact";
@@ -10,6 +10,7 @@ import { HomePage } from "./HomePage";
 import { MarketsBoard } from "@/app/components/MarketsBoard";
 import { RegionMatchesBoard } from "@/app/components/MatchesBoard/RegionMatchesBoard";
 import { SportPage } from "./SportPage";
+import { OutrightMatches } from "@/app/components/Specials/OutrightMatches";
 
 export const SwitchMachesBoard: FunctionComponent = () => {
   const {
@@ -30,8 +31,8 @@ export const SwitchMachesBoard: FunctionComponent = () => {
         // return <PopularMatches />;
         // } else if (sportName === "boosted") {
         //   return <BoostedOdds />;
-        // } else if (sportName === "outright") {
-        //   return <OutrightMatches />;
+      } else if (sportName === "outright") {
+        return <OutrightMatches />;
       } else if (sportName === "competitions") {
         return <MatchesBoard />;
       }

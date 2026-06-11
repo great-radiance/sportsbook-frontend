@@ -2,7 +2,6 @@ import { MarketsBoard } from "@/app/components/MarketsBoard";
 import { Sidebar } from "@/app/components/Sidebar";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { FunctionComponent } from "preact";
-import { RightSidebar } from "../../RightSidebar";
 import { LiveMatchesPanel } from "@/app/components/Specials/LiveMatchesPanel";
 import { isMobile } from "@/state/isMobile";
 import { isOpenedMyBet } from "@/state/betState";

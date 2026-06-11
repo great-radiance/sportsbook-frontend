@@ -56,10 +56,14 @@ export async function apiExecuteCashout(
 ): Promise<CashoutResponse> {
   const { data } = await instance.post<
     CashoutResponse | { data: CashoutResponse }
-  >(`/bets/${betId}/cashout`, {
-    cashoutAmount,
-    idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
-  });
+  >(
+    `users/bets/${betId}/cashout`,
+    {
+      cashoutAmount,
+      idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
+    },
+    { params: { betId } },
+  );
   return unwrapApiData<CashoutResponse>(data);
 }
 

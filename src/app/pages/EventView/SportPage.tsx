@@ -20,7 +20,7 @@ import {
 } from "@/helpers/upcomingSportCatalog";
 
 export const SportPage: FunctionComponent = () => {
-  const { sportName, sportIdParam } = useRouteParams();
+  const { sportName, sportIdParam, regionName } = useRouteParams();
   const [loading, setLoading] = useState(true);
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");
   const baseTheme = baseColorTheme.value;
@@ -60,6 +60,10 @@ export const SportPage: FunctionComponent = () => {
   );
 
   useEffect(() => {
+    if (regionName === "upcoming") {
+      setActiveTab("upcoming");
+      return;
+    }
     if (featuredLeaguesOfSport.length === 0) {
       setActiveTab("competitions");
       setSelectedLeagueKey("");
@@ -72,7 +76,7 @@ export const SportPage: FunctionComponent = () => {
       }
       return featuredLeaguesOfSport[0].id;
     });
-  }, [featuredLeaguesOfSport]);
+  }, [featuredLeaguesOfSport, regionName]);
 
   const selectedLeagueNode = useMemo(
     () =>

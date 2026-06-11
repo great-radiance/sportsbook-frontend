@@ -25,7 +25,7 @@ import {
 } from "@/helpers/sidebarMarketNavigation";
 import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
 import { isRacingSport } from "@/helpers/isRacingSport";
-import { isDisplayablePopularEvent } from "@/helpers/buildPopularMatchesFromSidebar";
+// import { isDisplayablePopularEvent } from "@/helpers/buildPopularMatchesFromSidebar";
 import {
   isEventValidForDisplay,
   sortEventIdsByStartDate,
@@ -154,7 +154,8 @@ export const PreMatchPanel: FunctionComponent = () => {
       const event = storeState.value[id]?.value;
       if (!event) return false;
       if (selectedSport === POPULAR_SPORT_ID) {
-        return isDisplayablePopularEvent(event);
+        return true;
+        // return isDisplayablePopularEvent(event);
       }
       if (isLiveMode) return event.status === 3;
       return isEventValidForDisplay(event);

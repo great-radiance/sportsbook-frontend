@@ -29,7 +29,7 @@ export type SelectedOddType = {
   apiSelectionId: number;
 };
 
-export type betType = "single" | "multi" | "system" | "betbuilder";
+export type betType = "single" | "multi" | "system";
 
 export type betSelectionType = {
   sport: BetContextRef;
@@ -109,10 +109,7 @@ export type BetItemType = {
   metadata: Record<string, any>;
 };
 
-function normalizeBetContextRef(
-  value: unknown,
-  fallbackId = 0,
-): BetContextRef {
+function normalizeBetContextRef(value: unknown, fallbackId = 0): BetContextRef {
   if (value && typeof value === "object" && "name" in value) {
     const o = value as { id?: number; name?: string };
     return {

@@ -13,11 +13,13 @@ import type {
 import { instance } from "../instance";
 import type { BetDetailSelection } from "./apiBetDetail";
 import { mapSelectionsToBetLegs } from "./mapBetSelections";
+import { mapDescriptionToBetLegs } from "./mapBetDescription";
+import type { PlaceBetDescriptionItem } from "./placeBet";
 
 /** History list is `{ total, page, limit, data: [] }` — not the same as `{ data: T }` detail wrap. */
 function parseBetHistoryResponse(raw: unknown): BetHistoryApiResponse {
   if (!raw || typeof raw !== "object") {
-    return { total: 0, page: 1, limit: 20, data: [] };
+    return { total: 0, page: 1, pageSize: 20, data: [] };
   }
 
   const outer = raw as Record<string, unknown>;
@@ -37,43 +39,49 @@ function parseBetHistoryResponse(raw: unknown): BetHistoryApiResponse {
     return outer as BetHistoryApiResponse;
   }
 
-  return { total: 0, page: 1, limit: 20, data: [] };
+  return { total: 0, page: 1, pageSize: 20, data: [] };
 }
 
 /** One row from `GET /bets/history`. */
 export type BetHistoryApiRow = {
   betId: string;
+  userId: string;
+  operatorId: string;
+  odds88BetId: string;
   betType: string;
-  stakeAmount: number;
-  potentialPayout: number;
-  actualPayout: number | null;
+  systemGroupId: string;
   status: string;
+  stake: number;
+  potentialPayout: number;
   currency: string;
   combinedOdds: number;
   createdAt: string;
-  settledAt: string | null;
-  remainingStake?: number;
-  acceptedAt?: string | null;
-  cashoutAt?: string | null;
-  totalCashedOutAmount?: number | null;
-  cashoutAmount?: number | null;
-  selectionCount?: number;
-  firstEventName?: string;
+  updatedAt: string;
+  selections: BetDetailSelection[];
+  description?: PlaceBetDescriptionItem[];
+  /** Legacy list fields — prefer `description` when present. */
   sportName?: string;
   leagueName?: string;
+  firstEventName?: string;
   shortResult?: string;
-  selections?: BetDetailSelection[];
+  stakeAmount?: number;
+  remainingStake?: number;
+  actualPayout?: number | null;
+  totalCashedOutAmount?: number | null;
+  cashoutAt?: string | null;
+  settledAt?: string | null;
+  selectionCount?: number;
   cashout?: {
-    availableAmount: number;
-    canCashout: boolean;
-    updatedAt?: string;
+    canCashout?: boolean;
+    availableAmount?: number | null;
   };
+  cashoutAmount?: number | null;
 };
 
 export type BetHistoryApiResponse = {
   total: number;
   page: number;
-  limit: number;
+  pageSize: number;
   data: BetHistoryApiRow[];
 };
 
@@ -98,7 +106,10 @@ export interface BetHistoryResponseDto {
   totalPages: number;
 }
 
-const historyInFlight = new Map<string, Promise<BetHistoryResponseDto | null>>();
+const historyInFlight = new Map<
+  string,
+  Promise<BetHistoryResponseDto | null>
+>();
 
 function statusKey(status?: string | string[]): string {
   if (status == null) return "";
@@ -128,7 +139,7 @@ const emptyProvider: ProviderResponseType = {
   message: "",
 };
 
-const OPEN_BET_API_STATUSES = ["accepted", "pending"] as const;
+const OPEN_BET_API_STATUSES = ["accepted"] as const;
 const SETTLED_BET_API_STATUSES = [
   "won",
   "lost",
@@ -150,17 +161,17 @@ async function fetchHistoryPage(
 
   const response = await instance.get<
     BetHistoryApiResponse | { data: BetHistoryApiResponse }
-  >("/bets/history", {
+  >("users/bets", {
     params: {
       page: params.page ?? 1,
-      limit: params.limit ?? 20,
-      sort: params.sort ?? "newest",
+      pageSize: params.limit ?? 20,
+      // sort: params.sort ?? "newest",
       ...(statusParam ? { status: statusParam } : {}),
       ...(params.betType ? { betType: params.betType } : {}),
       ...(params.from ? { from: params.from } : {}),
       ...(params.to ? { to: params.to } : {}),
-      ...(params.sportId != null ? { sportId: params.sportId } : {}),
-      ...(params.leagueId != null ? { leagueId: params.leagueId } : {}),
+      // ...(params.sportId != null ? { sportId: params.sportId } : {}),
+      // ...(params.leagueId != null ? { leagueId: params.leagueId } : {}),
     },
   });
   return parseBetHistoryResponse(response.data);
@@ -239,13 +250,19 @@ export function mapBetHistoryApiRowToBetItem(
       ? row.combinedOdds
       : 1;
 
+  const descriptionLegs = mapDescriptionToBetLegs(
+    row.description,
+    row.selections,
+  );
   const selectionLegs = mapSelectionsToBetLegs(row.selections);
   const legs =
-    selectionLegs.length > 0
-      ? selectionLegs
-      : [summaryLegFromRow(row, startingOdds)];
+    descriptionLegs.length > 0
+      ? descriptionLegs
+      : selectionLegs.length > 0
+        ? selectionLegs
+        : [summaryLegFromRow(row, startingOdds)];
 
-  const stake = Number(row.stakeAmount) || 0;
+  const stake = Number(row.stakeAmount ?? row.stake) || 0;
   const remainingStake =
     typeof row.remainingStake === "number" ? row.remainingStake : stake;
 
@@ -270,10 +287,13 @@ export function mapBetHistoryApiRowToBetItem(
     status: row.status,
     cashoutHistory: [],
     cashoutAmount: cashedAmount,
-    cashedOutAt:
-      row.cashoutAt ?? (row.status === "cashed_out" ? row.settledAt : null),
+    cashedOutAt: (() => {
+      if (row.cashoutAt) return row.cashoutAt;
+      if (row.status === "cashed_out") return row.settledAt ?? null;
+      return null;
+    })(),
     placedAt: row.createdAt,
-    settledAt: row.settledAt,
+    settledAt: row.settledAt ?? null,
     providerResponse: emptyProvider,
     metadata: {
       currency: row.currency,
@@ -325,14 +345,13 @@ async function fetchBetHistoryInternal(
       ...rest,
       page,
       limit,
-      sort: params?.sort ?? "newest",
       status: statusForTab(tab, status),
     });
 
     const rows = body.data ?? [];
     const total = body.total ?? rows.length;
     const respPage = body.page ?? page;
-    const respLimit = body.limit ?? limit;
+    const respLimit = body.pageSize ?? limit;
 
     const bets = rows.map((row) => mapBetHistoryApiRowToBetItem(row));
     const totalPages = Math.max(1, Math.ceil(total / Math.max(1, respLimit)));

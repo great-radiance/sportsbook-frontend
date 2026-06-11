@@ -1,5 +1,7 @@
 import { Signal } from "@preact/signals";
-import type { SidebarMarketRef } from "@/state/summarySports";
+// import type { SidebarMarketRef } from "@/state/summarySports";
+
+export type SidebarMarketRef = any;
 
 /** Single odd row stored under `tOddsModel.odds[oddId]` */
 export type tSelectionValue = {

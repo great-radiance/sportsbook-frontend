@@ -29,8 +29,8 @@ import { SelectedOddComponent } from "./SelectedOddComponent";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { formatCurrency } from "@/shared/utils/formatters";
 import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
-import { loadBetDetail } from "@/api/bet/apiBetDetail";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
+import { requestBetHistoryRefresh } from "@/state/betHistoryState";
 import {
   currentBetSlipIdempotencyKey,
   rotateBetSlipIdempotencyKey,
@@ -63,6 +63,8 @@ import {
 import {
   allBetBuilderLegsCombinable,
   betBuilderLegRejectMessage,
+  buildPlaceBetDescription,
+  buildPlaceBetDescriptionForLeg,
   buildPlaceBetSelections,
   combinedLegOdds,
   groupSelectedOddsIntoLegs,
@@ -128,7 +130,7 @@ function notifyBetRejected(
   onBetRejectedWithReason(code);
   notify(rejectionReasonMessage(code), "error", "x-circle", 3500);
   if (code === "DUPLICATE_BET" && betId) {
-    void loadBetDetail(betId);
+    requestBetHistoryRefresh();
   }
   if (code === "ODDS_CHANGED" && submitted?.length) {
     void handleOddsChangedRejection(submitted);
@@ -439,6 +441,7 @@ export const BetSlip: FunctionComponent = () => {
               stake,
               currency: cur,
               selections: buildPlaceBetSelections([leg], currentBbPriceMap()),
+              description: buildPlaceBetDescriptionForLeg(leg),
             });
             if (call.providerRegistrationFailed || call.httpStatus === 502) {
               handleProviderRegistrationFailure();
@@ -455,8 +458,8 @@ export const BetSlip: FunctionComponent = () => {
               rotateBetSlipIdempotencyKey();
             } else if (d?.status === "accepted") {
               notify("Bet accepted", "success", "check2-circle", 2500);
-              void refreshAfterWalletAction();
-              void subscribeCashoutForBet(d.betId, xUserId);
+              // void refreshAfterWalletAction();
+              // void subscribeCashoutForBet(d.betId, xUserId);
               void showAcceptedBetInOpenBets(d.betId);
               rotateBetSlipIdempotencyKey();
             } else {
@@ -488,6 +491,7 @@ export const BetSlip: FunctionComponent = () => {
             stake: multipleBetAmount.value,
             currency: cur,
             selections: buildPlaceBetSelections(legs, currentBbPriceMap()),
+            description: buildPlaceBetDescription(selectedOdds.value),
           });
           if (call.providerRegistrationFailed || call.httpStatus === 502) {
             handleProviderRegistrationFailure();
@@ -496,7 +500,7 @@ export const BetSlip: FunctionComponent = () => {
             return;
           }
           if (call.httpStatus === 409 && call.result?.betId) {
-            await loadBetDetail(call.result.betId);
+            await showAcceptedBetInOpenBets(call.result.betId);
             notify(
               "This bet was already submitted.",
               "primary",
@@ -547,6 +551,7 @@ export const BetSlip: FunctionComponent = () => {
                   currency: cur,
                   selections: slipSelectionsPayload(regularSlipOdds),
                   systemMinCombination: index + 1,
+                  description: buildPlaceBetDescription(regularSlipOdds),
                 });
                 if (
                   call.providerRegistrationFailed ||

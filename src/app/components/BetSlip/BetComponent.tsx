@@ -1,5 +1,5 @@
 import { FunctionComponent } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { BetItemType } from "@/shared/utils/bet";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import {
@@ -15,8 +15,6 @@ import {
 import { isMobile } from "@/state/isMobile";
 import { notify } from "@/shared/toast";
 import { cashoutAmountForBet } from "@/api/bet/cashout";
-import { loadBetDetail } from "@/api/bet/apiBetDetail";
-import Loader from "../Loading/Loader";
 import { useTranslate } from "@/shared/i18n/i18n";
 import {
   cashoutDialogOnSuccess,
@@ -45,53 +43,35 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   isSettledView = false,
 }) => {
   const { t } = useTranslate("betslip");
-  const [loading, setLoading] = useState(true);
   const [showDetail, setShowDetail] = useState(false);
-  const [detailBet, setDetailBet] = useState<BetItemType | null>(null);
 
-  const displayBet = detailBet ?? bet;
-  const status = displayBet.status;
+  const status = bet.status;
 
   const currencyCode =
-    typeof displayBet.metadata?.currency === "string"
-      ? displayBet.metadata.currency
+    typeof bet.metadata?.currency === "string"
+      ? bet.metadata.currency
       : undefined;
 
   const fmt = (amount: number) => formatCurrency(amount, currencyCode);
 
-  const stakeAmount = displayBet.stakeAmount;
-  const startingOdds = displayBet.startingOdds;
-  const availableCashout = cashoutAmountForBet(displayBet);
+  const stakeAmount = bet.stakeAmount;
+  const startingOdds = bet.startingOdds;
+  const availableCashout = cashoutAmountForBet(bet);
   const canCashoutExplicit =
-    displayBet.metadata?.canCashout === false ? false : true;
+    bet.metadata?.canCashout === false ? false : true;
   const canCashout =
     isCashoutableStatus(status) && canCashoutExplicit && availableCashout > 0;
 
   const legCount = useMemo(() => {
-    const fromMeta = displayBet.metadata?.selectionCount;
+    const fromMeta = bet.metadata?.selectionCount;
     if (typeof fromMeta === "number" && fromMeta > 0) return fromMeta;
-    return displayBet.legs.length || 1;
-  }, [displayBet.legs.length, displayBet.metadata?.selectionCount]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-
-    void loadBetDetail(bet.betId).then((loaded) => {
-      if (cancelled) return;
-      if (loaded) setDetailBet(loaded);
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [bet.betId]);
+    return bet.legs.length || 1;
+  }, [bet.legs.length, bet.metadata?.selectionCount]);
 
   const handleCashoutClick = () => {
     if (!isCashoutableStatus(status)) return;
-    selectedCashoutBetId.value = displayBet.betId;
-    selectedCashoutBet.value = displayBet;
+    selectedCashoutBetId.value = bet.betId;
+    selectedCashoutBet.value = bet;
     selectedCashoutAmount.value = availableCashout;
     cashoutDialogOnSuccess.value = onCashoutSuccess ?? null;
     isOpenedCashoutDialog.value = true;
@@ -99,7 +79,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
 
   const handleCopyBetId = async () => {
     try {
-      await navigator.clipboard.writeText(displayBet.betId);
+      await navigator.clipboard.writeText(bet.betId);
       notify("Bet ID copied to clipboard", "success", "check2-circle", 2000);
     } catch (err) {
       console.error("Failed to copy bet ID:", err);
@@ -107,20 +87,16 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   };
 
   const statusLabel = getBetStatusLabel(status, t);
-  // const shortResult =
-  //   typeof displayBet.metadata?.shortResult === "string"
-  //     ? displayBet.metadata.shortResult
-  //     : null;
 
   const payoutAmount = (() => {
-    if (status === "cashed_out" && displayBet.cashoutAmount != null) {
-      return displayBet.cashoutAmount;
+    if (status === "cashed_out" && bet.cashoutAmount != null) {
+      return bet.cashoutAmount;
     }
-    if (typeof displayBet.metadata?.actualPayout === "number") {
-      return displayBet.metadata.actualPayout;
+    if (typeof bet.metadata?.actualPayout === "number") {
+      return bet.metadata.actualPayout;
     }
-    if (typeof displayBet.metadata?.potentialPayout === "number") {
-      return displayBet.metadata.potentialPayout;
+    if (typeof bet.metadata?.potentialPayout === "number") {
+      return bet.metadata.potentialPayout;
     }
     return stakeAmount * startingOdds;
   })();
@@ -136,7 +112,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
         <div className="flex items-center">
           <div className="flex items-center justify-center gap-2">
             <div className="w-5 h-5 flex items-center justify-center rounded-full border-[2px] text-[12px] border-[var(--background-element-light)]">
-              {displayBet.betType === "single" ? (
+              {bet.betType === "single" ? (
                 1
               ) : (
                 <img
@@ -148,11 +124,11 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
             </div>
             <div className="flex flex-col text-[11px]">
               <div>
-                {t(displayBet.betType)}
+                {t(bet.betType)}
                 {legCount > 1 ? ` (${legCount})` : ""}
               </div>
               <div className="flex items-center gap-1">
-                <div>ID: {shortBetId(displayBet.betId)}</div>
+                <div>ID: {shortBetId(bet.betId)}</div>
                 <img
                   src={`${BASE_ASSET_PUBLIC_URL}/icons/save.png`}
                   alt={t("copy")}
@@ -168,8 +144,8 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
             {statusLabel}
           </div>
           <div>
-            {formatDate(displayBet.placedAt)},{" "}
-            {formatTime(new Date(displayBet.placedAt).getTime())}
+            {formatDate(bet.placedAt)},{" "}
+            {formatTime(new Date(bet.placedAt).getTime())}
           </div>
         </div>
       </div>
@@ -204,14 +180,9 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
         <button
           type="button"
           onClick={handleCashoutClick}
-          disabled={loading || !canCashout}
+          disabled={!canCashout}
           className={`relative flex items-center justify-between w-full text-black px-3 py-2 rounded-[4px] transition-opacity cursor-pointer bg-[var(--primary-color)] disabled:opacity-50 disabled:cursor-not-allowed ${!isMobile.value ? "hover:opacity-90" : ""}`}
         >
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/5 rounded-[4px] z-10">
-              <Loader />
-            </div>
-          )}
           <div>{t("cashout")}</div>
           <div className="text-black">{fmt(availableCashout)}</div>
         </button>
@@ -236,7 +207,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
       </button>
 
       {showDetail &&
-        displayBet.legs.map((leg, i) => (
+        bet.legs.map((leg, i) => (
           <BetHistoryLegRow
             key={`${leg.eventId}-${leg.isBetBuilder ? "bb" : "reg"}-${i}`}
             leg={leg}

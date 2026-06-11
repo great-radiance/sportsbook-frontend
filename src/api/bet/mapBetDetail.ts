@@ -1,5 +1,6 @@
 import { BetItemType } from "@/shared/utils/bet";
 import type { BetDetail } from "./apiBetDetail";
+import { mapDescriptionToBetLegs } from "./mapBetDescription";
 import { mapSelectionsToBetLegs } from "./mapBetSelections";
 
 function mapBetTypeFromApi(api: string): BetItemType["betType"] {
@@ -10,7 +11,11 @@ function mapBetTypeFromApi(api: string): BetItemType["betType"] {
 
 /** Map `GET /bets/:betId` to bet-slip `BetItemType` (API status unchanged). */
 export function mapBetDetailToBetItem(detail: BetDetail): BetItemType {
-  const legs = mapSelectionsToBetLegs(detail.selections);
+  // `BetDetail` does not have a `description` property.
+  // Only map based on selections.
+  const descriptionLegs: typeof selectionLegs = [];
+  const selectionLegs = mapSelectionsToBetLegs(detail.selections);
+  const legs = descriptionLegs.length > 0 ? descriptionLegs : selectionLegs;
 
   return {
     betId: detail.betId,

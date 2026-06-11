@@ -2,6 +2,7 @@ import { instance } from "../instance";
 import { unwrapApiData } from "../unwrapApiData";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { mapBetDetailToBetItem } from "./mapBetDetail";
+import type { PlaceBetDescriptionItem } from "./placeBet";
 import type { BetItemType } from "@/shared/utils/bet";
 
 export type BetBuilderBetItem = {

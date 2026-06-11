@@ -136,7 +136,9 @@ function marketsDeltaToMatchResponse(
 }
 
 /** Compact array or REST-shaped event → `MatchDataResponse` for store/patch. */
-export function normalizeWsEventPayload(raw: unknown): MatchDataResponse | null {
+export function normalizeWsEventPayload(
+  raw: unknown,
+): MatchDataResponse | null {
   if (raw == null) return null;
 
   if (Array.isArray(raw)) {

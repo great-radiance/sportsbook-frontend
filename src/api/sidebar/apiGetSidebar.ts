@@ -122,7 +122,7 @@ export const apiGetSidebar = async () => {
       continue;
     } else if (node.type === "sport") {
       const sportId = node.sportId ?? 0;
-      const sportName = node.sport?.name ?? "";
+      const sportName = node.name ?? "";
       countsSummary.preMatchCount.counts[sportId] = 0;
       countsSummary.liveCount.counts[sportId] = 0;
       countsSummary.outrightCount.counts[sportId] = {

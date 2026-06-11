@@ -1,6 +1,22 @@
 import axios from "axios";
 import { instance } from "../instance";
 import { useCopyToClipboard } from "usehooks-ts";
+import { BetContextRef } from "@/shared/utils/bet";
+import { tParticipant } from "@/types/tEvent";
+
+/** Slip snapshot stored on the bet and returned in history `description`. */
+export type PlaceBetDescriptionItem = {
+  sport: BetContextRef;
+  region: BetContextRef;
+  league: BetContextRef;
+  oddsId: string;
+  name: string;
+  marketId: number;
+  eventId: number;
+  marketName: string;
+  participants: tParticipant[];
+  startDate: number;
+};
 
 /** One leg — integration guide "selection" (event + market + selection + odds). */
 export type PlaceBetSelectionPayload = {
@@ -21,6 +37,7 @@ export type PlaceBetPayload = {
   currency: string;
   selections: PlaceBetSelectionPayload[];
   systemMinCombination?: number;
+  description?: PlaceBetDescriptionItem[];
 };
 
 export type PlaceBetAccepted = {

@@ -1,6 +1,3 @@
-import { summarySports } from "@/state/summarySports";
-import { summarySportsLive } from "@/state/summarySports";
-
 export type SearchMatchItem = {
   eventId: number;
   sport: string;
@@ -99,8 +96,8 @@ export function searchSummarySports(query: string): SearchSummaryResult {
     }
   };
 
-  addFromData(summarySports.value.data as any);
-  addFromData(summarySportsLive.value.data as any);
+  // addFromData(summarySports.value.data as any);
+  // addFromData(summarySportsLive.value.data as any);
 
   const leagues: SearchLeagueItem[] = Array.from(leaguesSet).map((key) => {
     const [sport, region, league] = key.split("\0");

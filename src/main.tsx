@@ -21,10 +21,10 @@ if (import.meta.env.DEV && typeof document !== "undefined") {
       allowToChangeParentStyles: true,
       xOperatorId: "betway-stage",
       xSportsbookToken: import.meta.env.VITE_USER_JWT as string | undefined,
-      xUserId: "00005abb",
+      xUserId: "00006139",
       xUserName: "test1",
       xUserBalance: 15293700,
-      currency: "TRY",
+      currency: "USD",
       bottomLayoutHeight: 64,
       baseTheme: "dark",
     });

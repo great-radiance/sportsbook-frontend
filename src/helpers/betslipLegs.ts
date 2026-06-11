@@ -1,4 +1,7 @@
-import type { PlaceBetSelectionPayload } from "@/api/bet/placeBet";
+import type {
+  PlaceBetDescriptionItem,
+  PlaceBetSelectionPayload,
+} from "@/api/bet/placeBet";
 import { getOddsValue } from "@/helpers/getOddsValue";
 import type { BetContextRef, SelectedOddType } from "@/shared/utils/bet";
 
@@ -161,4 +164,33 @@ export function betBuilderLegRejectMessage(
 
 export function selectionsForLeg(leg: BetslipLeg): SelectedOddType[] {
   return leg.type === "betbuilder" ? leg.selections : [leg.selection];
+}
+
+export function selectedOddToDescription(
+  odd: SelectedOddType,
+): PlaceBetDescriptionItem {
+  return {
+    sport: odd.sport,
+    region: odd.region,
+    league: odd.league,
+    oddsId: odd.oddsId,
+    name: odd.name,
+    marketId: odd.marketId,
+    eventId: odd.eventId,
+    marketName: odd.marketName,
+    participants: odd.participants,
+    startDate: odd.startDate,
+  };
+}
+
+export function buildPlaceBetDescription(
+  odds: SelectedOddType[],
+): PlaceBetDescriptionItem[] {
+  return odds.map(selectedOddToDescription);
+}
+
+export function buildPlaceBetDescriptionForLeg(
+  leg: BetslipLeg,
+): PlaceBetDescriptionItem[] {
+  return buildPlaceBetDescription(selectionsForLeg(leg));
 }

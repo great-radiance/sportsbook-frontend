@@ -41,7 +41,7 @@ export const EventView: FunctionComponent = () => {
                     display: isOpenedMyBet.value ? "flex" : "none",
                   }}
                 >
-                  {/* <RightSidebar /> */}
+                  <RightSidebar />
                 </div>
               </div>
             </div>

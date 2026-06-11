@@ -6,7 +6,7 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { notify } from "@/shared/toast";
 import "./myBetStyle.scss";
 import { Select, SelectItem } from "@/app/components/Select";
-import { apiGetBetHistory } from "@/api/bet/betHistory";
+// import { apiGetBetHistory } from "@/api/bet/apiGetBetHistor";
 import { betHistoryState } from "@/state/betHistoryState";
 import { BetItemType } from "@/shared/utils/bet";
 import { BetComponent } from "./BetComponent";
@@ -43,33 +43,33 @@ export const MyBet: FunctionComponent = () => {
   ];
 
   // Fetch all bet history
-  const fetchAllBets = async (pageNum: number = 1, limit: number = 10) => {
-    if (!xUserId) return;
-    try {
-      setLoading(true);
-      const response = await apiGetBetHistory({
-        page: pageNum,
-        limit,
-        sort: "newest",
-      });
-      if (response?.bets) {
-        setAllBets(response.bets);
-        setFilteredBets(response.bets);
-        setTotalPages(response.totalPages || 1);
-        setPage(response.page || pageNum);
-      } else {
-        setAllBets([]);
-        setFilteredBets([]);
-      }
-    } catch (err) {
-      console.error("Error fetching bet history:", err);
-      notify("Failed to fetch bet history", "error", "x-circle", 2000);
-      setAllBets([]);
-      setFilteredBets([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const fetchAllBets = async (pageNum: number = 1, limit: number = 10) => {
+  //   if (!xUserId) return;
+  //   try {
+  //     setLoading(true);
+  //     const response = await apiGetBetHistory({
+  //       page: pageNum,
+  //       limit,
+  //       sort: "newest",
+  //     });
+  //     if (response?.bets) {
+  //       setAllBets(response.bets);
+  //       setFilteredBets(response.bets);
+  //       setTotalPages(response.totalPages || 1);
+  //       setPage(response.page || pageNum);
+  //     } else {
+  //       setAllBets([]);
+  //       setFilteredBets([]);
+  //     }
+  //   } catch (err) {
+  //     console.error("Error fetching bet history:", err);
+  //     notify("Failed to fetch bet history", "error", "x-circle", 2000);
+  //     setAllBets([]);
+  //     setFilteredBets([]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // Filter bets based on selected criteria
   const filterBets = (betType: string, period: string) => {
@@ -122,7 +122,7 @@ export const MyBet: FunctionComponent = () => {
       return;
     }
 
-    void fetchAllBets(page);
+    // void fetchAllBets(page);
   }, [dialogOpen, page, xUserId]);
 
   // Extract initials from username

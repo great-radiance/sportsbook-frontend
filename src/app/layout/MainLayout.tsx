@@ -3,7 +3,6 @@ import { FunctionComponent, JSX } from "preact";
 import { useEffect, useMemo } from "preact/hooks";
 import { TabList } from "../components/TabList";
 import { BonusInfoDialog } from "@/app/components/BonusInfoDialog";
-import { MyBet } from "@/app/components/BetSlip/MyBet";
 import { useMediaQuery } from "usehooks-ts";
 import {
   selectedOdds,
@@ -30,8 +29,8 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
 import { OddsChangedDialog } from "../components/BetSlip/OddsChangedDialog";
 import { useLocation } from "wouter-preact";
-// import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
-import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
+import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
+// import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
 import { loadPlayerSession } from "@/helpers/loadPlayerSession";
 import { notify } from "@/shared/toast";
 
@@ -51,16 +50,16 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     return Number.isFinite(id) && id > 0 ? id : undefined;
   }, [eventId]);
 
-  const routeIds = useMemo(
-    () => parseRouteIds(sportIdParam, regionIdParam),
-    [sportIdParam, regionIdParam],
-  );
+  // const routeIds = useMemo(
+  //   () => parseRouteIds(sportIdParam, regionIdParam),
+  //   [sportIdParam, regionIdParam],
+  // );
 
-  // useOdds88WebSocket({
-  //   activeEventId,
-  //   ...routeIds,
-  //   enabled: true,
-  // });
+  useOdds88WebSocket({
+    activeEventId,
+    ...routeIds,
+    enabled: true,
+  });
 
   useEffect(() => {
     console.log("selectedOdds-mainlayout", selectedOdds.value);
@@ -144,17 +143,17 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         window.localStorage.setItem("sb_device_id", deviceId);
       }
 
-      const session = await loadPlayerSession();
-      if (session.notFound) {
-        notify(
-          "Player account not found. Please contact support.",
-          "warning",
-          "exclamation-triangle",
-          5000,
-        );
-      } else if (!session.ok) {
-        console.warn("Player session could not be loaded");
-      }
+      // const session = await loadPlayerSession();
+      // if (session.notFound) {
+      //   notify(
+      //     "Player account not found. Please contact support.",
+      //     "warning",
+      //     "exclamation-triangle",
+      //     5000,
+      //   );
+      // } else if (!session.ok) {
+      //   console.warn("Player session could not be loaded");
+      // }
       playerSessionReady.value = true;
     })();
     getSBetsData();

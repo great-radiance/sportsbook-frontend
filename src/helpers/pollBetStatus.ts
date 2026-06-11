@@ -1,6 +1,6 @@
 import { apiGetBetStatus } from "@/api/bet/apiBetDetail";
-import { loadBetDetail } from "@/api/bet/apiBetDetail";
 import { apiCashoutUnsubscribe } from "@/api/bet/cashout";
+import { requestBetHistoryRefresh } from "@/state/betHistoryState";
 
 const TERMINAL = new Set([
   "won",
@@ -13,7 +13,7 @@ const TERMINAL = new Set([
 
 const POLL_MS = 7_000;
 
-/** Integration guide § Step 7c — poll until terminal, then load full detail. */
+/** Poll until terminal, then refresh bet history list. */
 export function startBetStatusPolling(betId: string): void {
   if (!betId) return;
 
@@ -21,7 +21,7 @@ export function startBetStatusPolling(betId: string): void {
     try {
       const data = await apiGetBetStatus(betId);
       if (TERMINAL.has(data.status)) {
-        await loadBetDetail(betId);
+        requestBetHistoryRefresh();
         await apiCashoutUnsubscribe(betId);
         return;
       }

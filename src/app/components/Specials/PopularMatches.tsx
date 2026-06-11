@@ -18,10 +18,10 @@ import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
 import { summarySportsState } from "@/state/summarySports";
 import { isRacingSport } from "@/helpers/isRacingSport";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
-import {
-  allEventIdsFromBuckets,
-  isDisplayablePopularEvent,
-} from "@/helpers/buildPopularMatchesFromSidebar";
+// import {
+//   allEventIdsFromBuckets,
+//   isDisplayablePopularEvent,
+// } from "@/helpers/buildPopularMatchesFromSidebar";
 
 import { POPULAR_SPORT_ID, SOCCER_SPORT_ID } from "@/helpers/summaryIds";
 import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";

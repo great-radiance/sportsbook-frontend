@@ -1,6 +1,7 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { computed } from "@preact/signals";
+import { useEffect } from "preact/hooks";
+import { useSignal } from "@preact/signals";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { selectedOdds, betBuilderPricesByEvent } from "@/state/betState";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
@@ -8,8 +9,9 @@ import { selectionStoreKey } from "@/state/storeState";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import type { BetBuilderSlipLeg } from "@/helpers/betslipLegs";
-import { legOdds } from "@/helpers/betslipLegs";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
+import { formatCurrency } from "@/shared/utils/formatters";
+import { hasSelectionOddsSource } from "@/helpers/getOddsValue";
 
 type BetBuilderGroupComponentProps = {
   leg: BetBuilderSlipLeg;
@@ -28,19 +30,78 @@ export const BetBuilderGroupComponent: FunctionComponent<
   maxSelections = 13,
   selectedBetType,
   forceUpdate,
-  setForceUpdate,
   minStake,
   maxStake,
 }) => {
+  useSignal();
   const { t } = useTranslate("betslip");
   const baseTheme = baseColorTheme.value;
 
-  const bbState = computed(() => betBuilderPricesByEvent.value[leg.eventId]);
-  const combinedOdds = computed(() =>
-    legOdds(leg, {
-      [leg.eventId]: betBuilderPricesByEvent.value[leg.eventId]?.price,
-    }),
+  const bbState = betBuilderPricesByEvent.value[leg.eventId];
+  const priceLoading = bbState?.loading ?? false;
+  const isCombinable = bbState?.combinable ?? false;
+  const rejectMessage = bbState?.rejectMessage ?? null;
+  const hasValidApiPrice =
+    !priceLoading &&
+    isCombinable &&
+    typeof bbState?.price === "number" &&
+    bbState.price > 1;
+  const apiPrice = hasValidApiPrice ? bbState!.price! : null;
+
+  const selectionKeys = leg.selections
+    .map((s) => `${s.marketId}:${s.oddsId}`)
+    .join("|");
+  const groupAmountsKey = selectedOdds.value
+    .filter((o) => o.eventId === leg.eventId)
+    .map((o) => o.amount)
+    .join(",");
+
+  useEffect(() => {
+    const group = selectedOdds.value.filter((o) => o.eventId === leg.eventId);
+    if (group.length >= 2) {
+      const first = group[0].amount;
+      if (group.some((o) => o.amount !== first)) {
+        selectedOdds.value = selectedOdds.value.map((o) =>
+          o.eventId === leg.eventId ? { ...o, amount: first } : o,
+        );
+      }
+    }
+  }, [leg.eventId, selectionKeys, groupAmountsKey]);
+
+  useEffect(() => {
+    const unavailable = leg.selections.filter(
+      (sel) =>
+        !hasSelectionOddsSource(
+          sel.eventId,
+          sel.marketId,
+          Number(sel.oddsId),
+        ),
+    );
+    if (unavailable.length === 0) return;
+
+    const removeKeys = new Set(
+      unavailable.map((s) => `${s.marketId}:${s.oddsId}`),
+    );
+    selectedOdds.value = selectedOdds.value.filter(
+      (o) =>
+        !(
+          o.eventId === leg.eventId &&
+          removeKeys.has(`${o.marketId}:${o.oddsId}`)
+        ),
+    );
+    removeFromOddsStore(
+      unavailable.map((s) =>
+        selectionStoreKey(s.eventId, s.marketId, Number(s.oddsId)),
+      ),
+    );
+    rotateBetSlipIdempotencyKey();
+  }, [leg.eventId, selectionKeys]);
+
+  const availableSelections = leg.selections.filter((sel) =>
+    hasSelectionOddsSource(sel.eventId, sel.marketId, Number(sel.oddsId)),
   );
+
+  if (availableSelections.length < 2) return null;
 
   const removeSelection = (marketId: number, oddsId: string) => {
     selectedOdds.value = selectedOdds.value.filter(
@@ -54,6 +115,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
     removeFromOddsStore([
       selectionStoreKey(leg.eventId, marketId, Number(oddsId)),
     ]);
+    rotateBetSlipIdempotencyKey();
   };
 
   const removeGroup = () => {
@@ -64,22 +126,35 @@ export const BetBuilderGroupComponent: FunctionComponent<
     selectedOdds.value = selectedOdds.value.filter(
       (o) => o.eventId !== leg.eventId,
     );
+    rotateBetSlipIdempotencyKey();
   };
 
-  const stakeAmount = leg.selections[0]?.amount ?? 0;
+  const stakeAmount =
+    selectedOdds.value.find((o) => o.eventId === leg.eventId)?.amount ?? 0;
+  const stakeDisabled = priceLoading || !hasValidApiPrice;
 
   const setStake = (value: number) => {
-    selectedOdds.value = selectedOdds.value.map((o) =>
-      o.eventId === leg.eventId ? { ...o, amount: value } : o,
-    );
+    selectedOdds.value.forEach((o) => {
+      if (o.eventId === leg.eventId) o.amount = value;
+    });
+    selectedOdds.value = [...selectedOdds.value];
     rotateBetSlipIdempotencyKey();
-    setForceUpdate((prev) => prev + 1);
   };
 
-  const priceLoading = bbState.value?.loading;
+  const displayOdds = priceLoading ? "…" : hasValidApiPrice ? apiPrice!.toFixed(2) : "—";
+  const possibleWin =
+    hasValidApiPrice && stakeAmount > 0
+      ? formatCurrency(stakeAmount * apiPrice!)
+      : priceLoading
+        ? "…"
+        : "—";
+
+  const isBlocked = priceLoading || !isCombinable;
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2 animate-[fade-in_0.3s_ease-out]">
+    <div
+      className={`flex w-full flex-col gap-2 rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2 animate-[fade-in_0.3s_ease-out] ${isBlocked ? "opacity-50" : ""}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <img
@@ -94,12 +169,12 @@ export const BetBuilderGroupComponent: FunctionComponent<
             {t("betBuilder")}
           </span>
           <span className="shrink-0 rounded-full border border-[var(--primary-border-color)] px-1.5 py-[1px] text-[10px] font-bold">
-            {leg.selections.length}/{maxSelections}
+            {availableSelections.length}/{maxSelections}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="rounded-[4px] bg-[var(--background-element)] px-2 py-1 text-[12px] font-bold tabular-nums text-[var(--text-basic-color)]">
-            {priceLoading ? "…" : combinedOdds.value.toFixed(2)}
+            {displayOdds}
           </span>
           <button
             type="button"
@@ -116,13 +191,19 @@ export const BetBuilderGroupComponent: FunctionComponent<
         </div>
       </div>
 
+      {!priceLoading && !isCombinable && rejectMessage && (
+        <div className="rounded-[4px] bg-[var(--background-element)] px-2 py-1.5 text-[11px] text-[var(--text-sub-color)]">
+          {rejectMessage}
+        </div>
+      )}
+
       <div className="text-[12px] font-normal text-[var(--text-basic-color)]">
         {leg.eventName}
       </div>
 
       <div className="flex flex-col">
-        {leg.selections.map((sel, index) => {
-          const isLast = index === leg.selections.length - 1;
+        {availableSelections.map((sel, index) => {
+          const isLast = index === availableSelections.length - 1;
           return (
             <div
               key={selectionStoreKey(
@@ -174,6 +255,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
             max={maxStake}
             inputMode="numeric"
             value={stakeAmount.toString()}
+            disabled={stakeDisabled}
             onInput={(e) => {
               const value = (e.target as HTMLInputElement).value;
               if (/^\d*\.?\d*$/.test(value)) {
@@ -181,13 +263,11 @@ export const BetBuilderGroupComponent: FunctionComponent<
               }
             }}
             placeholder={t("enterStake")}
-            className="w-full rounded-[4px] border-[2px] border-[var(--border-color)] bg-[var(--sub-element-secondary)] px-2 py-1.5 text-[12px] focus:border-[var(--focused-primary-border-color)] focus:outline-none"
+            className="w-full rounded-[4px] border-[2px] border-[var(--border-color)] bg-[var(--sub-element-secondary)] px-2 py-1.5 text-[12px] focus:border-[var(--focused-primary-border-color)] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div className="flex items-center justify-between text-[13px] font-bold">
             <span>{t("possibleWin")}:</span>
-            <span className="text-[var(--primary-color)]">
-              {(stakeAmount * combinedOdds.value).toFixed(2)}₺
-            </span>
+            <span className="text-[var(--primary-color)]">{possibleWin}</span>
           </div>
         </div>
       )}

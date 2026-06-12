@@ -137,7 +137,6 @@ export const storeEvent = (event: MatchDataResponse) => {
   } as tEventModel;
   syncSelectionsStoreForEvent(event.eventInfo.id);
 };
-
 type SelectionStoreEntry = {
   id: number;
   eId: number;

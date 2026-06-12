@@ -3,9 +3,8 @@ import { refreshPlayerProfile } from "@/helpers/refreshPlayerProfile";
 import { refreshBalanceFromOperator } from "@/helpers/refreshPlayerWallet";
 import { refreshHomeWidgets } from "@/state/homeWidgetsRefresh";
 import {
+  homeWidgetsCache,
   loadHomeWidgetsBatch,
-  starPlayersCache,
-  trendingAccasCache,
 } from "@/state/homeWidgetsCache";
 import {
   showOddsChangedDialog,
@@ -44,7 +43,7 @@ export async function handleOddsChangedRejection(
     newOdds: s.odds,
   }));
 
-  for (const card of starPlayersCache.value ?? []) {
+  for (const card of homeWidgetsCache.value?.starPlayers ?? []) {
     if (!eventIds.has(card.eventId)) continue;
     for (const pick of card.picks) {
       const line = lines.find((l) =>
@@ -57,7 +56,7 @@ export async function handleOddsChangedRejection(
     }
   }
 
-  for (const coupon of trendingAccasCache.value ?? []) {
+  for (const coupon of homeWidgetsCache.value?.trendingAccas ?? []) {
     for (const leg of coupon.legs) {
       if (!eventIds.has(leg.eventId)) continue;
       const line = lines.find((l) =>

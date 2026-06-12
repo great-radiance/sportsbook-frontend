@@ -27,6 +27,7 @@ import { apiGetUpcoming } from "@/api/matches/apiGetUpcoming";
 import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { getAppConfig } from "@/shared/config/appConfig";
+import { storeState } from "@/state/storeState";
 
 const PAGE_SIZE = 10;
 const DATE_TAB_COUNT = 4;
@@ -153,7 +154,7 @@ export const UpcomingMatches: FunctionComponent = () => {
         for (const event of res.data) {
           storeEvent(event);
         }
-
+        storeState.value = { ...storeState.value };
         const eventIds = res.data.map((event) => event.eventInfo.id);
         setLoadedIds((prev) => (append ? [...prev, ...eventIds] : eventIds));
         setTotalCount(res.total);

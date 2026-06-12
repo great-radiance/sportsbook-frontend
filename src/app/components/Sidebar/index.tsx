@@ -21,6 +21,8 @@ import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
 import { modeBySport } from "@/shared/config/appConfig";
 import { loadedLiveState } from "@/state/loadedLiveState";
 import { apiGetLiveSidebar } from "@/api/sidebar/apiGetLiveSidebar";
+import { storeEvent } from "@/helpers/storeEvent";
+import { storeState } from "@/state/storeState";
 
 export const Sidebar: FunctionComponent = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -39,10 +41,6 @@ export const Sidebar: FunctionComponent = () => {
           const { data, countsSummary } = await apiGetSidebar();
           summarySportsState.value = data;
           countsSummarySportsState.value = countsSummary;
-          console.log(
-            "countsSummarySportsState",
-            countsSummarySportsState.value,
-          );
         }
       } catch (error) {
         console.error("Error fetching summary or oders:", error);
@@ -64,11 +62,10 @@ export const Sidebar: FunctionComponent = () => {
         popularMatchesState.value = featured.data
           // .filter((event) => modeBySport[event.eventInfo.sport.id ?? 0])
           .slice(0, 20);
-        console.log(
-          "responsecount",
-          featured.data.length,
-          popularMatchesState.value.length,
-        );
+        for (const match of popularMatchesState.value) {
+          storeEvent(match);
+        }
+        storeState.value = { ...storeState.value };
       } catch (error) {
         console.error("Error fetching popular matches:", error);
       } finally {

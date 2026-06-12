@@ -45,28 +45,29 @@ export function collectMarketGroupTabs(
 ): EventMarketGroupTab[] {
   const byId = new Map<number, EventMarketGroupTab>();
 
-  // for (const ref of marketsRef ?? []) {
-  //   for (const group of ref.groups ?? []) {
-  //     const existing = byId.get(group.id);
-  //     if (!existing) {
-  //       byId.set(group.id, {
-  //         id: group.id,
-  //         name: group.name,
-  //         order: group.order,
-  //       });
-  //     } else {
-  //       existing.order = mergeGroupOrder(existing.order, group.order);
-  //     }
-  //   }
-  // }
+  for (const ref of marketsRef ?? []) {
+    for (const group of ref.groups ?? []) {
+      const existing = byId.get(group.id);
+      if (!existing) {
+        byId.set(group.id, {
+          id: group.id,
+          name: group.name,
+          order: group.order,
+        });
+      } else {
+        existing.order = mergeGroupOrder(existing.order, group.order);
+      }
+    }
+  }
 
-  return [...byId.values()].sort(
-    (a, b) =>
-      compareGroupOrder(a.order, b.order) || a.name.localeCompare(b.name),
-  );
-  // .filter((tab) =>
-  //   markets.some((m) => marketBelongsToGroup(m, marketsRef, tab.id)),
-  // );
+  return [...byId.values()]
+    .sort(
+      (a, b) =>
+        compareGroupOrder(a.order, b.order) || a.name.localeCompare(b.name),
+    )
+    .filter((tab) =>
+      markets.some((m) => marketBelongsToGroup(m, marketsRef, tab.id)),
+    );
 }
 
 function sortKeyForMarketType(

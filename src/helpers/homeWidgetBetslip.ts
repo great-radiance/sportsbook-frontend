@@ -27,10 +27,10 @@ import {
   selectedOdds,
 } from "@/state/betState";
 import {
-  selectionStoreKey,
-  selectionsStoreState,
-  storeState,
-} from "@/state/storeState";
+  homeWidgetsSelectionsCache,
+  type HomeWidgetSelectionEntry,
+} from "@/state/homeWidgetsCache";
+import { selectionStoreKey } from "@/state/storeState";
 import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
 
 export type WidgetSelectionInput = {
@@ -60,27 +60,22 @@ function widgetEventFromPick(
   };
 }
 
-/** Selection exists in live event store or widget odds cache (no extra API). */
-function isPickInStore(pick: WidgetSelectionInput): boolean {
-  const key = selectionStoreKey(pick.eventId, pick.marketId, pick.selectionId);
-  if (selectionsStoreState.value[key]) return true;
-
-  const event = storeState.value[pick.eventId]?.value;
-  if (!event) return false;
-
-  const market = event.markets?.[pick.marketId]?.value;
-  return !!market?.selections?.some((sig) => sig.value.id === pick.selectionId);
+function getWidgetSelectionData(
+  pick: WidgetSelectionInput,
+): HomeWidgetSelectionEntry | undefined {
+  const key = selectionStoreKey(
+    pick.eventId,
+    pick.marketId,
+    pick.selectionId,
+  );
+  return homeWidgetsSelectionsCache.value[key]?.value;
 }
 
-function addWidgetPick(
+function validateWidgetSelection(
   pick: WidgetSelectionInput,
-  opts: {
-    building: boolean;
-    betType: "single" | "multi";
-    skipBetBuilderVerify?: boolean;
-  },
+  selectionData: HomeWidgetSelectionEntry,
 ): boolean {
-  if (!isPickInStore(pick)) {
+  if (selectionData.etradingStatus !== 0) {
     notify(
       "Event is no longer available",
       "warning",
@@ -90,39 +85,7 @@ function addWidgetPick(
     return false;
   }
 
-  const event = storeState.value[pick.eventId]?.value;
-  const selectionData =
-    selectionsStoreState.value[
-      selectionStoreKey(pick.eventId, pick.marketId, pick.selectionId)
-    ]?.value;
-  if (event && event.tradingStatus !== 0) {
-    notify(
-      "Event is no longer available",
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-
-  if (selectionData && selectionData.etradingStatus !== 0) {
-    notify(
-      "Selection is no longer available",
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-
-  const market = event?.markets?.[pick.marketId]?.value;
-  const selection = market?.selections?.find(
-    (sig) => sig.value.id === pick.selectionId,
-  )?.value;
-  const marketTradingStatus =
-    market?.tradingStatus ?? selectionData?.mtradingStatus;
-
-  if (marketTradingStatus === 1) {
+  if (selectionData.mtradingStatus === 1) {
     notify(
       `This market is suspended.${pick.eventId} ${pick.marketName}`,
       "warning",
@@ -131,10 +94,11 @@ function addWidgetPick(
     );
     return false;
   }
+
   if (
-    marketTradingStatus != null &&
-    marketTradingStatus !== 0 &&
-    marketTradingStatus !== 1
+    selectionData.mtradingStatus != null &&
+    selectionData.mtradingStatus !== 0 &&
+    selectionData.mtradingStatus !== 1
   ) {
     notify(
       `This market is no longer available.${pick.eventId} ${pick.marketName}`,
@@ -145,9 +109,7 @@ function addWidgetPick(
     return false;
   }
 
-  const selectionStatus = selection?.status ?? selectionData?.status;
-
-  if (selectionStatus === 1) {
+  if (selectionData.status === 1) {
     notify(
       `This selection is suspended.${pick.eventId} ${pick.marketName} - ${pick.outcomeName}`,
       "warning",
@@ -158,9 +120,9 @@ function addWidgetPick(
   }
 
   if (
-    selectionStatus != null &&
-    selectionStatus !== 0 &&
-    selectionStatus !== 1
+    selectionData.status != null &&
+    selectionData.status !== 0 &&
+    selectionData.status !== 1
   ) {
     notify(
       `This selection is no longer available.${pick.eventId} ${pick.marketName} - ${pick.outcomeName}`,
@@ -171,8 +133,34 @@ function addWidgetPick(
     return false;
   }
 
+  return true;
+}
+
+function addWidgetPick(
+  pick: WidgetSelectionInput,
+  opts: {
+    building: boolean;
+    betType: "single" | "multi";
+    skipBetBuilderVerify?: boolean;
+  },
+): boolean {
+  const selectionData = getWidgetSelectionData(pick);
+  if (!selectionData) {
+    notify(
+      "Event is no longer available",
+      "warning",
+      "exclamation-triangle",
+      2800,
+    );
+    return false;
+  }
+
+  if (!validateWidgetSelection(pick, selectionData)) {
+    return false;
+  }
+
   const widgetEvent = widgetEventFromPick(pick);
-  if (!event && !widgetEvent) {
+  if (!widgetEvent) {
     notify(
       "Unable to add selection to betslip. Please try again.",
       "warning",
@@ -191,24 +179,23 @@ function addWidgetPick(
     return true;
   }
 
-  const cachedPrice = selectionData?.price;
-  const selectTemp: tSelectionValue = selection
-    ? selection
-    : {
-        id: pick.selectionId,
-        name: pick.outcomeName,
-        probability: 0,
-        price: cachedPrice ?? pick.odds,
-        originalPrice: cachedPrice ?? pick.odds,
-        status: selectionData?.status ?? 0,
-        settlement: 0,
-        deadHeatFactor: 0,
-        extraParameters: {},
-        isBetBuilderSupported: false,
-        competitionId: 0,
-        startingPrice: 0,
-        mv: selectionData?.mv ?? 0,
-      };
+  const price = selectionData.price ?? pick.odds;
+  const selectTemp: tSelectionValue = {
+    id: pick.selectionId,
+    name: pick.outcomeName,
+    probability: 0,
+    price,
+    originalPrice: price,
+    status: selectionData.status ?? 0,
+    settlement: 0,
+    deadHeatFactor: 0,
+    extraParameters: {},
+    isBetBuilderSupported: false,
+    competitionId: 0,
+    startingPrice: 0,
+    mv: selectionData.mv ?? 0,
+  };
+
   toggleBetslipSelection({
     eventId: pick.eventId,
     marketId: pick.marketId,
@@ -235,7 +222,8 @@ async function addWidgetPickAwait(
     skipBetBuilderVerify?: boolean;
   },
 ): Promise<boolean> {
-  if (!isPickInStore(pick)) {
+  const selectionData = getWidgetSelectionData(pick);
+  if (!selectionData) {
     notify(
       "Event is no longer available",
       "warning",
@@ -245,89 +233,12 @@ async function addWidgetPickAwait(
     return false;
   }
 
-  const event = storeState.value[pick.eventId]?.value;
-  const selectionData =
-    selectionsStoreState.value[
-      selectionStoreKey(pick.eventId, pick.marketId, pick.selectionId)
-    ]?.value;
-  if (event && event.tradingStatus !== 0) {
-    notify(
-      "Event is no longer available",
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-
-  if (selectionData && selectionData.etradingStatus !== 0) {
-    notify(
-      "Selection is no longer available",
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-
-  const market = event?.markets?.[pick.marketId]?.value;
-  const selection = market?.selections?.find(
-    (sig) => sig.value.id === pick.selectionId,
-  )?.value;
-  const marketTradingStatus =
-    market?.tradingStatus ?? selectionData?.mtradingStatus;
-
-  if (marketTradingStatus === 1) {
-    notify(
-      `This market is suspended.${pick.eventId} ${pick.marketName}`,
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-  if (
-    marketTradingStatus != null &&
-    marketTradingStatus !== 0 &&
-    marketTradingStatus !== 1
-  ) {
-    notify(
-      `This market is no longer available.${pick.eventId} ${pick.marketName}`,
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-
-  const selectionStatus = selection?.status ?? selectionData?.status;
-
-  if (selectionStatus === 1) {
-    notify(
-      `This selection is suspended.${pick.eventId} ${pick.marketName} - ${pick.outcomeName}`,
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
-    return false;
-  }
-
-  if (
-    selectionStatus != null &&
-    selectionStatus !== 0 &&
-    selectionStatus !== 1
-  ) {
-    notify(
-      `This selection is no longer available.${pick.eventId} ${pick.marketName} - ${pick.outcomeName}`,
-      "warning",
-      "exclamation-triangle",
-      2800,
-    );
+  if (!validateWidgetSelection(pick, selectionData)) {
     return false;
   }
 
   const widgetEvent = widgetEventFromPick(pick);
-  if (!event && !widgetEvent) {
+  if (!widgetEvent) {
     notify(
       "Unable to add selection to betslip. Please try again.",
       "warning",
@@ -346,24 +257,22 @@ async function addWidgetPickAwait(
     return true;
   }
 
-  const cachedPrice = selectionData?.price;
-  const selectTemp: tSelectionValue = selection
-    ? selection
-    : {
-        id: pick.selectionId,
-        name: pick.outcomeName,
-        probability: 0,
-        price: cachedPrice ?? pick.odds,
-        originalPrice: cachedPrice ?? pick.odds,
-        status: selectionData?.status ?? 0,
-        settlement: 0,
-        deadHeatFactor: 0,
-        extraParameters: {},
-        isBetBuilderSupported: false,
-        competitionId: 0,
-        startingPrice: 0,
-        mv: selectionData?.mv ?? 0,
-      };
+  const price = selectionData.price ?? pick.odds;
+  const selectTemp: tSelectionValue = {
+    id: pick.selectionId,
+    name: pick.outcomeName,
+    probability: 0,
+    price,
+    originalPrice: price,
+    status: selectionData.status ?? 0,
+    settlement: 0,
+    deadHeatFactor: 0,
+    extraParameters: {},
+    isBetBuilderSupported: false,
+    competitionId: 0,
+    startingPrice: 0,
+    mv: selectionData.mv ?? 0,
+  };
 
   await toggleBetslipSelectionAwait({
     eventId: pick.eventId,

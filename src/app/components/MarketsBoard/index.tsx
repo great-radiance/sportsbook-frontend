@@ -96,7 +96,8 @@ export const MarketsBoard: FunctionComponent = () => {
         groupTabs[activeTab - 1].id,
       );
     }
-    return sortMarketsByMarketsRefOrder(poolMarkets, eventData?.marketsRef);
+    // return sortMarketsByMarketsRefOrder(poolMarkets, eventData?.marketsRef);
+    return poolMarkets;
   }, [poolMarkets, activeTab, groupTabs, eventData?.marketsRef]);
 
   const mergedMarkets = useMemo(
@@ -333,7 +334,7 @@ export const MarketsBoard: FunctionComponent = () => {
                         {tMarkets("all")}
                       </span>
                     </button>
-                    {groupTabs.map((group, index) => (
+                    {/* {groupTabs.map((group, index) => (
                       <button
                         key={group.id}
                         type="button"
@@ -348,7 +349,7 @@ export const MarketsBoard: FunctionComponent = () => {
                           {group.name}
                         </span>
                       </button>
-                    ))}
+                    ))} */}
                   </HorizontalTabs>
                 </div>
                 <div className="flex items-center gap-2 h-9 shrink-0 pl-2 border-l border-[var(--primary-border-color)]">

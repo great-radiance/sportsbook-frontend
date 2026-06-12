@@ -29,6 +29,7 @@ export const groupMarketsByNameAndType = (
       });
     }
   }
+
   return groups.map(({ ids, key, type }) => ({
     ids: marketIdSort(ids, markets),
     key,

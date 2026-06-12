@@ -5,21 +5,25 @@ import type { MatchDataResponse } from "./apiGetMatchData";
 export type UpcomingEventsResponse = {
   data: MatchDataResponse[];
   total: number;
-  page: number;
+  pageFrom: number;
+  pageTo: number;
   pageSize: number;
 };
 
 export type UpcomingEventsParams = {
   sport: number;
-  page?: number;
+  pageFrom?: number;
+  pageTo?: number;
   isTrending?: boolean;
   dateFrom?: number;
   dateTo?: number;
-  lang?: string;
 };
 
 /** Default window: today → +14 days (unix seconds). */
-export function defaultUpcomingDateRange(): { dateFrom: number; dateTo: number } {
+export function defaultUpcomingDateRange(): {
+  dateFrom: number;
+  dateTo: number;
+} {
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   const to = new Date(from);
@@ -34,16 +38,21 @@ export function defaultUpcomingDateRange(): { dateFrom: number; dateTo: number }
 export async function apiGetUpcomingEvents(
   params: UpcomingEventsParams,
 ): Promise<UpcomingEventsResponse> {
-  const page = params.page ?? 1;
+  const pageFrom = params.pageFrom ?? 0;
+  const pageTo = params.pageTo ?? 10;
   const isTrending = params.isTrending ?? false;
-  const lang = params.lang ?? getAppConfig().lang;
-  const range =
-    params.dateFrom != null && params.dateTo != null
-      ? { dateFrom: params.dateFrom, dateTo: params.dateTo }
-      : defaultUpcomingDateRange();
-
   const { data } = await instance.get<UpcomingEventsResponse>(
-    `users/events/upcoming?sport=${params.sport}&page=${page}&isTrending=${isTrending}&dateFrom=${range.dateFrom}&dateTo=${range.dateTo}&lang=${lang}`,
+    `users/events/upcoming`,
+    {
+      params: {
+        sport: params.sport,
+        pageFrom: pageFrom,
+        pageTo: pageTo,
+        isTrending: isTrending,
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+      },
+    },
   );
 
   return data;
@@ -55,8 +64,6 @@ export type apiGetUpcomingResponse = {
   total: number;
   pageFrom: number;
   pageTo: number;
-  dateFrom: number;
-  dateTo: number;
 };
 
 /** Legacy offset pagination — maps to page-based upcoming API. */
@@ -72,18 +79,17 @@ export async function apiGetUpcoming(
 
   const response = await apiGetUpcomingEvents({
     sport,
-    page,
+    pageFrom: pageFrom,
+    pageTo: pageTo,
     isTrending: false,
-    dateFrom,
-    dateTo,
+    dateFrom: dateFrom,
+    dateTo: dateTo,
   });
 
   return {
     data: response.data,
     total: response.total,
-    pageFrom,
-    pageTo,
-    dateFrom,
-    dateTo,
+    pageFrom: response.pageFrom,
+    pageTo: response.pageTo,
   };
 }

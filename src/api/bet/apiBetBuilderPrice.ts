@@ -6,8 +6,8 @@ export type BetBuilderPriceLeg = {
 };
 
 export type BetBuilderPriceRequest = {
-  requestId: string;
-  segmentId: number;
+  // requestId: string;
+  // segmentId: number;
   eventId: number;
   bets: BetBuilderPriceLeg[];
 };
@@ -30,11 +30,11 @@ export type BetBuilderPriceResult = {
 export async function apiBetBuilderPrice(
   payload: BetBuilderPriceRequest,
 ): Promise<BetBuilderPriceResult> {
-  const { data } = await instance.post<{ data: BetBuilderPriceResult }>(
-    "/odds88/bet-builder/price",
+  const { data } = await instance.post<BetBuilderPriceResult>(
+    "users/bets/bet-builder-price",
     payload,
   );
-  return data.data;
+  return data;
 }
 
 export function isBetBuilderCombinable(result: BetBuilderPriceResult): boolean {

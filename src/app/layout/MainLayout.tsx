@@ -1,6 +1,6 @@
 import { isMobile } from "@/state/isMobile";
 import { FunctionComponent, JSX } from "preact";
-import { useEffect, useMemo } from "preact/hooks";
+import { useCallback, useEffect, useMemo } from "preact/hooks";
 import { TabList } from "../components/TabList";
 import { BonusInfoDialog } from "@/app/components/BonusInfoDialog";
 import { useMediaQuery } from "usehooks-ts";
@@ -23,16 +23,23 @@ import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
 import { playerSessionReady } from "@/state/betState";
 import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { storeState, willBeDeletedEventIds } from "@/state/storeState";
+import {
+  selectionsStoreState,
+  storeState,
+  willBeDeletedEventIds,
+} from "@/state/storeState";
 import { Search } from "../components/Search";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
 import { OddsChangedDialog } from "../components/BetSlip/OddsChangedDialog";
 import { useLocation } from "wouter-preact";
-import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
-// import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
+// import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
+import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
 import { loadPlayerSession } from "@/helpers/loadPlayerSession";
 import { notify } from "@/shared/toast";
+import useSocketEvent from "@/hooks/useSocketEvent";
+import { useSocket, useSocketStatus } from "@/context/SocketContext";
+import { storeSelection } from "@/helpers/storeEvent";
 
 interface MainLayoutProps {
   children: JSX.Element | JSX.Element[];
@@ -44,22 +51,69 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   const { pageName, eventId, sportIdParam, regionIdParam } = useRouteParams();
   const [, setLocation] = useLocation();
   const { baseTheme } = getAppConfig();
+  const socket = useSocket();
+  const isConnected = useSocketStatus();
 
   const activeEventId = useMemo(() => {
     const id = parseInt(eventId ?? "", 10);
     return Number.isFinite(id) && id > 0 ? id : undefined;
   }, [eventId]);
 
-  // const routeIds = useMemo(
-  //   () => parseRouteIds(sportIdParam, regionIdParam),
-  //   [sportIdParam, regionIdParam],
-  // );
+  const routeIds = useMemo(
+    () => parseRouteIds(sportIdParam, regionIdParam),
+    [sportIdParam, regionIdParam],
+  );
+  const eventIds = useMemo(
+    () => Object.keys(storeState.value).map(Number),
+    [storeState.value],
+  );
 
-  useOdds88WebSocket({
-    activeEventId,
-    ...routeIds,
-    enabled: true,
-  });
+  useEffect(() => {
+    console.log("eventIds=========", eventIds);
+  }, [eventIds]);
+
+  useEffect(() => {
+    console.log("selectionsStoreState=========", selectionsStoreState.value);
+  }, [selectionsStoreState.value]);
+
+  // useOdds88WebSocket({
+  //   activeEventId,
+  //   ...routeIds,
+  //   enabled: true,
+  // });
+
+  // useSocketEvent(`event:available`, (data) => {
+  //   Socket?.emit("subscribe", {
+  //     eventIds: [10250775, 10278567, 10281338, 10289206, 10286058],
+  //   });
+  // });
+
+  useEffect(() => {
+    if (!socket || !isConnected || !eventIds?.length) return;
+
+    socket.emit("subscribe", {
+      eventIds,
+    });
+
+    console.log("subscribe", socket.id, eventIds);
+
+    return () => {
+      socket.emit("unsubscribe", {
+        eventIds,
+      });
+    };
+  }, [socket, isConnected, eventIds]);
+
+  const handleEventsUpdated = useCallback((data: any) => {
+    console.log("events:updated", data);
+  }, []);
+
+  const handleEventsAvailable = useCallback((data: any) => {
+    console.log("events:available", data);
+  }, []);
+
+  useSocketEvent("events:updated", handleEventsUpdated);
+  useSocketEvent("events:available", handleEventsAvailable);
 
   useEffect(() => {
     console.log("selectedOdds-mainlayout", selectedOdds.value);

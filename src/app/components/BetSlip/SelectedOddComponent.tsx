@@ -3,7 +3,7 @@ import { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
-import { selectedOdds } from "@/state/betState";
+import { selectedOdds, currency } from "@/state/betState";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 import {
@@ -11,12 +11,12 @@ import {
   getOddsValue,
   hasSelectionOddsSource,
 } from "@/helpers/getOddsValue";
-import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 import { computed } from "@preact/signals";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
 import { selectionStoreKey } from "@/state/storeState";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
+import { formatCurrency } from "@/shared/utils/formatters";
 
 interface SelectedOddComponentProps {
   bet: SelectedOddType;
@@ -206,7 +206,7 @@ export const SelectedOddComponent: FunctionComponent<
             <div className="flex items-center font-bold justify-between text-[13px]">
               <span>{t("possibleWin")}:</span>
               <span className="text-[var(--primary-color)]">
-                {possibleWin.toFixed(2)}₺
+                {formatCurrency(possibleWin, currency.value)}
               </span>
             </div>
           </div>

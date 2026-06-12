@@ -57,13 +57,6 @@ export const OutrightMatches: FunctionComponent = () => {
       try {
         setLoading(true);
         const response = await apiGetOutrights(selectedSport);
-        for (const country of response.sports[0].countries) {
-          for (const league of country.leagues) {
-            for (const event of league.events) {
-              storeEvent(event);
-            }
-          }
-        }
         setOutrightResponse(() => {
           const sport = response.sports?.[0];
           if (!sport) return undefined;
@@ -77,11 +70,16 @@ export const OutrightMatches: FunctionComponent = () => {
                 id: league.id,
                 name: league.name,
                 eventIds:
-                  league.events?.map((event) => event.eventInfo.id) ?? [],
+                  league.events?.map((event) => {
+                    storeEvent(event);
+                    return event.eventInfo.id;
+                  }) ?? [],
               })),
             })),
           };
         });
+        console.log("outrightResponse", outrightResponse);
+        console.log("response", response);
       } catch (error) {
         console.error("Error fetching outright matches:", error);
       } finally {

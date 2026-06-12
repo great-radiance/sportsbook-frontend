@@ -61,7 +61,7 @@ export const PreMatchPanel: FunctionComponent = () => {
   const [selectedSport, setSelectedSport] = useState(POPULAR_SPORT_ID);
   const [eventIds, setEventIds] = useState<number[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -93,25 +93,28 @@ export const PreMatchPanel: FunctionComponent = () => {
 
         if (selectedSport === POPULAR_SPORT_ID) {
           const matches = popularMatchesState.value.slice(
-            (nextPage - 1) * 10,
-            nextPage * 10,
+            nextPage,
+            nextPage + 10,
           );
           matches;
           ids = matches.map((match) => match.eventInfo.id);
+
           responseTotal = popularMatchesState.value.length;
-          responsePage = nextPage;
+          responsePage = nextPage + 10;
         } else {
           const response = await apiGetUpcomingEvents({
             sport: selectedSport,
-            page: nextPage,
+            pageFrom: nextPage,
+            pageTo: nextPage + 10,
             isTrending: isLiveMode,
           });
-          response.data.forEach((match: MatchDataResponse) =>
-            storeEvent(match),
-          );
+          response.data.forEach((match: MatchDataResponse) => {
+            storeEvent(match);
+          });
+          storeState.value = { ...storeState.value };
           ids = response.data.map((match) => match.eventInfo.id);
           responseTotal = response.total;
-          responsePage = response.page;
+          responsePage = response.pageTo;
         }
 
         setEventIds((prev) => {
@@ -120,7 +123,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           return [...prev, ...ids.filter((id) => !seen.has(id))];
         });
         setTotal(responseTotal);
-        setPage(responsePage);
+        setCurrentPage(responsePage);
       } catch (error) {
         console.error("Error fetching join-the-action matches:", error);
         setLoading(false);
@@ -134,12 +137,17 @@ export const PreMatchPanel: FunctionComponent = () => {
         setLoadingMore(false);
       }
     },
-    [selectedSport, isLiveMode, popularMatchesState.value],
+    [
+      selectedSport,
+      isLiveMode,
+      popularMatchesState.value,
+      loadedSidebarState.value,
+    ],
   );
 
   useEffect(() => {
     if (!loadedSidebarState.value) return;
-    void loadPage(1, false);
+    void loadPage(0, false);
   }, [loadPage, loadedSidebarState.value]);
 
   useEffect(() => {
@@ -302,7 +310,7 @@ export const PreMatchPanel: FunctionComponent = () => {
           sportsData={sportsData}
           selectedSport={selectedSport}
           onSelectSport={setSelectedSport}
-          loading={loading}
+          loading={!loadedSidebarState.value}
           isLive={isLiveMode}
           showPopular
         />
@@ -385,7 +393,7 @@ export const PreMatchPanel: FunctionComponent = () => {
             <button
               type="button"
               className="cursor-pointer rounded-full bg-[var(--sub-element-secondary)] px-2 py-1 text-[12px] text-[var(--text-secondary-color)] disabled:opacity-50 md:mx-[5px] md:py-2"
-              onClick={() => void loadPage(page + 1, true)}
+              onClick={() => void loadPage(currentPage + 1, true)}
               disabled={loadingMore}
             >
               Show More

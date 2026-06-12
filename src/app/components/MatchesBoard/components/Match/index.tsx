@@ -65,7 +65,7 @@ export const Match: FunctionComponent<MatchProps> = ({
 
   const isMoneyline = isMoneylineSport(event?.sport?.id, event?.sport?.name);
 
-  if (isMoneyline) {
+  if (isMoneyline && !event?.isOutright) {
     return <MoneylineMatch eventId={eventId} />;
   }
 

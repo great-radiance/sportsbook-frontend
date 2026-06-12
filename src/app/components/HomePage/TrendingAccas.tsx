@@ -11,7 +11,7 @@ import {
   addTrendingAccaToSlip,
 } from "@/helpers/homeWidgetBetslip";
 
-import { trendingAccasCache } from "@/state/homeWidgetsCache";
+import { homeWidgetsCache } from "@/state/homeWidgetsCache";
 
 import { baseColorTheme } from "@/state/baseColorTheme";
 
@@ -33,14 +33,14 @@ const formatKickoff = (iso: string) => {
 
 const TrendingAccas = () => {
   const [coupons, setCoupons] = useState<TrendingAccaCouponResponse[]>(
-    trendingAccasCache.value ?? [],
+    homeWidgetsCache.value?.trendingAccas ?? [],
   );
 
   useEffect(() => {
-    if (trendingAccasCache.value) setCoupons(trendingAccasCache.value);
+    if (homeWidgetsCache.value) setCoupons(homeWidgetsCache.value.trendingAccas);
 
-    return trendingAccasCache.subscribe((value) => {
-      if (value) setCoupons(value);
+    return homeWidgetsCache.subscribe((value) => {
+      if (value) setCoupons(value.trendingAccas);
     });
   }, []);
 

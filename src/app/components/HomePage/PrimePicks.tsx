@@ -52,6 +52,11 @@ export function PrimePicks() {
       setCards(homeWidgetsCache.value?.highlightBetBuilder ?? []);
     };
 
+    console.log(
+      "homeWidgetsCache.value?.highlightBetBuilder",
+      homeWidgetsCache.value?.highlightBetBuilder,
+    );
+
     sync();
 
     return homeWidgetsCache.subscribe(sync);
@@ -228,7 +233,9 @@ export function PrimePicks() {
 
               <div class="prime-picks-modal__list">
                 {modalCards.length === 0 ? (
-                  <p class="prime-picks-modal__empty">No picks for this sport.</p>
+                  <p class="prime-picks-modal__empty">
+                    No picks for this sport.
+                  </p>
                 ) : (
                   modalCards.map((card) => (
                     <PrimePickCard

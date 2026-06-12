@@ -45,9 +45,6 @@ export const EmblaBanner = () => {
   const [events, setEvents] = useState<number[]>([]);
   const [, setLocation] = useLocation();
   const baseIndex = Math.floor((new Date().getTime() / (3600 * 24)) % 10);
-  console.log("baseIndex", baseIndex);
-
-  console.log("events", events);
 
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -100,10 +97,7 @@ export const EmblaBanner = () => {
     //     ),
     //   ].flat(),
     // );
-    allIds.forEach((id) => {
-      const event = storeState.value[id];
-      console.log("marketsIds", Object.keys(event?.value?.markets || {}));
-    });
+
     setEvents(
       allIds
         .filter(
@@ -121,8 +115,6 @@ export const EmblaBanner = () => {
     );
   }, [popularMatchesState.value, storeState.value, loadedMatchesState.value]);
 
-  console.log("events", events);
-
   return (
     <div class="embla">
       <div class="embla__viewport" ref={viewportRef}>
@@ -134,7 +126,6 @@ export const EmblaBanner = () => {
             const eventTime = formatEventTime(event?.value);
             const eventDateLabel = formatEventDate(event?.value);
             const selectedMarket = getSelectedMarket(event?.value);
-            console.log("selectedMarket", selectedMarket);
             return (
               <div
                 key={eventId}

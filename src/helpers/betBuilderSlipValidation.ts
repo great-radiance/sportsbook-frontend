@@ -19,14 +19,16 @@ export async function verifyBetBuilderGroup(
 
   try {
     const result = await apiBetBuilderPrice({
-      requestId: crypto.randomUUID(),
-      segmentId: BET_BUILDER_SEGMENT_ID,
+      // requestId: crypto.randomUUID(),
+      // segmentId: BET_BUILDER_SEGMENT_ID,
       eventId,
       bets: selections.map((b) => ({
         marketId: b.apiMarketId ?? b.marketId,
         selectionId: b.apiSelectionId ?? Number(b.oddsId),
       })),
     });
+
+    console.log("result", result);
 
     if (isBetBuilderCombinable(result) && typeof result.price === "number") {
       return { combinable: true, price: result.price };

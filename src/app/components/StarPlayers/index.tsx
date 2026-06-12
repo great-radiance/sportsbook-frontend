@@ -9,15 +9,17 @@ import {
   addStarPlayerBundleToSlip,
 } from "@/helpers/homeWidgetBetslip";
 import { widgetPickToSlipInput } from "@/helpers/widgetDisplayNames";
-import { starPlayersCache } from "@/state/homeWidgetsCache";
+import { homeWidgetsCache } from "@/state/homeWidgetsCache";
 
 export const StarPlayers: FunctionComponent = () => {
-  const [players, setPlayers] = useState<StarPlayerCardResponse[]>([]);
+  const [players, setPlayers] = useState<StarPlayerCardResponse[]>(
+    homeWidgetsCache.value?.starPlayers ?? [],
+  );
 
   useEffect(() => {
-    if (starPlayersCache.value) setPlayers(starPlayersCache.value);
-    return starPlayersCache.subscribe((value) => {
-      if (value) setPlayers(value);
+    if (homeWidgetsCache.value) setPlayers(homeWidgetsCache.value.starPlayers);
+    return homeWidgetsCache.subscribe((value) => {
+      if (value) setPlayers(value.starPlayers);
     });
   }, []);
 

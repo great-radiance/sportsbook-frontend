@@ -176,6 +176,12 @@ export const MatchesBoard: FunctionComponent = () => {
   const node = useMemo(() => {
     if (!sportIdParam) return undefined;
 
+    if (sportName === "featured competition") {
+      return summarySportsState.value
+        .find((node) => node.type === "featured_leagues")
+        ?.children?.find((node) => node.id === leagueIdParam);
+    }
+
     const hasNestedLeagueRoute = Boolean(regionIdParam && leagueIdParam);
     const hasStandaloneLeagueRoute = Boolean(
       regionName && regionIdParam && !leagueIdParam,

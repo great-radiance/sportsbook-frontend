@@ -20,11 +20,11 @@ interface SpecialNavigationProps {}
 /** Same segment rules as `PrematchSportsNavigation.buildPrematchPath`. */
 function buildPrematchPath(
   sportName: string,
-  sportId: number,
+  sportId: number | string,
   regionName?: string,
-  regionId?: number,
+  regionId?: number | string,
   leagueName?: string,
-  leagueId?: number,
+  leagueId?: number | string,
 ): string {
   const parts = [
     sportName,
@@ -141,17 +141,18 @@ export const SpecialNavigation: FunctionComponent<
                   </div>
                 ) : (
                   featuredLeagues.map((row: sidebarNode) => {
+                    // if (row.type === "combined_league") return null;
                     const leagueId = row.leagueId;
                     const leagueName = row.name;
                     const sportId = row.sport?.id;
                     const sportName = row.sport?.name;
                     const path = buildPrematchPath(
-                      sportName ?? "",
-                      sportId ?? 0,
-                      row.region?.name ?? "",
+                      sportName ?? "featured competition",
+                      sportId ?? 1,
+                      row.region?.name ?? "International",
                       row.region?.id ?? 0,
-                      leagueName ?? "",
-                      leagueId ?? 0,
+                      leagueName ?? "featured",
+                      leagueId ?? row.id,
                     );
                     return (
                       <div

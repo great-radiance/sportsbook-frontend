@@ -83,7 +83,14 @@ export const OpenBets: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [xUserId, sessionReady, page, selectedTab, refreshToken, betHistoryRefreshNonce.value]);
+  }, [
+    xUserId,
+    sessionReady,
+    page,
+    selectedTab,
+    refreshToken,
+    betHistoryRefreshNonce.value,
+  ]);
 
   const handleTabChange = (tab: "open" | "settled") => {
     if (tab === selectedTab) return;
@@ -94,6 +101,7 @@ export const OpenBets: FunctionComponent = () => {
   };
 
   const handleCashoutSuccess = () => {
+    betHistoryState.value = [];
     lastFetchedKeyRef.current = "";
     setRefreshToken((n) => n + 1);
   };

@@ -48,8 +48,7 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
   const awayGoals = getCompetitorScore(scoreboard, 2);
 
   const rawTime = typeof scoreboard?.time === "number" ? scoreboard.time : null;
-  const showClock =
-    match?.status === 3 && rawTime !== null && !!match;
+  const showClock = match?.status === 3 && rawTime !== null && !!match;
 
   useImperativeLiveClock(clockRef, rawTime, showClock);
 

@@ -39,7 +39,10 @@ import { notify } from "@/shared/toast";
 import useSocketEvent from "@/hooks/useSocketEvent";
 import { useSocket, useSocketStatus } from "@/context/SocketContext";
 import { storeEvent, storeSelection } from "@/helpers/storeEvent";
-import { removeEventFromSummarySports } from "@/helpers/removeEventFromSummarySports";
+import {
+  addEventToSummarySports,
+  removeEventFromSummarySports,
+} from "@/helpers/removeEventFromSummarySports";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 
 interface MainLayoutProps {
@@ -66,24 +69,12 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   );
 
   useEffect(() => {
-    console.log("eventIds=========", eventIds);
+    // console.log("eventIds=========", eventIds);
   }, [eventIds]);
 
   useEffect(() => {
-    console.log("selectionsStoreState=========", selectionsStoreState.value);
+    // console.log("selectionsStoreState=========", selectionsStoreState.value);
   }, [selectionsStoreState.value]);
-
-  // useOdds88WebSocket({
-  //   activeEventId,
-  //   ...routeIds,
-  //   enabled: true,
-  // });
-
-  // useSocketEvent(`event:available`, (data) => {
-  //   Socket?.emit("subscribe", {
-  //     eventIds: [10250775, 10278567, 10281338, 10289206, 10286058],
-  //   });
-  // });
 
   useEffect(() => {
     if (!socket || !isConnected || !eventIds?.length) return;
@@ -102,9 +93,9 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   }, [socket, isConnected, eventIds]);
 
   const handleEventsUpdated = useCallback((data: any) => {
-    console.log("event:update", data);
+    // console.log("event:update", data);
     const event = storeState.value[data.eventId];
-    console.log("event", event.value);
+    // console.log("event", event.value);
     if (data.terminal) {
       const terminalEventId = Number(data.eventId);
       removeEventFromSummarySports(terminalEventId);
@@ -114,13 +105,27 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     }
   }, []);
 
+  const handleEventNotification = useCallback((data: any) => {
+    const event = storeState.value[data.eventId];
+    if (data.terminal) {
+      removeEventFromSummarySports(data.eventId);
+      delete storeState.value[data.eventId];
+    } else {
+      addEventToSummarySports(data.data as MatchDataResponse);
+      if (event) {
+        storeEvent(data.data as MatchDataResponse);
+      }
+    }
+    // console.log("event:notification", data);
+  }, []);
+
   useSocketEvent("event:update", handleEventsUpdated);
-  // useSocketEvent("event:notification", (data: any) => {
-  //   console.log("event:notification", data);
-  // });
+  useSocketEvent("event:notification", (data: any) => {
+    // console.log("event:notification", data);
+  });
 
   useEffect(() => {
-    console.log("selectedOdds-mainlayout", selectedOdds.value);
+    // console.log("selectedOdds-mainlayout", selectedOdds.value);
     if (selectedOdds.value.length === 0) {
       window.localStorage.removeItem("selectedOdds");
       window.localStorage.removeItem("selectedBets");

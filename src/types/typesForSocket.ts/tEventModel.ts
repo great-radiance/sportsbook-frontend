@@ -67,7 +67,7 @@ export type tEventModel = {
   }[];
   markets: Record<number, Signal<tMarketModel>>; //marketId to marketModel
   /** From `GET /odds88/events/:eventId` — groups markets by tab in MarketsBoard. */
-  marketsRef?: MarketRef[];
+  marketRef?: MarketRef[];
   scoreboard?: any;
 };
 

@@ -77,7 +77,7 @@ export type MatchDataResponse = {
   }[];
   scoreboard?: any;
   /** Market type metadata and group tabs for the event detail UI. */
-  marketsRef?: MarketRef[];
+  marketRef?: MarketRef[];
   // scoreboard: any;
   // betCancellations: any[];
   // time: number;

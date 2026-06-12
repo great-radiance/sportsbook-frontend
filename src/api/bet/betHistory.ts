@@ -139,7 +139,7 @@ const emptyProvider: ProviderResponseType = {
   message: "",
 };
 
-const OPEN_BET_API_STATUSES = ["accepted"] as const;
+const OPEN_BET_API_STATUSES = ["accepted", "pending"] as const;
 const SETTLED_BET_API_STATUSES = [
   "won",
   "lost",

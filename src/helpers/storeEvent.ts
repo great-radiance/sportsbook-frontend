@@ -32,7 +32,8 @@ export const storeEvent = (event: MatchDataResponse) => {
   //   Date.now() - 1000 * 60 * 60 * 24
   // )
   //   return;
-  if (!storeState.value[event.eventInfo.id]) {
+  const eventExists = storeState.value[event.eventInfo.id] ? true : false;
+  if (!eventExists) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
       {} as tEventModel,
     );
@@ -40,6 +41,9 @@ export const storeEvent = (event: MatchDataResponse) => {
   const competitors = event.eventInfo.competitors ?? [];
   const marketsRecord: Record<number, Signal<tMarketModel>> = {};
   for (const market of event.markets ?? []) {
+    const existingSelections =
+      storeState.value[event.eventInfo.id]?.value.markets?.[market.id]?.value
+        .selections ?? [];
     const selections: Signal<tSelectionValue>[] = [];
     for (const selection of market.selections ?? []) {
       const selectionExtra = {
@@ -60,7 +64,33 @@ export const storeEvent = (event: MatchDataResponse) => {
           market.parameters,
           selectionExtra,
         ),
-        mv: computePriceMv(selection.originalPrice, selection.price),
+        mv: existingSelections.find((s) => s.value.id === selection.id)
+          ? computePriceMv(
+              existingSelections.find((s) => s.value.id === selection.id)?.value
+                .originalPrice ?? 0,
+              selection.price,
+            )
+          : 0,
+        // mv: (() => {
+        //   const existingSelection = existingSelections.find(
+        //     (s) => s.value.id === selection.id,
+        //   );
+        //   // console.log("existingSelection", existingSelection);
+        //   // console.log("selection", selection);
+        //   console.log(
+        //     "computePriceMv",
+        //     computePriceMv(
+        //       existingSelection?.value.price ?? 0,
+        //       selection.price,
+        //     ),
+        //   );
+        //   return existingSelection
+        //     ? computePriceMv(
+        //         existingSelection?.value.price ?? 0,
+        //         selection.price,
+        //       )
+        //     : 0;
+        // })(),
         isBetBuilderSupported: readIsBetBuilderSupported(
           selection as BetBuilderSupportIn,
         ),
@@ -126,12 +156,12 @@ export const storeEvent = (event: MatchDataResponse) => {
     ),
     mappingInfo: event.eventInfo.mappingInfo,
     markets: {
-      // ...evSig.value.markets,
+      ...evSig.value.markets,
       ...marketsRecord,
     },
-    marketsRef: event.marketsRef?.length
-      ? event.marketsRef
-      : evSig.value.marketsRef,
+    marketRef: event.marketRef?.length
+      ? event.marketRef
+      : evSig.value.marketRef,
     scoreboard: event.scoreboard ?? null,
     // // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;

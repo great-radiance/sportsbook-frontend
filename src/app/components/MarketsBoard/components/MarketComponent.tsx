@@ -243,6 +243,14 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
                         : "text-[var(--text-primary-color)] group-hover/m:text-black"
                     } shrink-0`}
                   >
+                    {/* {(() => {
+                      if (selection.value.mv === 1)
+                        console.log(
+                          "selection?.value.",
+                          selection.value.name,
+                          selection?.value.mv,
+                        );
+                    })()} */}
                     {selection?.value.price?.toFixed(2)}
                   </div>
                   <OddsMoveIndicator mv={selection?.value.mv} />

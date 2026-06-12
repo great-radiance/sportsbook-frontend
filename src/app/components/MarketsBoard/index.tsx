@@ -84,20 +84,20 @@ export const MarketsBoard: FunctionComponent = () => {
   const poolMarkets = isBuilding.value ? betBuilderMarkets : markets;
 
   const groupTabs = useMemo(
-    () => collectMarketGroupTabs(eventData?.marketsRef, poolMarkets),
-    [eventData?.marketsRef, poolMarkets],
+    () => collectMarketGroupTabs(eventData?.marketRef, poolMarkets),
+    [eventData?.marketRef, poolMarkets],
   );
 
   const marketsForActiveTab = useMemo(() => {
     if (activeTab > 0 && groupTabs[activeTab - 1]) {
       return filterMarketsByGroupTab(
         poolMarkets,
-        eventData?.marketsRef,
+        eventData?.marketRef,
         groupTabs[activeTab - 1].id,
       );
     }
-    return sortMarketsByMarketsRefOrder(poolMarkets, eventData?.marketsRef);
-  }, [poolMarkets, activeTab, groupTabs, eventData?.marketsRef]);
+    return sortMarketsByMarketsRefOrder(poolMarkets, eventData?.marketRef);
+  }, [poolMarkets, activeTab, groupTabs, eventData?.marketRef]);
 
   const mergedMarkets = useMemo(
     () => groupMarketsByNameAndType(marketsForActiveTab),

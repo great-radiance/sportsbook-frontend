@@ -1,6 +1,19 @@
 import { instance } from "../instance";
 import { getAppConfig } from "@/shared/config/appConfig";
-// import type { SidebarMarketRef } from "@/state/summarySports";
+
+export type MarketRef = {
+  id: number;
+  name: string;
+  groups: {
+    id: number;
+    name: string;
+    order: number;
+    sportId: number;
+  }[];
+  isMultilineMarket: boolean;
+  isFreeText: boolean;
+  sportId: number;
+};
 
 export type MatchDataResponse = {
   eventInfo: {
@@ -64,7 +77,7 @@ export type MatchDataResponse = {
   }[];
   scoreboard?: any;
   /** Market type metadata and group tabs for the event detail UI. */
-  // marketsRef?: SidebarMarketRef[];
+  marketsRef?: MarketRef[];
   // scoreboard: any;
   // betCancellations: any[];
   // time: number;

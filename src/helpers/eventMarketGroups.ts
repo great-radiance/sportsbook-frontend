@@ -1,7 +1,6 @@
 // import type { SidebarMarketRef } from "@/state/summarySports";
 import type { tMarketModel } from "@/types/typesForSocket.ts/tEventModel";
-
-export type SidebarMarketRef = any;
+import type { MarketRef } from "@/api/matches/apiGetMatchData";
 
 export type EventMarketGroupTab = {
   id: number;
@@ -27,11 +26,11 @@ function mergeGroupOrder(a: number, b: number): number {
 /** `market.type` matches `marketsRef[].id`; group tab matches `marketsRef[].groups[].id`. */
 export function marketBelongsToGroup(
   market: tMarketModel,
-  marketsRef: SidebarMarketRef[] | null | undefined,
+  marketsRef: MarketRef[] | null | undefined,
   groupId: number,
 ): boolean {
-  // const ref = marketsRef?.find((r) => r.id === market.type);
-  // return ref?.groups?.some((g) => g.id === groupId) ?? false;
+  const ref = marketsRef?.find((r) => r.id === market.type);
+  return ref?.groups?.some((g) => g.id === groupId) ?? false;
   return false;
 }
 
@@ -40,7 +39,7 @@ export function marketBelongsToGroup(
  * Omits groups with no matching markets on the event.
  */
 export function collectMarketGroupTabs(
-  marketsRef: SidebarMarketRef[] | null | undefined,
+  marketsRef: MarketRef[] | null | undefined,
   markets: tMarketModel[],
 ): EventMarketGroupTab[] {
   const byId = new Map<number, EventMarketGroupTab>();
@@ -72,49 +71,49 @@ export function collectMarketGroupTabs(
 
 function sortKeyForMarketType(
   marketType: number,
-  marketsRef: SidebarMarketRef[],
+  marketsRef: MarketRef[],
   groupId?: number,
 ): number {
-  // const refIndex = marketsRef.findIndex((r) => r.id === marketType);
-  // if (refIndex < 0) return Number.MAX_SAFE_INTEGER;
+  const refIndex = marketsRef.findIndex((r) => r.id === marketType);
+  if (refIndex < 0) return Number.MAX_SAFE_INTEGER;
 
-  // const ref = marketsRef[refIndex]!;
-  // if (groupId != null) {
-  //   const group = ref.groups?.find((g) => g.id === groupId);
-  //   const order = group?.order ?? Number.MAX_SAFE_INTEGER;
-  //   return groupOrderRank(order) * 10_000 + refIndex;
-  // }
+  const ref = marketsRef[refIndex]!;
+  if (groupId != null) {
+    const group = ref.groups?.find((g) => g.id === groupId);
+    const order = group?.order ?? Number.MAX_SAFE_INTEGER;
+    return groupOrderRank(order) * 10_000 + refIndex;
+  }
 
-  // const orders = ref.groups?.map((g) => g.order) ?? [];
-  // const nonZero = orders.filter((o) => o > 0);
-  // const order = nonZero.length
-  //   ? Math.min(...nonZero)
-  //   : orders.length
-  //     ? 0
-  //     : Number.MAX_SAFE_INTEGER;
-  // return groupOrderRank(order) * 10_000 + refIndex;
+  const orders = ref.groups?.map((g) => g.order) ?? [];
+  const nonZero = orders.filter((o) => o > 0);
+  const order = nonZero.length
+    ? Math.min(...nonZero)
+    : orders.length
+      ? 0
+      : Number.MAX_SAFE_INTEGER;
+  return groupOrderRank(order) * 10_000 + refIndex;
   return 0;
 }
 
 /** Order markets by `groups[].order` on their `marketsRef` entry, then ref index. */
 export function sortMarketsByMarketsRefOrder(
   markets: tMarketModel[],
-  marketsRef?: SidebarMarketRef[] | null,
+  marketsRef?: MarketRef[] | null,
   groupId?: number,
 ): tMarketModel[] {
-  // if (!marketsRef?.length) return markets;
+  if (!marketsRef?.length) return markets;
 
-  // return [...markets].sort(
-  //   (a, b) =>
-  //     sortKeyForMarketType(a.type, marketsRef, groupId) -
-  //     sortKeyForMarketType(b.type, marketsRef, groupId),
-  // );
+  return [...markets].sort(
+    (a, b) =>
+      sortKeyForMarketType(a.type, marketsRef, groupId) -
+      sortKeyForMarketType(b.type, marketsRef, groupId),
+  );
   return [];
 }
 
 export function filterMarketsByGroupTab(
   markets: tMarketModel[],
-  marketsRef: SidebarMarketRef[] | null | undefined,
+  marketsRef: MarketRef[] | null | undefined,
   groupId: number,
 ): tMarketModel[] {
   return sortMarketsByMarketsRefOrder(

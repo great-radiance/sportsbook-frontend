@@ -60,7 +60,7 @@ export const storeEvent = (event: MatchDataResponse) => {
           market.parameters,
           selectionExtra,
         ),
-        mv: 0,
+        mv: computePriceMv(selection.originalPrice, selection.price),
         isBetBuilderSupported: readIsBetBuilderSupported(
           selection as BetBuilderSupportIn,
         ),
@@ -126,7 +126,7 @@ export const storeEvent = (event: MatchDataResponse) => {
     ),
     mappingInfo: event.eventInfo.mappingInfo,
     markets: {
-      ...evSig.value.markets,
+      // ...evSig.value.markets,
       ...marketsRecord,
     },
     // marketsRef: event.marketsRef?.length

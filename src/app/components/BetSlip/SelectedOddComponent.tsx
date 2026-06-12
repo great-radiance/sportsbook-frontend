@@ -2,7 +2,7 @@
 import { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { SelectedOddType } from "@/shared/utils/bet";
-import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { selectedOdds, currency } from "@/state/betState";
 import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";

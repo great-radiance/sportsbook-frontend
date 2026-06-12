@@ -21,10 +21,13 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    const socketInstance = io(import.meta.env.VITE_BACKEND_URL || "", {
-      autoConnect: true,
-      transports: ["websocket", "polling"],
-    });
+    const socketInstance = io(
+      import.meta.env.VITE_BACKEND_URL + "events" || "",
+      {
+        autoConnect: true,
+        transports: ["websocket", "polling"],
+      },
+    );
     setSocket(socketInstance);
 
     socketInstance.on("connect", () => {

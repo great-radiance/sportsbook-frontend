@@ -81,8 +81,8 @@ export function useSlipBetBuilderPricesSync() {
       const timer = window.setTimeout(async () => {
         try {
           const result = await apiBetBuilderPrice({
-            requestId: crypto.randomUUID(),
-            segmentId: DEFAULT_SEGMENT_ID,
+            // requestId: crypto.randomUUID(),
+            // segmentId: DEFAULT_SEGMENT_ID,
             eventId: leg.eventId,
             bets: leg.selections.map((b) => ({
               marketId: b.apiMarketId ?? b.marketId,
@@ -93,7 +93,9 @@ export function useSlipBetBuilderPricesSync() {
 
           const selectionKey = betBuilderSelectionKey(leg.selections);
 
-          const state: EventBetBuilderPriceState = isBetBuilderCombinable(result)
+          const state: EventBetBuilderPriceState = isBetBuilderCombinable(
+            result,
+          )
             ? {
                 price: result.price ?? null,
                 combinable: true,
@@ -156,4 +158,3 @@ export function useSlipBetBuilderPricesSync() {
       .join("|"),
   ]);
 }
-

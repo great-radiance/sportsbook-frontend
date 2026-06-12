@@ -1,5 +1,3 @@
-import { FavoritesBox } from "@/app/components/FavoritesBox";
-import { BetSlip } from "@/app/components/BetSlip";
 import { StateScoreBoard } from "@/app/components/StateScoreBoard";
 import { FunctionComponent } from "preact";
 import { OpenBets } from "../components/BetSlip/OpenBets";

@@ -100,7 +100,7 @@ export const Sidebar: FunctionComponent = () => {
           isMobile.value
             ? "text-[14px]"
             : `text-[12px] shrink-0 w-full 
-          ${pageName === "live" ? "w-[320px]" : "md:w-[210px]"}
+          ${pageName === "live" ? "max-w-[320px] min-w-[320px]" : "md:w-[210px]"}
               `
         }`}
     >

@@ -34,12 +34,13 @@ import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
 import { OddsChangedDialog } from "../components/BetSlip/OddsChangedDialog";
 import { useLocation } from "wouter-preact";
 // import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
-import { parseRouteIds } from "@/helpers/odds88/applyOdds88WsMessage";
 import { loadPlayerSession } from "@/helpers/loadPlayerSession";
 import { notify } from "@/shared/toast";
 import useSocketEvent from "@/hooks/useSocketEvent";
 import { useSocket, useSocketStatus } from "@/context/SocketContext";
-import { storeSelection } from "@/helpers/storeEvent";
+import { storeEvent, storeSelection } from "@/helpers/storeEvent";
+import { removeEventFromSummarySports } from "@/helpers/removeEventFromSummarySports";
+import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 
 interface MainLayoutProps {
   children: JSX.Element | JSX.Element[];
@@ -59,10 +60,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     return Number.isFinite(id) && id > 0 ? id : undefined;
   }, [eventId]);
 
-  const routeIds = useMemo(
-    () => parseRouteIds(sportIdParam, regionIdParam),
-    [sportIdParam, regionIdParam],
-  );
   const eventIds = useMemo(
     () => Object.keys(storeState.value).map(Number),
     [storeState.value],
@@ -105,15 +102,22 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   }, [socket, isConnected, eventIds]);
 
   const handleEventsUpdated = useCallback((data: any) => {
-    console.log("events:updated", data);
+    console.log("event:update", data);
+    const event = storeState.value[data.eventId];
+    console.log("event", event.value);
+    if (data.terminal) {
+      const terminalEventId = Number(data.eventId);
+      removeEventFromSummarySports(terminalEventId);
+      delete storeState.value[terminalEventId];
+    } else {
+      storeEvent(data.data as MatchDataResponse);
+    }
   }, []);
 
-  const handleEventsAvailable = useCallback((data: any) => {
-    console.log("events:available", data);
-  }, []);
-
-  useSocketEvent("events:updated", handleEventsUpdated);
-  useSocketEvent("events:available", handleEventsAvailable);
+  useSocketEvent("event:update", handleEventsUpdated);
+  // useSocketEvent("event:notification", (data: any) => {
+  //   console.log("event:notification", data);
+  // });
 
   useEffect(() => {
     console.log("selectedOdds-mainlayout", selectedOdds.value);

@@ -5,6 +5,7 @@ import { FunctionComponent } from "preact";
 import { LiveMatchesPanel } from "@/app/components/Specials/LiveMatchesPanel";
 import { isMobile } from "@/state/isMobile";
 import { isOpenedMyBet } from "@/state/betState";
+import { RightSidebar } from "@/app/pages/RightSidebar";
 
 export const LiveEventView: FunctionComponent = () => {
   const { eventId } = useRouteParams();
@@ -26,7 +27,7 @@ export const LiveEventView: FunctionComponent = () => {
           display: isOpenedMyBet.value ? "flex" : "none",
         }}
       >
-        {/* <RightSidebar /> */}
+        <RightSidebar />
       </div>
     </div>
   );

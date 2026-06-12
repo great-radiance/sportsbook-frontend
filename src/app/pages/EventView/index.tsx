@@ -7,10 +7,6 @@ import { EmblaBanner } from "@/app/components/Banner";
 import { BetSlip } from "@/app/components/BetSlip";
 import { LiveEventView } from "./LiveEventView";
 import { isOpenedMyBet } from "@/state/betState";
-import { SportPage } from "./SportPage";
-import { HomePage } from "./HomePage";
-import { RegionMatchesBoard } from "@/app/components/MatchesBoard/RegionMatchesBoard";
-import { MatchesBoard } from "@/app/components/MatchesBoard";
 
 export const EventView: FunctionComponent = () => {
   const { pageName } = useRouteParams();

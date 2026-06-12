@@ -54,8 +54,8 @@ export function useBetBuilderPriceSync() {
       betBuilderPriceLoading.value = true;
       try {
         const result = await apiBetBuilderPrice({
-          requestId: crypto.randomUUID(),
-          segmentId: DEFAULT_SEGMENT_ID,
+          // requestId: crypto.randomUUID(),
+          // segmentId: DEFAULT_SEGMENT_ID,
           eventId,
           bets: building.map((b) => ({
             marketId: b.apiMarketId ?? Number(b.marketId),

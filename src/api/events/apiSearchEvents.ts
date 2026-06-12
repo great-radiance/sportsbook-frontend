@@ -9,8 +9,8 @@ import { getAppConfig } from "@/shared/config/appConfig";
 
 export type EventsSearchParams = {
   q?: string;
-  from?: string;
-  to?: string;
+  pageSize?: number;
+  page?: number;
   lang?: string;
 };
 
@@ -28,18 +28,25 @@ export async function apiSearchEvents(
   const { data: raw } = await instance.get<
     | { total: number; data: GuideSearchEventItem[]; source?: string }
     | { data: { total: number; data: GuideSearchEventItem[]; source?: string } }
-  >("/events/search", {
+  >("users/events/search", {
     params: {
       ...(params.q ? { q: params.q } : {}),
-      ...(params.from ? { from: params.from } : {}),
-      ...(params.to ? { to: params.to } : {}),
+      ...(params.pageSize ? { pageSize: params.pageSize } : { pageSize: 10 }),
+      ...(params.page ? { page: params.page } : { page: 1 }),
       lang: params.lang ?? lang ?? "en",
     },
   });
 
   const body =
-    raw && typeof raw === "object" && "data" in raw && Array.isArray((raw as { data: unknown }).data)
-      ? (raw as { total: number; data: GuideSearchEventItem[]; source?: string })
+    raw &&
+    typeof raw === "object" &&
+    "data" in raw &&
+    Array.isArray((raw as { data: unknown }).data)
+      ? (raw as {
+          total: number;
+          data: GuideSearchEventItem[];
+          source?: string;
+        })
       : unwrapApiData<{
           total: number;
           data: GuideSearchEventItem[];

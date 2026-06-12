@@ -1,7 +1,5 @@
 import { Signal } from "@preact/signals";
-// import type { SidebarMarketRef } from "@/state/summarySports";
-
-export type SidebarMarketRef = any;
+import { MarketRef } from "@/api/matches/apiGetMatchData";
 
 /** Single odd row stored under `tOddsModel.odds[oddId]` */
 export type tSelectionValue = {
@@ -69,7 +67,7 @@ export type tEventModel = {
   }[];
   markets: Record<number, Signal<tMarketModel>>; //marketId to marketModel
   /** From `GET /odds88/events/:eventId` — groups markets by tab in MarketsBoard. */
-  marketsRef?: SidebarMarketRef[];
+  marketsRef?: MarketRef[];
   scoreboard?: any;
 };
 

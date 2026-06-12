@@ -322,6 +322,7 @@ export function removeEventFromSummarySports(eventId: number): void {
       countsSummarySportsState.value.liveCount.totalCount--;
     }
   }
+  countsSummarySportsState.value = { ...countsSummarySportsState.value };
 }
 export function addEventToSummarySports(event: MatchDataResponse): void {
   const eventId = event.eventInfo.id;
@@ -338,13 +339,8 @@ export function addEventToSummarySports(event: MatchDataResponse): void {
   }
 
   added =
-    addEventToPrematchSidebar(
-      sportId,
-      regionId,
-      leagueId,
-      eventId,
-      bucket,
-    ) || added;
+    addEventToPrematchSidebar(sportId, regionId, leagueId, eventId, bucket) ||
+    added;
 
   if (added) {
     incrementSummaryCounts(event, sportId);

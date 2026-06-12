@@ -67,30 +67,10 @@ export const storeEvent = (event: MatchDataResponse) => {
         mv: existingSelections.find((s) => s.value.id === selection.id)
           ? computePriceMv(
               existingSelections.find((s) => s.value.id === selection.id)?.value
-                .originalPrice ?? 0,
+                .price ?? 0,
               selection.price,
             )
           : 0,
-        // mv: (() => {
-        //   const existingSelection = existingSelections.find(
-        //     (s) => s.value.id === selection.id,
-        //   );
-        //   // console.log("existingSelection", existingSelection);
-        //   // console.log("selection", selection);
-        //   console.log(
-        //     "computePriceMv",
-        //     computePriceMv(
-        //       existingSelection?.value.price ?? 0,
-        //       selection.price,
-        //     ),
-        //   );
-        //   return existingSelection
-        //     ? computePriceMv(
-        //         existingSelection?.value.price ?? 0,
-        //         selection.price,
-        //       )
-        //     : 0;
-        // })(),
         isBetBuilderSupported: readIsBetBuilderSupported(
           selection as BetBuilderSupportIn,
         ),

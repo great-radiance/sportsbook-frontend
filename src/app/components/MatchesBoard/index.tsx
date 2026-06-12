@@ -74,8 +74,9 @@ const switchCategory = (
   outrightEventIds: number[],
   marketType: number | undefined,
   allowAutoSelect: boolean,
+  sportIdParam: string,
+  sportName: string,
 ) => {
-  const { sportIdParam, sportName } = useRouteParams();
   switch (category) {
     case "Hot":
       return (
@@ -430,6 +431,8 @@ export const MatchesBoard: FunctionComponent = () => {
             node?.outright ?? [],
             selectedMarketType,
             false,
+            sportIdParam ?? "",
+            sportName ?? "",
           )
         )}
       </div>

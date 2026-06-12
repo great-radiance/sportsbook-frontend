@@ -38,10 +38,6 @@ export const OutrightMatches: FunctionComponent = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const { t } = useTranslate("sidebar");
   const [outrightResponse, setOutrightResponse] = useState<OutrightTree>();
-  // const popularEventIds = useMemo(
-  //   () => outRightSummarySports.value.featuredMatches?.[1] ?? [],
-  //   [outRightSummarySports.value],
-  // );
 
   const sportsListData = useMemo<{ name: string; id: number }[]>(() => {
     const data = countsSummarySportsState.value.outrightCount.counts;
@@ -78,8 +74,6 @@ export const OutrightMatches: FunctionComponent = () => {
             })),
           };
         });
-        console.log("outrightResponse", outrightResponse);
-        console.log("response", response);
       } catch (error) {
         console.error("Error fetching outright matches:", error);
       } finally {

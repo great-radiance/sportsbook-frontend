@@ -19,7 +19,6 @@ const STORAGE_KEY = "stoiximan-theme";
 function getInitialTheme(): Theme {
   // localStorage first
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  console.log("Saved theme from localStorage:", saved);
   if (saved === "light" || saved === "dark") return saved;
 
   // if already set on <html>
@@ -43,7 +42,6 @@ export function ThemeProvider({ children }: { children: ComponentChildren }) {
 
   // apply theme globally to <html> (so :root[data-theme="dark"] works)
   useEffect(() => {
-    console.log("Applied theme:", theme);
     document.documentElement.setAttribute("data-theme", theme);
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);

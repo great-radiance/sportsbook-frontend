@@ -168,8 +168,6 @@ export const Market: FunctionComponent<MarketProps> = ({
   const name = market?.name;
   const lowerName = name?.toLowerCase() || "";
 
-  // console.log("market", marketId, market);
-
   if (isBuilding.value && !market?.isBetBuilderSupported) {
     return (
       <div className="flex w-full h-[34px] bg-[var(--sub-element-secondary)] border border-[var(--border-color)] items-center justify-center rounded-[8px]">

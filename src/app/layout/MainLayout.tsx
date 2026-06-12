@@ -11,7 +11,6 @@ import {
   myBetsState,
   buildingBetAmount,
   isOpenedMyBet,
-  balance,
   currency,
 } from "@/state/betState";
 import {
@@ -20,7 +19,6 @@ import {
 } from "@/shared/utils/bet";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
-import { playerSessionReady } from "@/state/betState";
 import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import {
@@ -33,14 +31,10 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
 import { OddsChangedDialog } from "../components/BetSlip/OddsChangedDialog";
 import { useLocation } from "wouter-preact";
-// import { useOdds88WebSocket } from "@/hooks/useOdds88WebSocket";
-import { loadPlayerSession } from "@/helpers/loadPlayerSession";
-import { notify } from "@/shared/toast";
 import useSocketEvent from "@/hooks/useSocketEvent";
 import { useSocket, useSocketStatus } from "@/context/SocketContext";
 import {
   storeEvent,
-  storeSelection,
   syncSelectionsStoreFromIncomingMarkets,
 } from "@/helpers/storeEvent";
 import {
@@ -73,13 +67,9 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     [storeState.value],
   );
 
-  useEffect(() => {
-    // console.log("eventIds=========", eventIds);
-  }, [eventIds]);
+  useEffect(() => {}, [eventIds]);
 
-  useEffect(() => {
-    // console.log("selectionsStoreState=========", selectionsStoreState.value);
-  }, [selectionsStoreState.value]);
+  useEffect(() => {}, [selectionsStoreState.value]);
 
   useEffect(() => {
     if (!socket || !isConnected || !eventIds?.length) return;
@@ -87,8 +77,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     socket.emit("subscribe", {
       eventIds,
     });
-
-    console.log("subscribe", socket.id, eventIds);
 
     return () => {
       socket.emit("unsubscribe", {
@@ -98,9 +86,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   }, [socket, isConnected, eventIds]);
 
   const handleEventsUpdated = useCallback((data: any) => {
-    // console.log("event:update", data);
     const event = storeState.value[data.eventId];
-    // console.log("event", event.value);
     if (data.terminal) {
       const terminalEventId = Number(data.eventId);
       syncSelectionsStoreFromIncomingMarkets(
@@ -155,7 +141,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
           );
         }
       }
-      // console.log("event:notification", data);
     },
     [],
   );
@@ -164,7 +149,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   useSocketEvent("event:notification", handleEventNotification);
 
   useEffect(() => {
-    // console.log("selectedOdds-mainlayout", selectedOdds.value);
     if (selectedOdds.value.length === 0) {
       window.localStorage.removeItem("selectedOdds");
       window.localStorage.removeItem("selectedBets");

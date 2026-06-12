@@ -96,12 +96,6 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
     return null;
   }
 
-  // console.log("marketComponentProps", {
-  //   Collapsed,
-  //   marketId,
-  //   eventId,
-  // });
-
   return (
     <div
       key={`market-component-${marketIds.join("_")}-${eventId}`}

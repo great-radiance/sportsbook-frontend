@@ -88,16 +88,6 @@ export const EmblaBanner = () => {
   useEffect(() => {
     const allIds = popularMatchesState.value.map((match) => match.eventInfo.id);
     popularMatchesState.value.forEach((match) => storeEvent(match));
-    // console.log("storeState", storeState.value);
-    // console.log(
-    //   "popularMatchesStateMarketsTradingStatus",
-    //   [
-    //     ...popularMatchesState.value.map((match) =>
-    //       match.markets.map((market) => market.tradingStatus),
-    //     ),
-    //   ].flat(),
-    // );
-
     setEvents(
       allIds
         .filter(

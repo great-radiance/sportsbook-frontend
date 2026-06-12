@@ -289,7 +289,6 @@ export const storeSelection = (
           : (existing?.mv ?? 0),
     }),
   };
-  // console.log("storedEvent", selectionsStoreState.value);
 };
 
 export const removeFromOddsStore = (ids: string[]) => {

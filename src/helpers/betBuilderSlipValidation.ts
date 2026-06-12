@@ -28,8 +28,6 @@ export async function verifyBetBuilderGroup(
       })),
     });
 
-    console.log("result", result);
-
     if (isBetBuilderCombinable(result) && typeof result.price === "number") {
       return { combinable: true, price: result.price };
     }

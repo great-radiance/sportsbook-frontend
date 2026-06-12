@@ -51,10 +51,7 @@ import { computed } from "@preact/signals";
 import SystemBetLineComponent from "./SystembetSection";
 import { baseColorTheme } from "@/state/baseColorTheme";
 import { PlayerExposureBar } from "./PlayerExposureBar";
-import {
-  refreshAfterWalletAction,
-  refreshBalanceFromConfig,
-} from "@/helpers/refreshPlayerWallet";
+import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
 import {
   handleOddsChangedRejection,
   onBetRejectedWithReason,
@@ -168,16 +165,6 @@ function rejectionReasonMessage(code: string | undefined): string {
 function slipSelectionsPayload(odds: SelectedOddType[]) {
   const legs = groupSelectedOddsIntoLegs(odds);
   return buildPlaceBetSelections(legs, currentBbPriceMap());
-}
-
-async function subscribeCashoutForBet(betId: string, playerId?: string) {
-  const pid = playerId || getAppConfig().xUserId;
-  if (!pid || !betId) return;
-  try {
-    await apiCashoutSubscribe(betId, pid);
-  } catch {
-    /* non-blocking — cashout feed is best-effort */
-  }
 }
 
 export const BetSlip: FunctionComponent = () => {
@@ -458,8 +445,7 @@ export const BetSlip: FunctionComponent = () => {
               rotateBetSlipIdempotencyKey();
             } else if (d?.status === "accepted") {
               notify("Bet accepted", "success", "check2-circle", 2500);
-              // void refreshAfterWalletAction();
-              // void subscribeCashoutForBet(d.betId, xUserId);
+              void refreshAfterWalletAction();
               void showAcceptedBetInOpenBets(d.betId);
               rotateBetSlipIdempotencyKey();
             } else {
@@ -496,7 +482,6 @@ export const BetSlip: FunctionComponent = () => {
           if (call.providerRegistrationFailed || call.httpStatus === 502) {
             handleProviderRegistrationFailure();
             selectedOdds.value = [];
-            window.localStorage.removeItem("selectedOdds");
             return;
           }
           if (call.httpStatus === 409 && call.result?.betId) {
@@ -526,7 +511,6 @@ export const BetSlip: FunctionComponent = () => {
             window.localStorage.removeItem("selectedOdds");
             notify("Bet accepted", "success", "check2-circle", 2500);
             void refreshAfterWalletAction();
-            void subscribeCashoutForBet(d.betId, xUserId);
             void showAcceptedBetInOpenBets(d.betId);
             rotateBetSlipIdempotencyKey();
           } else {
@@ -574,7 +558,6 @@ export const BetSlip: FunctionComponent = () => {
                   window.localStorage.removeItem("selectedOdds");
                   notify("Bet accepted", "success", "check2-circle", 2500);
                   void refreshAfterWalletAction();
-                  void subscribeCashoutForBet(d.betId, xUserId);
                   void showAcceptedBetInOpenBets(d.betId);
                   rotateBetSlipIdempotencyKey();
                 } else {

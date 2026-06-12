@@ -38,7 +38,11 @@ import { loadPlayerSession } from "@/helpers/loadPlayerSession";
 import { notify } from "@/shared/toast";
 import useSocketEvent from "@/hooks/useSocketEvent";
 import { useSocket, useSocketStatus } from "@/context/SocketContext";
-import { storeEvent, storeSelection } from "@/helpers/storeEvent";
+import {
+  storeEvent,
+  storeSelection,
+  syncSelectionsStoreFromIncomingMarkets,
+} from "@/helpers/storeEvent";
 import {
   addEventToSummarySports,
   removeEventFromSummarySports,
@@ -52,7 +56,8 @@ interface MainLayoutProps {
 export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   children,
 }) => {
-  const { pageName, eventId, sportIdParam, regionIdParam } = useRouteParams();
+  const { pageName, eventId, sportIdParam, regionIdParam, leagueIdParam } =
+    useRouteParams();
   const [, setLocation] = useLocation();
   const { baseTheme } = getAppConfig();
   const socket = useSocket();
@@ -98,31 +103,65 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
     // console.log("event", event.value);
     if (data.terminal) {
       const terminalEventId = Number(data.eventId);
+      syncSelectionsStoreFromIncomingMarkets(
+        terminalEventId,
+        data.data.markets,
+        data.data.eventInfo.tradingStatus,
+      );
       removeEventFromSummarySports(terminalEventId);
       delete storeState.value[terminalEventId];
+      storeState.value = { ...storeState.value };
     } else {
       storeEvent(data.data as MatchDataResponse);
     }
   }, []);
 
-  const handleEventNotification = useCallback((data: any) => {
-    const event = storeState.value[data.eventId];
-    if (data.terminal) {
-      removeEventFromSummarySports(data.eventId);
-      delete storeState.value[data.eventId];
-    } else {
-      addEventToSummarySports(data.data as MatchDataResponse);
-      if (event) {
-        storeEvent(data.data as MatchDataResponse);
+  const handleEventNotification = useCallback(
+    (data: { data: MatchDataResponse; eventId: number; terminal: boolean }) => {
+      const event = storeState.value[data.eventId];
+      if (data.terminal) {
+        removeEventFromSummarySports(data.eventId);
+        delete storeState.value[data.eventId];
+        storeState.value = { ...storeState.value };
+        syncSelectionsStoreFromIncomingMarkets(
+          data.eventId,
+          data.data.markets,
+          data.data.eventInfo.tradingStatus,
+        );
+      } else {
+        addEventToSummarySports(data.data as MatchDataResponse);
+        const shouldStore = useMemo(() => {
+          if (event) return true;
+          if (leagueIdParam) {
+            return (
+              parseInt(leagueIdParam) === data.data.eventInfo.competition?.id
+            );
+          }
+          if (regionIdParam) {
+            return parseInt(regionIdParam) === data.data.eventInfo.country?.id;
+          }
+          if (sportIdParam) {
+            return parseInt(sportIdParam) === data.data.eventInfo.sport?.id;
+          }
+          return true;
+        }, [sportIdParam, regionIdParam, leagueIdParam]);
+        if (shouldStore) {
+          storeEvent(data.data as MatchDataResponse);
+        } else {
+          syncSelectionsStoreFromIncomingMarkets(
+            data.eventId,
+            data.data.markets,
+            data.data.eventInfo.tradingStatus,
+          );
+        }
       }
-    }
-    // console.log("event:notification", data);
-  }, []);
+      // console.log("event:notification", data);
+    },
+    [],
+  );
 
   useSocketEvent("event:update", handleEventsUpdated);
-  useSocketEvent("event:notification", (data: any) => {
-    // console.log("event:notification", data);
-  });
+  useSocketEvent("event:notification", handleEventNotification);
 
   useEffect(() => {
     // console.log("selectedOdds-mainlayout", selectedOdds.value);
@@ -205,19 +244,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
             : `dev_${Date.now()}`;
         window.localStorage.setItem("sb_device_id", deviceId);
       }
-
-      // const session = await loadPlayerSession();
-      // if (session.notFound) {
-      //   notify(
-      //     "Player account not found. Please contact support.",
-      //     "warning",
-      //     "exclamation-triangle",
-      //     5000,
-      //   );
-      // } else if (!session.ok) {
-      //   console.warn("Player session could not be loaded");
-      // }
-      playerSessionReady.value = true;
     })();
     getSBetsData();
     const favoriteMatchesData = window.localStorage.getItem("favoriteMatches");
@@ -236,6 +262,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   useEffect(() => {
     if (willBeDeletedEventIds.value) {
       delete storeState.value[willBeDeletedEventIds.value];
+      storeState.value = { ...storeState.value };
     }
   }, [eventId]);
 

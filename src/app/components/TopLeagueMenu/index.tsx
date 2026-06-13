@@ -1,18 +1,19 @@
-import { isMobile } from "@/state/isMobile";
-import { popularLeaguesState } from "@/state/popularLeaguesState";
-import {
-  countsSummarySportsState,
-  summarySportsState,
-} from "@/state/summarySports";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { buildTopLeagueItems } from "@/helpers/topLeagueItems";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const TopLeagueMenu = () => {
+  const {
+    isMobile,
+    popularLeaguesState,
+    summarySportsState,
+    countsSummarySportsState,
+    loadedSidebarState,
+    baseColorTheme,
+  } = useSportsbookStore();
   const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
   const baseTheme = baseColorTheme.value;

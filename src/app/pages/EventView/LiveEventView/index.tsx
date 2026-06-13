@@ -3,11 +3,11 @@ import { Sidebar } from "@/app/components/Sidebar";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { FunctionComponent } from "preact";
 import { LiveMatchesPanel } from "@/app/components/Specials/LiveMatchesPanel";
-import { isMobile } from "@/state/isMobile";
-import { isOpenedMyBet } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { RightSidebar } from "@/app/pages/RightSidebar";
 
 export const LiveEventView: FunctionComponent = () => {
+  const { isMobile, isOpenedMyBet } = useSportsbookStore();
   const { eventId } = useRouteParams();
   return (
     <div className="flex w-full relative p-2 md:px-0 bg-[var(--background-color)]">

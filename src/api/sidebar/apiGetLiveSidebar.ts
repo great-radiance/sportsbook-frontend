@@ -1,10 +1,9 @@
 import { storeEvent } from "@/helpers/storeEvent";
 import { instance } from "../instance";
 import type { MatchDataResponse } from "../matches/apiGetMatchData";
-import {
-  countsSummarySportsState,
-  summarySportsLiveState,
-} from "@/state/summarySports";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { countsSummarySportsState, summarySportsLiveState } = sportsbookStore;
 
 export type LiveSidebarSport = {
   id: number;

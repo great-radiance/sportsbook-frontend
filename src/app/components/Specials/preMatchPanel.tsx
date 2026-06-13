@@ -11,12 +11,7 @@ import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
 import { apiGetUpcomingEvents } from "@/api/matches/apiGetUpcoming";
 import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
-import {
-  countsSummarySportsState,
-  summarySportsState,
-} from "@/state/summarySports";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
+import { useSportsbookStore, sportsbookStore } from "@/state/sportsbookStoreContext";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
   eventHasMarketType,
@@ -31,15 +26,13 @@ import {
   sortEventIdsByStartDate,
 } from "@/helpers/sortEventIdsByStartDate";
 import { POPULAR_SPORT_ID } from "@/helpers/summaryIds";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import { popularMatchesState } from "@/state/popularMatchesState";
 
 function sportsFromSidebar(isLive: boolean) {
   const counts = isLive
-    ? countsSummarySportsState.value.liveCount.counts
-    : countsSummarySportsState.value.preMatchCount.counts;
+    ? sportsbookStore.countsSummarySportsState.value.liveCount.counts
+    : sportsbookStore.countsSummarySportsState.value.preMatchCount.counts;
 
-  return summarySportsState.value
+  return sportsbookStore.summarySportsState.value
     .filter((node) => node.type === "sport" || node.type === "combined_sport")
     .map((node) => {
       const sportId = node.sportId ?? 0;
@@ -53,6 +46,14 @@ function sportsFromSidebar(isLive: boolean) {
 }
 
 export const PreMatchPanel: FunctionComponent = () => {
+  const {
+    baseColorTheme,
+    loadedSidebarState,
+    popularMatchesState,
+    storeState,
+    summarySportsState,
+    countsSummarySportsState,
+  } = useSportsbookStore();
   const { t } = useTranslate("navigation");
   const { t: tLive } = useTranslate("liveCalendar");
   const baseTheme = baseColorTheme.value;

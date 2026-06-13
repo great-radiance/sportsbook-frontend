@@ -4,7 +4,7 @@ import {
   sportsbookHashHref,
 } from "@/helpers/buildPrematchPath";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useMemo, useState } from "preact/hooks";
 import type { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 import { getLeagueId, getRegionId } from "@/helpers/findSidebarNodeByRoute";
@@ -32,6 +32,7 @@ const isRegionNode = (node: sidebarNode): boolean =>
 const nodeLabel = (node: sidebarNode, lang: string): string => node.name || "";
 
 const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
+  const { baseColorTheme } = useSportsbookStore();
   const lang = getAppConfig().lang;
   const baseTheme = baseColorTheme.value;
   const [openContinents, setOpenContinents] = useState<Record<string, boolean>>(

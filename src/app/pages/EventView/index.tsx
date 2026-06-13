@@ -6,9 +6,10 @@ import { SwitchMachesBoard } from "./SwitchMachesBoard";
 import { EmblaBanner } from "@/app/components/Banner";
 import { BetSlip } from "@/app/components/BetSlip";
 import { LiveEventView } from "./LiveEventView";
-import { isOpenedMyBet } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const EventView: FunctionComponent = () => {
+  const { isOpenedMyBet } = useSportsbookStore();
   const { pageName } = useRouteParams();
 
   return (

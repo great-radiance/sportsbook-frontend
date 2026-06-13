@@ -4,9 +4,8 @@ import { useLocation } from "wouter-preact";
 
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { Market as MarketComponent } from "./Market";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
-import { storeState } from "@/state/storeState";
 import {
   tEventModel,
   tMarketModel,
@@ -39,6 +38,7 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
   marketSlug,
   loading = false,
 }) => {
+  const { isMobile, storeState } = useSportsbookStore();
   const [, setLocation] = useLocation();
   const match = storeState.value[selectedEventId]?.value;
   const clockRef = useRef<HTMLSpanElement>(null);

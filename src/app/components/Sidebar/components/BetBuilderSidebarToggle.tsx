@@ -4,9 +4,8 @@ import { useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { setBetBuilderMode } from "@/helpers/setBetBuilderMode";
 import { groupSelectionsByEvent } from "@/helpers/betslipLegs";
-import { isBuilding, selectedOdds } from "@/state/betState";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 type BetBuilderSidebarToggleProps = {
   variant?: "prematch" | "live";
@@ -81,6 +80,7 @@ function BetBuilderSwitch({
 export const BetBuilderSidebarToggle: FunctionComponent<
   BetBuilderSidebarToggleProps
 > = ({ variant = "prematch" }) => {
+  const { isBuilding, selectedOdds, isMobile } = useSportsbookStore();
   const { t: tMarkets } = useTranslate("markets");
   const { t: tSidebar } = useTranslate("sidebar");
   const [active, setActive] = useState(isBuilding.value);

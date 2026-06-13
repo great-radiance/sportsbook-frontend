@@ -1,4 +1,6 @@
-import { isOpenedSidebar } from "@/state/isOpenedSidebar";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { isOpenedSidebar } = sportsbookStore;
 
 export const linkButtonOnClick = (
   e: MouseEvent,

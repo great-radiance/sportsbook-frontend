@@ -1,6 +1,7 @@
-import { locationHookType } from '@/state/locationHookType';
+import { sportsbookStore } from '@/state/sportsbookStoreContext';
 import { readFullFromHash } from '../app/router/ShadowLocation';
-import { routeQueryState } from '@/state/routeState';
+
+const { locationHookType, routeQueryState } = sportsbookStore;
 
 export function useSportsbookQuery(): URLSearchParams {
   if (locationHookType.value === 'useMemoryLocationWithHistory') {

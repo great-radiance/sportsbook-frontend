@@ -9,7 +9,7 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { useMemo } from "preact/hooks";
 import { SwitchMachesBoard } from "./SwitchMachesBoard";
 import { useSpecialNavigationItems } from "@/hooks/useSpecialNavigationItems";
-import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 const NomalView: FunctionComponent = () => {
   const { t: tAlt } = useTranslate("alt");
@@ -134,6 +134,7 @@ const NomalView: FunctionComponent = () => {
 };
 
 export const EventviewForMobile: FunctionComponent = () => {
+  const { bottomLayoutHeight } = useSportsbookStore();
   return (
     <div className="flex flex-col h-full bg-[var(--background-color)] overflow-y-auto scrollbar-none">
       <NomalView />

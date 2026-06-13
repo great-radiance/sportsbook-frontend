@@ -9,9 +9,10 @@ import {
   addStarPlayerBundleToSlip,
 } from "@/helpers/homeWidgetBetslip";
 import { widgetPickToSlipInput } from "@/helpers/widgetDisplayNames";
-import { homeWidgetsCache } from "@/state/homeWidgetsCache";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const StarPlayers: FunctionComponent = () => {
+  const { homeWidgetsCache } = useSportsbookStore();
   const [players, setPlayers] = useState<StarPlayerCardResponse[]>(
     homeWidgetsCache.value?.starPlayers ?? [],
   );

@@ -1,12 +1,10 @@
 import { isCashoutableStatus } from "@/helpers/betStatus";
-import { isMobile } from "@/state/isMobile";
-import {
-  betHistoryState,
-  openBetsTabState,
-  requestBetHistoryRefresh,
-} from "@/state/betHistoryState";
-import { isOpenedMyBet } from "@/state/betState";
+import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import type { BetItemType } from "@/shared/utils/bet";
+
+const { isMobile, betHistoryState, openBetsTabState, isOpenedMyBet } =
+  sportsbookStore;
 
 const OPEN_BETS_LIST_STATUSES = new Set([
   "accepted",

@@ -2,7 +2,9 @@
 import { useState, useCallback, useEffect, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import type { LocationHook } from "wouter-preact";
-import { routeFullState, routePathState, routeState } from "@/state/routeState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { routeFullState, routePathState, routeState } = sportsbookStore;
 
 // Memory hook: for disallowUrlChange=true (no touching address bar)
 // Uses global signal for shared state

@@ -6,7 +6,7 @@ import {
 } from "./ShadowLocation";
 import { routes } from "./routes";
 import { MainLayout } from "../layout/MainLayout";
-import { locationHookType } from "@/state/locationHookType";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 interface RouterViewProps {
   disallowUrlChange?: boolean;
@@ -15,6 +15,7 @@ interface RouterViewProps {
 export const RouterView: FunctionComponent<RouterViewProps> = ({
   disallowUrlChange,
 }) => {
+  const { locationHookType } = useSportsbookStore();
   // Default to memory routing (true) if not explicitly set to false
   const useMemory = disallowUrlChange !== false;
   const hook = useMemory ? useMemoryLocationWithHistory : useHashLocation;

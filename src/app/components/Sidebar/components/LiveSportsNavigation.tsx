@@ -1,12 +1,8 @@
 import { FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { isMobile } from "@/state/isMobile";
 import { LiveSportSection } from "@/app/components/Sidebar/components/LiveSportSection";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import {
-  countsSummarySportsState,
-  summarySportsLiveState,
-} from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 interface LiveSportsNavigationProps {
   selectedSport?: string;
@@ -16,6 +12,8 @@ interface LiveSportsNavigationProps {
 export const LiveSportsNavigation: FunctionComponent<
   LiveSportsNavigationProps
 > = ({ selectedSport, groupByRegions = false }) => {
+  const { isMobile, summarySportsLiveState, countsSummarySportsState } =
+    useSportsbookStore();
   const { pageName, sportName } = useRouteParams();
   const [expandedSports, setExpandedSports] = useState<Set<string>>(
     new Set(["Soccer"]),

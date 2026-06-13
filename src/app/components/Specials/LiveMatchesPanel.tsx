@@ -6,24 +6,18 @@ import { LiveMatchesPanelLoader } from "@/app/components/Loading";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useLocation } from "wouter-preact";
-import { storeState } from "@/state/storeState";
 import { Match } from "../MatchesBoard/components/Match";
 import { MarketNavigation } from "../marketNavigation";
-import { baseColorTheme } from "@/state/baseColorTheme";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
   eventHasMarketType,
   isMoneylineSport,
 } from "@/helpers/sidebarMarketNavigation";
-import {
-  countsSummarySportsState,
-  summarySportsLiveState,
-} from "@/state/summarySports";
 import { isRacingSport } from "@/helpers/isRacingSport";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { apiGetLiveSidebar } from "@/api/sidebar/apiGetLiveSidebar";
-import { loadedLiveState } from "@/state/loadedLiveState";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
 
 type LeagueRow = {
@@ -64,6 +58,13 @@ function leaguesForSport(
 }
 
 export const LiveMatchesPanel: FunctionComponent = () => {
+  const {
+    baseColorTheme,
+    summarySportsLiveState,
+    loadedLiveState,
+    storeState,
+    countsSummarySportsState,
+  } = useSportsbookStore();
   const { t: tCommon } = useTranslate("common");
   const [, setLocation] = useLocation();
   const { pageName } = useRouteParams();

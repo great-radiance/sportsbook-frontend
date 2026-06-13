@@ -1,4 +1,4 @@
 import { signal } from "@preact/signals";
-import { isMobile } from "@/state/isMobile";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 
-export const betSlipExpanded = signal<boolean>(!isMobile.value);
+export const betSlipExpanded = signal<boolean>(!sportsbookStore.isMobile.value);

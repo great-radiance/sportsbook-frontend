@@ -1,6 +1,6 @@
 import { FunctionComponent } from "preact";
 import { HorizontalTabs } from "./HorizontalTabs";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { MARKET_NAMES } from "@/shared/utils/marketNames";
 import { useEffect, useMemo } from "preact/hooks";
 import { marketTypesEqual } from "@/helpers/sidebarMarketNavigation";
@@ -43,6 +43,7 @@ function isNumericOptions(
 export const MarketNavigation: FunctionComponent<MarketNavigationProps> = (
   props,
 ) => {
+  const { isMobile } = useSportsbookStore();
   const { className, options, selectedValue, onSelect } = props;
   const idMode = isNumericOptions(options);
 

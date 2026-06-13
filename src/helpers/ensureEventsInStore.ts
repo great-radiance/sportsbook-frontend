@@ -1,6 +1,8 @@
 // import { apiGetMatches } from "@/api/matches/apiGetMatchesByNode";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { storeState } = sportsbookStore;
 import type { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 
 export type EnsureEventsInStoreOptions = {

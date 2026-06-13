@@ -1,33 +1,15 @@
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { FunctionComponent, JSX } from "preact";
 import { useCallback, useEffect, useMemo } from "preact/hooks";
 import { TabList } from "../components/TabList";
 import { BonusInfoDialog } from "@/app/components/BonusInfoDialog";
 import { useMediaQuery } from "usehooks-ts";
-import {
-  selectedOdds,
-  selectedBetType,
-  multipleBetAmount,
-  myBetsState,
-  buildingBetAmount,
-  isOpenedMyBet,
-  balance,
-  currency,
-} from "@/state/betState";
+import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import {
   normalizeSelectedOddRow,
   type SelectedOddType,
 } from "@/shared/utils/bet";
-import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
-import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
-import { playerSessionReady } from "@/state/betState";
-import { favoriteMatches } from "@/state/Favorite";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import {
-  selectionsStoreState,
-  storeState,
-  willBeDeletedEventIds,
-} from "@/state/storeState";
 import { Search } from "../components/Search";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { CashoutDialog } from "../components/BetSlip/CashoutDialog";
@@ -56,6 +38,21 @@ interface MainLayoutProps {
 export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   children,
 }) => {
+  const {
+    isMobile,
+    selectedOdds,
+    selectedBetType,
+    multipleBetAmount,
+    myBetsState,
+    buildingBetAmount,
+    isOpenedMyBet,
+    currency,
+    bottomLayoutHeight,
+    favoriteMatches,
+    selectionsStoreState,
+    storeState,
+    willBeDeletedEventIds,
+  } = useSportsbookStore();
   const { pageName, eventId, sportIdParam, regionIdParam, leagueIdParam } =
     useRouteParams();
   const [, setLocation] = useLocation();

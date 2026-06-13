@@ -3,17 +3,15 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { Match } from "./components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
 import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
 import { MoneylineMatch } from "./components/Match/MoneylineMatch";
 import { RacingMatch } from "./components/Match/RacingMatch";
 import { isRacingSport } from "@/helpers/isRacingSport";
-import { summarySportsState } from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import {
   findLeagueInRegion,
   findRegionNode,
@@ -27,6 +25,8 @@ const isLeagueNode = (node: sidebarNode): boolean =>
   node.type === "league" || node.type === "combined_league";
 
 export const RegionMatchesBoard: FunctionComponent = () => {
+  const { loadedSidebarState, storeState, summarySportsState } =
+    useSportsbookStore();
   const { sportIdParam, regionName, regionIdParam } = useRouteParams();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
   const [loading, setLoading] = useState(true);

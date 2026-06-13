@@ -9,22 +9,17 @@ import {
 } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import debounce from "lodash.debounce";
-import { showSearchState } from "@/state/showSearchState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { baseUrl, BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./style.css";
-import { isOpenedMyBet } from "@/state/betState";
-import { PopularMatches } from "../Specials/PopularMatches";
-import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { apiSearchEvents } from "@/api/events/apiSearchEvents";
 import type { SearchEventRow } from "@/types/searchEvent";
 import { searchRowPrematchPath } from "@/helpers/mapGuideSearchEvent";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import { isMobile } from "@/state/isMobile";
 
 const PAGE_SIZE = 5;
-const baseTheme = baseColorTheme.value;
+
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -53,6 +48,14 @@ function formatTime(ts: number): string {
 }
 
 export const Search: FunctionComponent = () => {
+  const {
+    showSearchState,
+    isOpenedMyBet,
+    isOpenedSidebar,
+    baseColorTheme,
+    isMobile,
+  } = useSportsbookStore();
+  const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [allResults, setAllResults] = useState<SearchEventRow[]>([]);

@@ -1,15 +1,16 @@
 import { FunctionComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
-import {
-  closeOddsChangedDialog,
-  oddsChangedDialogLines,
-  oddsChangedDialogMessage,
-  oddsChangedDialogOpen,
-} from "@/state/oddsChangedDialogState";
+import { closeOddsChangedDialog } from "@/state/sportsbookStoreHelpers";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { formatOdds } from "@/shared/utils/formatters";
 
 export const OddsChangedDialog: FunctionComponent = () => {
+  const {
+    oddsChangedDialogOpen,
+    oddsChangedDialogLines,
+    oddsChangedDialogMessage,
+  } = useSportsbookStore();
   const dialogRef = useRef<HTMLElement & { show: () => void; hide: () => void }>(
     null,
   );

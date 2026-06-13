@@ -1,4 +1,6 @@
-import { storeState } from "@/state/storeState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { storeState } = sportsbookStore;
 
 export const isEventValidForDisplay = (event?: {
   startTime: string;

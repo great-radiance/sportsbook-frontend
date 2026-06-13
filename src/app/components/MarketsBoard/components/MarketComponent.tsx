@@ -7,10 +7,8 @@ import {
   isBetslipSelectionSelected,
   toggleBetslipSelection,
 } from "@/helpers/betslipSelection";
-import { isBuilding } from "@/state/betState";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
-import { storeState } from "@/state/storeState";
 import { tOdd } from "@/types/tEvent";
 import { Signal } from "@preact/signals";
 import { formatSnakeCaseMarketName } from "@/helpers/completeName";
@@ -40,6 +38,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   eventId,
   type,
 }) => {
+  const { isBuilding, isMobile, storeState } = useSportsbookStore();
   const [isCollapsed, setIsCollapsed] = useState(Collapsed);
 
   useEffect(() => {

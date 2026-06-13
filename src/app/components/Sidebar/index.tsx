@@ -1,5 +1,4 @@
 import { FunctionComponent } from "preact";
-import { isMobile } from "@/state/isMobile";
 import { LiveSidebar } from "@/app/components/Sidebar/liveSidebar";
 import { PrematchSportsNavigation } from "./components/PrematchSportsNavigation";
 
@@ -8,23 +7,25 @@ import { BetBuilderSidebarToggle } from "@/app/components/Sidebar/components/Bet
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useEffect, useState } from "preact/hooks";
 import { PrematchLoader } from "../Loading/PrematchLoader";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MiniMatchLoader } from "../Loading";
-import { isOpenedSidebar } from "@/state/isOpenedSidebar";
 import { apiGetSidebar } from "@/api/sidebar/apiGetSidebar";
-import {
-  countsSummarySportsState,
-  summarySportsState,
-} from "@/state/summarySports";
-import { popularMatchesState } from "@/state/popularMatchesState";
 import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
 import { modeBySport } from "@/shared/config/appConfig";
-import { loadedLiveState } from "@/state/loadedLiveState";
 import { apiGetLiveSidebar } from "@/api/sidebar/apiGetLiveSidebar";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const Sidebar: FunctionComponent = () => {
+  const {
+    isMobile,
+    loadedSidebarState,
+    isOpenedSidebar,
+    summarySportsState,
+    countsSummarySportsState,
+    popularMatchesState,
+    loadedLiveState,
+    storeState,
+  } = useSportsbookStore();
   const [loading, setLoading] = useState<boolean>(true);
   const { pageName } = useRouteParams();
 

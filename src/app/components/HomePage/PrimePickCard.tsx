@@ -9,9 +9,9 @@ import {
 
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
-import { cachedTeamLogoUrl } from "@/state/teamlogosState";
+import { cachedTeamLogoUrl } from "@/state/sportsbookStoreHelpers";
 
 type Props = {
   card: BetBuilderHighlightCardResponse;
@@ -40,6 +40,7 @@ const formatKickoff = (iso: string) => {
 };
 
 export function PrimePickCard({ card, onAdd, compact }: Props) {
+  const { baseColorTheme } = useSportsbookStore();
   const sportId = card.sport?.id ?? card.sportId;
 
   const sportName = card.sport?.name ?? "";

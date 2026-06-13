@@ -2,8 +2,7 @@ import { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Match } from "../MatchesBoard/components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
-import { storeState } from "@/state/storeState";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { sportsbookStore, useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import type { UpcomingLeagueEntry } from "@/helpers/upcomingSportCatalog";
@@ -18,7 +17,7 @@ type Props = {
 };
 
 const eventStartMs = (eventId: number): number => {
-  const startTime = storeState.value[eventId]?.value?.startTime;
+  const startTime = sportsbookStore.storeState.value[eventId]?.value?.startTime;
   if (!startTime) return 0;
   const ms = new Date(startTime).getTime();
   return Number.isFinite(ms) ? ms : 0;
@@ -61,6 +60,7 @@ const FilterMenu: FunctionComponent<FilterMenuProps> = ({
   onToggle,
   children,
 }) => {
+  const { baseColorTheme } = useSportsbookStore();
   const baseTheme = baseColorTheme.value;
   return (
     <div className="relative">
@@ -86,6 +86,7 @@ const FilterMenu: FunctionComponent<FilterMenuProps> = ({
 };
 
 const UpcomingRender = ({ leagues, loading = false }: Props) => {
+  const { storeState, baseColorTheme } = useSportsbookStore();
   const [windowHours, setWindowHours] = useState<WindowHours>(24);
   const [sortBy, setSortBy] = useState<SortBy>("competition");
   const [openHoursMenu, setOpenHoursMenu] = useState(false);

@@ -6,6 +6,7 @@ import { SocketProvider } from "@/context/SocketContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/preact-query";
 import { useEffect } from "preact/hooks";
 import { getAppConfig } from "@/shared/config/appConfig";
+import { SportsbookProvider } from "@/context/SportsbookContext";
 
 interface AppProvidersProps {
   i18n: I18nStore;
@@ -19,13 +20,14 @@ export const AppProviders: FunctionComponent<AppProvidersProps> = ({
   const queryClient = new QueryClient();
 
   return (
-    <I18nContext.Provider value={i18n}>
-      <SocketProvider>
-        <QueryClientProvider client={queryClient}>
-          <RouterView disallowUrlChange={false} />
-        </QueryClientProvider>
-        {/* </ThemeProvider> */}
-      </SocketProvider>
-    </I18nContext.Provider>
+    <SportsbookProvider>
+      <I18nContext.Provider value={i18n}>
+        <SocketProvider>
+          <QueryClientProvider client={queryClient}>
+            <RouterView disallowUrlChange={false} />
+          </QueryClientProvider>
+        </SocketProvider>
+      </I18nContext.Provider>
+    </SportsbookProvider>
   );
 };

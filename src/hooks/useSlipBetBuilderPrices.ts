@@ -14,11 +14,12 @@ import {
 import { removeSlipSelectionsForEvent } from "@/helpers/betslipSelection";
 import { groupSelectedOddsIntoLegs } from "@/helpers/betslipLegs";
 import {
-  betBuilderPricesByEvent,
-  selectedOdds,
+  sportsbookStore,
   type EventBetBuilderPriceState,
-} from "@/state/betState";
+} from "@/state/sportsbookStoreContext";
 import { notify } from "@/shared/toast";
+
+const { betBuilderPricesByEvent, selectedOdds } = sportsbookStore;
 
 const DEFAULT_SEGMENT_ID = BET_BUILDER_SEGMENT_ID;
 

@@ -1,9 +1,6 @@
 import { Live } from "@/shared/utils/types";
-import {
-  selectionStoreKey,
-  selectionsStoreState,
-  storeState,
-} from "@/state/storeState";
+import { selectionStoreKey } from "@/state/sportsbookStoreContext";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { tEvent } from "@/types/tEvent";
 import {
   tEventModel,
@@ -14,6 +11,8 @@ import { signal, Signal } from "@preact/signals";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import { completeName, completeNickName } from "./completeName";
 import { computePriceMv } from "@/helpers/odds88/priceMove";
+
+const { storeState, selectionsStoreState } = sportsbookStore;
 
 /** API payloads may use legacy typo `isBetBuilderSuported` or correct `isBetBuilderSupported`. */
 type BetBuilderSupportIn = {

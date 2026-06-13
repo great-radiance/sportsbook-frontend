@@ -9,7 +9,7 @@ import {
   toggleBetslipSelection,
 } from "@/helpers/betslipSelection";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import type {
   tMarketModel,
   tSelectionValue,
@@ -165,6 +165,7 @@ function MarketGroup({ children }: { children: preact.ComponentChildren }) {
 export const UpcomingMatchRow: FunctionComponent<UpcomingMatchRowProps> = ({
   eventId,
 }) => {
+  const { storeState } = useSportsbookStore();
   const [, setLocation] = useLocation();
   const event = storeState.value[eventId]?.value;
 

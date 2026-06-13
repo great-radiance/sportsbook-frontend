@@ -1,8 +1,9 @@
 import { FunctionComponent } from "preact";
-import { playerExposure, playerLimits } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { formatCurrency } from "@/shared/utils/formatters";
 
 export const PlayerExposureBar: FunctionComponent = () => {
+  const { playerExposure, playerLimits } = useSportsbookStore();
   const exposure = playerExposure.value;
   const limits = playerLimits.value;
   if (!exposure || !limits) return null;

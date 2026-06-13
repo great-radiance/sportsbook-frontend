@@ -1,15 +1,19 @@
 import type { SelectedOddType } from "@/shared/utils/bet";
 import { signal } from "@preact/signals";
 import {
+  sportsbookStore,
+  type EventBetBuilderPriceState,
+} from "@/state/sportsbookStoreContext";
+import { groupSelectedOddsIntoLegs } from "@/helpers/betslipLegs";
+
+const {
   betBuilderCombinable,
   betBuilderPrice,
   betBuilderPriceLoading,
   betBuilderPricesByEvent,
   betBuilderRejectMessage,
   selectedOdds,
-  type EventBetBuilderPriceState,
-} from "@/state/betState";
-import { groupSelectedOddsIntoLegs } from "@/helpers/betslipLegs";
+} = sportsbookStore;
 
 /** While > 0, `useSlipBetBuilderPricesSync` must not fetch (batch bundle add in progress). */
 export const betBuilderPriceSyncSuspended = signal(0);

@@ -6,11 +6,8 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import type { BetBuilderHighlightCardResponse } from "@/api/home/apiGetHomeWidget";
 import { addBetBuilderHighlightToSlip } from "@/helpers/homeWidgetBetslip";
 import { widgetPickToSlipInput } from "@/helpers/widgetDisplayNames";
-import {
-  betBuilderHighlightsCache,
-  betBuilderHighlightsSportId,
-  loadBetBuilderHighlights,
-} from "@/state/homeWidgetsCache";
+import { loadBetBuilderHighlights } from "@/state/sportsbookStoreHelpers";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { BetBuilderHighlightCard } from "./BetBuilderHighlightCard";
 import "./style.scss";
 
@@ -19,6 +16,8 @@ type Props = {
 };
 
 export const BetBuilderHighlights: FunctionComponent<Props> = ({ sportId }) => {
+  const { betBuilderHighlightsCache, betBuilderHighlightsSportId } =
+    useSportsbookStore();
   const [cards, setCards] = useState<BetBuilderHighlightCardResponse[]>([]);
   const viewportRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<EmblaCarouselType | null>(null);

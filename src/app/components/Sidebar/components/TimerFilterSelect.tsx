@@ -2,9 +2,10 @@ import { Select, SelectItem } from "@/app/components/Select";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { useMemo, useState } from "preact/hooks";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const TimerFilterSelect = () => {
+  const { isMobile } = useSportsbookStore();
   const { t } = useTranslate("sidebar");
   const { t: tCommon } = useTranslate("common");
   const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>("all");

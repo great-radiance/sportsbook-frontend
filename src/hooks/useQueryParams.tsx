@@ -1,10 +1,10 @@
 import { useMemo, useCallback } from 'preact/hooks';
 import { useLocation } from 'wouter-preact';
-import { locationHookType } from '@/state/locationHookType';
 import { readFullFromHash } from '@/app/router/ShadowLocation';
-import { routeQueryState, routeFullState } from '@/state/routeState';
+import { sportsbookStore, useSportsbookStore } from '@/state/sportsbookStoreContext';
 import { useSignal } from '@preact/signals';
 
+const { locationHookType, routeQueryState, routeFullState } = sportsbookStore;
 
 export function getCurrentFullRoute(): string {
   if (locationHookType.value === 'useMemoryLocationWithHistory') {
@@ -132,6 +132,7 @@ export function getSportsbookQuery(): URLSearchParams {
  */
 export function useQueryParams() {
   const [location, setLocation] = useLocation();
+  const { locationHookType, routeQueryState } = useSportsbookStore();
 
   // Subscribe to signal changes for memory routing
   if (locationHookType.value === 'useMemoryLocationWithHistory') {
@@ -170,6 +171,7 @@ export function useQueryParams() {
  */
 export function useQueryParam(key: string): string | null {
   const [location, setLocation] = useLocation();
+  const { locationHookType, routeQueryState } = useSportsbookStore();
   
   // Subscribe to signal changes for memory routing
   if (locationHookType.value === 'useMemoryLocationWithHistory') {
@@ -205,6 +207,7 @@ export function useQueryParam(key: string): string | null {
  */
 export function useQueryParamsSelective(keys: string[]) {
   const [location, setLocation] = useLocation();
+  const { locationHookType, routeQueryState } = useSportsbookStore();
   
   // Subscribe to signal changes for memory routing
   if (locationHookType.value === 'useMemoryLocationWithHistory') {

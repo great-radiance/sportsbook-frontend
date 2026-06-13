@@ -2,17 +2,20 @@
 import { FunctionComponent } from "preact";
 import { useRef } from "preact/hooks";
 import { useLocation } from "wouter-preact";
-import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { getAppConfig, setAppConfig } from "@/shared/config/appConfig";
-import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import { isOpenedMyBet } from "@/state/betState";
-import { showSearchState } from "@/state/showSearchState";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const TabList: FunctionComponent = () => {
+  const {
+    isMobile,
+    isOpenedSidebar,
+    isOpenedMyBet,
+    showSearchState,
+    baseColorTheme,
+  } = useSportsbookStore();
   const [, setLocation] = useLocation();
   const baseTheme = baseColorTheme.value;
   const { t } = useTranslate("navigation");

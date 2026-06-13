@@ -1,6 +1,8 @@
 import { useEffect } from "preact/hooks";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
-import { homeWidgetsRefreshNonce } from "@/state/homeWidgetsRefresh";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { homeWidgetsRefreshNonce } = sportsbookStore;
 
 export const HOME_WIDGET_REFRESH_MS = 60_000;
 

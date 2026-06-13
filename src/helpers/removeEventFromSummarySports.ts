@@ -1,17 +1,19 @@
 import type { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
-import {
-  countsSummarySportsState,
-  summarySportsLiveState,
-  summarySportsState,
-} from "@/state/summarySports";
-import { storeState } from "@/state/storeState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import {
   findLeagueInRegion,
   findRegionNode,
   findSportNode,
 } from "@/helpers/findSidebarNodeByRoute";
+
+const {
+  countsSummarySportsState,
+  summarySportsLiveState,
+  summarySportsState,
+  storeState,
+} = sportsbookStore;
 
 const EVENT_ID_ARRAY_KEYS = [
   "pre",

@@ -6,11 +6,7 @@ import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import {
-  summarySportsState,
-  countsSummarySportsState,
-} from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { RACING_SPORT_IDS } from "@/helpers/isRacingSport";
 import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 import { buildPrematchPath } from "@/helpers/buildPrematchPath";
@@ -22,6 +18,8 @@ const k = (...parts: (string | number)[]): string => {
 export const PrematchSportsNavigation: FunctionComponent = () => {
   const { t: tCommon } = useTranslate("common");
   const { t: tAlt } = useTranslate("alt");
+  const { baseColorTheme, summarySportsState, countsSummarySportsState } =
+    useSportsbookStore();
   const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();
   const { sportIdParam, regionIdParam } = useRouteParams();

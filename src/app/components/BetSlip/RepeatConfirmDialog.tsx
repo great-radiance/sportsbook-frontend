@@ -1,21 +1,23 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isRepeatConfirmOpen, selectedRepeatBet } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./repeatStyle.scss";
 import { BetItemType } from "@/shared/utils/bet";
 import { Market as MarketType, Odd as OddType } from "@/shared/utils/types";
-import { selectedOdds } from "@/state/betState";
-import { selectedBetslipTab } from "@/state/betState";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import Loader from "../Loading/Loader";
 import { notify } from "@/shared/toast";
-import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 // import { apiGetMatchData } from "@/api/fixtures/fixtures";
 
 export const RepeatConfirmDialog: FunctionComponent = () => {
+  const {
+    isRepeatConfirmOpen,
+    selectedRepeatBet,
+    selectedBetslipTab,
+  } = useSportsbookStore();
   const { t: tBetslip } = useTranslate("betslip");
   const { t: tCommon } = useTranslate("common");
   const dialogRef = useRef<any>(null);

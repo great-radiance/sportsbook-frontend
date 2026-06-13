@@ -10,14 +10,9 @@ import {
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./cashout-dialog.css";
 import {
-  cashoutDialogOnSuccess,
-  isOpenedCashoutDialog,
-} from "@/state/isOpenedCashoutDialog";
-import {
-  selectedCashoutAmount,
-  selectedCashoutBet,
-  selectedCashoutBetId,
-} from "@/state/betState";
+  sportsbookStore,
+  useSportsbookStore,
+} from "@/state/sportsbookStoreContext";
 import { extractApiErrorMessage, fullCashout } from "@/api/bet/cashout";
 import { isCashoutableStatus } from "@/helpers/betStatus";
 import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
@@ -33,11 +28,11 @@ import type { BetItemType, BetLegType } from "@/shared/utils/bet";
 
 /** Clear global cashout dialog state only (never call `hide()` here). */
 function clearCashoutDialogSignals() {
-  isOpenedCashoutDialog.value = false;
-  selectedCashoutBetId.value = null;
-  selectedCashoutBet.value = null;
-  selectedCashoutAmount.value = 0;
-  cashoutDialogOnSuccess.value = null;
+  sportsbookStore.isOpenedCashoutDialog.value = false;
+  sportsbookStore.selectedCashoutBetId.value = null;
+  sportsbookStore.selectedCashoutBet.value = null;
+  sportsbookStore.selectedCashoutAmount.value = 0;
+  sportsbookStore.cashoutDialogOnSuccess.value = null;
 }
 
 function selectedOddForLeg(leg: BetLegType) {
@@ -71,6 +66,13 @@ const InfoRow: FunctionComponent<{
 );
 
 export const CashoutDialog: FunctionComponent = () => {
+  const {
+    isOpenedCashoutDialog,
+    selectedCashoutBetId,
+    selectedCashoutBet,
+    selectedCashoutAmount,
+    cashoutDialogOnSuccess,
+  } = useSportsbookStore();
   const { t } = useTranslate("betslip");
   const { t: tCommon } = useTranslate("common");
   const dialogRef = useRef<

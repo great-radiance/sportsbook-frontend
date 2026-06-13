@@ -17,21 +17,25 @@ import type {
   StarPlayerCardResponse,
 } from "@/api/home/apiGetHomeWidget";
 import {
+  sportsbookStore,
+} from "@/state/sportsbookStoreContext";
+import {
+  type HomeWidgetSelectionEntry,
+  selectionStoreKey,
+} from "@/state/sportsbookStoreContext";
+import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
+
+const {
   betBuilderCombinable,
   betBuilderPrice,
   betBuilderRejectMessage,
   buildingBetAmount,
+  homeWidgetsSelectionsCache,
   isBuilding,
   multipleBetAmount,
   selectedBetType,
   selectedOdds,
-} from "@/state/betState";
-import {
-  homeWidgetsSelectionsCache,
-  type HomeWidgetSelectionEntry,
-} from "@/state/homeWidgetsCache";
-import { selectionStoreKey } from "@/state/storeState";
-import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
+} = sportsbookStore;
 
 export type WidgetSelectionInput = {
   eventId: number;

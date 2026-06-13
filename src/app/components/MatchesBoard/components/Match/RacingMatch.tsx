@@ -2,7 +2,7 @@
 import { FunctionComponent } from "preact";
 import { useMemo } from "preact/hooks";
 import { useLocation } from "wouter-preact";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { formatStartDate, formatStartTime } from "@/helpers/formatEventTime";
 import type {
@@ -86,6 +86,7 @@ export const RacingMatch: FunctionComponent<RacingMatchProps> = ({
   eventId,
   allowRounded = false,
 }) => {
+  const { storeState } = useSportsbookStore();
   const [, setLocation] = useLocation();
   const event = storeState.value[eventId]?.value;
   if (!event) return null;

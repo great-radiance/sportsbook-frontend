@@ -1,7 +1,7 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
-import { isBonusInfoOpen } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import './style.scss';
@@ -23,6 +23,7 @@ const bonusData: BonusInfo[] = [
 ];
 
 export const BonusInfoDialog: FunctionComponent = () => {
+  const { isBonusInfoOpen } = useSportsbookStore();
   const { t } = useTranslate('bonus');
   const dialogRef = useRef<any>(null);
 

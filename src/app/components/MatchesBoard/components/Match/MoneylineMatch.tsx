@@ -6,11 +6,6 @@ import {
   toggleBetslipSelection,
 } from "@/helpers/betslipSelection";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
-import {
-  currentCompactState,
-  panelCompactState,
-} from "@/state/panelCompactState";
-import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import {
@@ -23,10 +18,8 @@ import type {
   tMarketModel,
   tSelectionValue,
 } from "@/types/typesForSocket.ts/tEventModel";
-import { isMobile } from "@/state/isMobile";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
-import { isBuilding } from "@/state/betState";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 import { Match } from ".";
 
@@ -194,6 +187,14 @@ function oddLabel(
 export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
   eventId,
 }) => {
+  const {
+    storeState,
+    baseColorTheme,
+    panelCompactState,
+    currentCompactState,
+    isMobile,
+    isBuilding,
+  } = useSportsbookStore();
   const event = storeState.value[eventId]?.value;
   const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();

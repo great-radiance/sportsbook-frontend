@@ -7,20 +7,10 @@ import {
   formatDate,
   formatTime,
 } from "@/shared/utils/formatters";
-import {
-  selectedCashoutAmount,
-  selectedCashoutBet,
-  selectedCashoutBetId,
-} from "@/state/betState";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { notify } from "@/shared/toast";
 import { cashoutAmountForBet } from "@/api/bet/cashout";
 import { useTranslate } from "@/shared/i18n/i18n";
-import {
-  cashoutDialogOnSuccess,
-  isOpenedCashoutDialog,
-} from "@/state/isOpenedCashoutDialog";
-import { baseColorTheme } from "@/state/baseColorTheme";
 import { getBetStatusLabel, isCashoutableStatus } from "@/helpers/betStatus";
 import { BetHistoryLegRow } from "./BetHistoryLegRow";
 
@@ -42,6 +32,15 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   isMyBet,
   isSettledView = false,
 }) => {
+  const {
+    selectedCashoutAmount,
+    selectedCashoutBet,
+    selectedCashoutBetId,
+    isMobile,
+    cashoutDialogOnSuccess,
+    isOpenedCashoutDialog,
+    baseColorTheme,
+  } = useSportsbookStore();
   const { t } = useTranslate("betslip");
   const [showDetail, setShowDetail] = useState(false);
 

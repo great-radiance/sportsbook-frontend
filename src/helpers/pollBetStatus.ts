@@ -1,6 +1,6 @@
 import { apiGetBetStatus } from "@/api/bet/apiBetDetail";
 import { apiCashoutUnsubscribe } from "@/api/bet/cashout";
-import { requestBetHistoryRefresh } from "@/state/betHistoryState";
+import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 
 const TERMINAL = new Set([
   "won",

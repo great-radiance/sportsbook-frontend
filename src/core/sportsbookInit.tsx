@@ -9,7 +9,7 @@ import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { initThemeColors } from "./theme";
 import { initToast } from "@/shared/toast";
 import { tCard } from "@/app/components/CardListSection/tCard";
-import { cardListState } from "@/state/cardListState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 
 export interface BannerBetslipConfig {
   name: string;
@@ -84,7 +84,7 @@ export function initSportsbookApp(
   } = options;
 
   if (cardList?.length) {
-    cardListState.value = cardList;
+    sportsbookStore.cardListState.value = cardList;
   }
 
   setAppConfig({

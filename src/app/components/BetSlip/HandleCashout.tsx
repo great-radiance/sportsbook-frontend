@@ -10,10 +10,9 @@ import {
 } from "@/api/bet/cashout";
 import type { BetItemType } from "@/shared/utils/bet";
 import { formatCurrency } from "@/shared/utils/formatters";
-import { currency } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { notify } from "@/shared/toast";
 import { Select, SelectItem } from "@/app/components/Select";
-import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 
 interface HandleCashoutProps {
@@ -35,6 +34,7 @@ export const HandleCashout: FunctionComponent<HandleCashoutProps> = ({
   onSuccess,
   bet,
 }) => {
+  const { isMobile } = useSportsbookStore();
   const availableCashout = bet ? cashoutAmountForBet(bet) : 0;
   const canCashout = Boolean(bet) && availableCashout > 0;
   const { t } = useTranslate("betslip");

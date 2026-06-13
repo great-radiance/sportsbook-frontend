@@ -4,7 +4,7 @@ import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch"
 import { UpcomingMatchSkeleton } from "../Loading";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
 import {
   eventHasMarketType,
@@ -43,6 +43,7 @@ const HighlightRender = ({
   matches,
   markets,
 }: Props) => {
+  const { storeState } = useSportsbookStore();
   const loadedEventsForMarkets = useMemo(
     () =>
       eventsFromStoreByIds(matches.pre, (id) => storeState.value[id]?.value),

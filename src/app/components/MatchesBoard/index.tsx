@@ -7,16 +7,14 @@ import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { Match } from "./components/Match";
 import { UpcomingMatchSkeleton } from "../Loading";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { MarketNavigation } from "../marketNavigation";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { MatchesGroup } from "./components/MatchesGroup";
 import { Breadcrumbs } from "../Breadcrumbs";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
 import { isRacingSport } from "@/helpers/isRacingSport";
-import { summarySportsState } from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { apiGetMatchesByNode } from "@/api/matches/apiGetMatchesByNode";
 import {
   buildLeagueSelectValue,
@@ -120,6 +118,7 @@ const switchCategory = (
 };
 
 export const MatchesBoard: FunctionComponent = () => {
+  const { loadedSidebarState, summarySportsState } = useSportsbookStore();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
   const { t } = useTranslate("markets");
   const {

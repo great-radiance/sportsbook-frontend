@@ -1,12 +1,12 @@
 import { FunctionComponent } from "preact";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { favoriteMatches } from "@/state/Favorite";
 import { useEffect } from "preact/hooks";
-import { isOpenedFavoritesDialog } from "@/state/isOpenedFavoriteDialog";
 
 export const FavoritesBox: FunctionComponent = () => {
+  const { isMobile, favoriteMatches, isOpenedFavoritesDialog } =
+    useSportsbookStore();
   const { t } = useTranslate("favorites");
 
   useEffect(() => {

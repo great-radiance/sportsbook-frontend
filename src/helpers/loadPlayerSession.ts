@@ -8,14 +8,11 @@ import {
   type UserMe,
 } from "@/api/user/apiUsersMe";
 import { apiGetSportsbookBalance } from "@/api/bet/apiSportsbookBalance";
-import {
-  balance,
-  currency,
-  playerExposure,
-  playerLimits,
-  playerProfile,
-} from "@/state/betState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { refreshBalanceFromConfig } from "@/helpers/refreshPlayerWallet";
+
+const { balance, currency, playerExposure, playerLimits, playerProfile } =
+  sportsbookStore;
 
 export type PlayerSessionLoadResult = {
   ok: boolean;

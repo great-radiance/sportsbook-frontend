@@ -2,16 +2,13 @@ import { FunctionComponent } from "preact";
 import { useState, useMemo } from "preact/hooks";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useLocation } from "wouter-preact";
-import { isMobile } from "@/state/isMobile";
 import {
   SpecialNavigationItem,
   useSpecialNavigationItems,
 } from "@/hooks/useSpecialNavigationItems";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { isOpenedSidebar } from "@/state/isOpenedSidebar";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import { summarySportsState } from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 
@@ -42,6 +39,8 @@ function buildPrematchPath(
 export const SpecialNavigation: FunctionComponent<
   SpecialNavigationProps
 > = () => {
+  const { isMobile, isOpenedSidebar, baseColorTheme, summarySportsState } =
+    useSportsbookStore();
   const [, setLocation] = useLocation();
   const { sportName } = useRouteParams();
   const { t: tCommon } = useTranslate("common");

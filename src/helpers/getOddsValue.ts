@@ -1,9 +1,8 @@
-import {
-  selectionStoreKey,
-  selectionsStoreState,
-  storeState,
-} from "@/state/storeState";
+import { selectionStoreKey } from "@/state/sportsbookStoreContext";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { Signal } from "@preact/signals";
+
+const { storeState, selectionsStoreState } = sportsbookStore;
 
 /** Live market or widget/home cache entry exists for this selection. */
 export function hasSelectionOddsSource(

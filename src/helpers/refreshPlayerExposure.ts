@@ -1,5 +1,7 @@
 import { apiGetUsersMeExposure } from "@/api/user/apiUsersMe";
-import { playerExposure } from "@/state/betState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { playerExposure } = sportsbookStore;
 
 export async function refreshPlayerExposure(): Promise<void> {
   try {

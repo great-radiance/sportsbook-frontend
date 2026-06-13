@@ -2,18 +2,9 @@
 import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
-  selectedOdds,
-  multipleBetAmount,
-  selectedBetType,
-  isBonusInfoOpen,
-  systemBetSpecifier,
-  balance,
-  currency,
-  selectedBetslipTab,
-  betBuilderPricesByEvent,
-  playerProfile,
-  playerLimits,
-} from "@/state/betState";
+  sportsbookStore,
+  useSportsbookStore,
+} from "@/state/sportsbookStoreContext";
 import "@shoelace-style/shoelace/dist/components/select/select.js";
 import "@shoelace-style/shoelace/dist/components/option/option.js";
 import "@shoelace-style/shoelace/dist/components/tooltip/tooltip.js";
@@ -21,7 +12,6 @@ import "@shoelace-style/shoelace/dist/themes/dark.css"; // or light.css
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { notify } from "@/shared/toast";
-import { isMobile } from "@/state/isMobile";
 import Loader from "../Loading/Loader";
 import { getAppConfig } from "@/shared/config/appConfig";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
@@ -30,7 +20,7 @@ import { useTranslate } from "@/shared/i18n/i18n";
 import { formatCurrency } from "@/shared/utils/formatters";
 import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
-import { requestBetHistoryRefresh } from "@/state/betHistoryState";
+import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 import {
   currentBetSlipIdempotencyKey,
   rotateBetSlipIdempotencyKey,
@@ -45,11 +35,10 @@ import {
   validateStakeAmount,
 } from "@/helpers/betLimits";
 import { Switch } from "../Switch";
-import { selectionStoreKey, storeState } from "@/state/storeState";
+import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { getOddsValue } from "@/helpers/getOddsValue";
 import { computed } from "@preact/signals";
 import SystemBetLineComponent from "./SystembetSection";
-import { baseColorTheme } from "@/state/baseColorTheme";
 import { PlayerExposureBar } from "./PlayerExposureBar";
 import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
 import {
@@ -112,10 +101,9 @@ function toSubmittedLines(odds: SelectedOddType[]): SubmittedSelectionLine[] {
 
 function currentBbPriceMap(): Record<number, number | null> {
   return Object.fromEntries(
-    Object.entries(betBuilderPricesByEvent.value).map(([eventId, state]) => [
-      Number(eventId),
-      state.price,
-    ]),
+    Object.entries(sportsbookStore.betBuilderPricesByEvent.value).map(
+      ([eventId, state]) => [Number(eventId), state.price],
+    ),
   );
 }
 
@@ -168,6 +156,21 @@ function slipSelectionsPayload(odds: SelectedOddType[]) {
 }
 
 export const BetSlip: FunctionComponent = () => {
+  const {
+    selectedOdds,
+    multipleBetAmount,
+    selectedBetType,
+    isBonusInfoOpen,
+    systemBetSpecifier,
+    balance,
+    currency,
+    selectedBetslipTab,
+    betBuilderPricesByEvent,
+    playerProfile,
+    playerLimits,
+    isMobile,
+    baseColorTheme,
+  } = useSportsbookStore();
   const { t } = useTranslate("betslip");
   useSlipBetBuilderPricesSync();
   const [selectedValue, setSelectedValue] = useState("always-ask");

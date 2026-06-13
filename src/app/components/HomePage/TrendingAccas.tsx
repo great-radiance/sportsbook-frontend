@@ -11,17 +11,13 @@ import {
   addTrendingAccaToSlip,
 } from "@/helpers/homeWidgetBetslip";
 
-import { homeWidgetsCache } from "@/state/homeWidgetsCache";
-
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 import {
   widgetMarketDisplayName,
   widgetOutcomeDisplayName,
   widgetPickToSlipInput,
 } from "@/helpers/widgetDisplayNames";
-
-const baseTheme = baseColorTheme.value;
 
 const formatKickoff = (iso: string) => {
   const d = new Date(iso);
@@ -32,6 +28,8 @@ const formatKickoff = (iso: string) => {
 };
 
 const TrendingAccas = () => {
+  const { homeWidgetsCache, baseColorTheme } = useSportsbookStore();
+  const baseTheme = baseColorTheme.value;
   const [coupons, setCoupons] = useState<TrendingAccaCouponResponse[]>(
     homeWidgetsCache.value?.trendingAccas ?? [],
   );

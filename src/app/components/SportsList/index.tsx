@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { FunctionComponent } from "preact";
 import { useTranslate } from "@/shared/i18n/i18n";
-// import { SportsListLoader } from "@/app/components/Loading";
-import { summarySportsState } from "@/state/summarySports";
 import { HorizontalTabs } from "../HorizontalTabs";
-import { baseColorTheme } from "@/state/baseColorTheme";
 import { SportsListLoader } from "../Loading";
 
 interface SportsListProps {
@@ -26,6 +23,7 @@ export const SportsList: FunctionComponent<SportsListProps> = ({
   isLive = false,
   showPopular = false,
 }) => {
+  const { isMobile, summarySportsState, baseColorTheme } = useSportsbookStore();
   const { t: tCommon } = useTranslate("common");
   const baseTheme = baseColorTheme.value;
 

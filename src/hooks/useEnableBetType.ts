@@ -1,5 +1,7 @@
 import { groupSelectedOddsIntoLegs, slipLegCount } from "@/helpers/betslipLegs";
-import { selectedOdds } from "@/state/betState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { selectedOdds } = sportsbookStore;
 
 export const useEnableBetType = () => {
   const legs = groupSelectedOddsIntoLegs(selectedOdds.value);

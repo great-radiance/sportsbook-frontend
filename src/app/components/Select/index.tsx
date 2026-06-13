@@ -2,7 +2,7 @@
 import { ComponentChildren, FunctionComponent, VNode, Fragment } from "preact";
 import { useState, useRef, useEffect, useMemo } from "preact/hooks";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { createPortal } from "preact/compat";
 
@@ -482,6 +482,7 @@ const SelectItemRenderer = ({
   onSelect,
   disabled = false,
 }: SelectItemComponentProps) => {
+  const { isMobile } = useSportsbookStore();
   const handleClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();

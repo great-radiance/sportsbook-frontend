@@ -1,9 +1,8 @@
-import { selectedBetType, selectedOdds, playerLimits } from "@/state/betState";
-import { storeState } from "@/state/storeState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { notify } from "@/shared/toast";
 import { storeSelection, removeFromOddsStore } from "@/helpers/storeEvent";
-import { selectionStoreKey } from "@/state/storeState";
+import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
 import { tParticipant } from "@/types/tEvent";
 import { slipLegCount } from "@/helpers/betslipLegs";
@@ -11,6 +10,9 @@ import { maxParlayLegsFromLimits } from "@/helpers/betLimits";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { verifyBetBuilderGroup } from "@/helpers/betBuilderSlipValidation";
 import { applyBetBuilderPriceForEvent } from "@/helpers/betBuilderPriceState";
+
+const { selectedBetType, selectedOdds, playerLimits, storeState } =
+  sportsbookStore;
 
 export function isBetslipSelectionSelected(
   eventId: number,

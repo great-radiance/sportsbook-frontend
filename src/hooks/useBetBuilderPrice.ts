@@ -5,13 +5,17 @@ import {
   isBetBuilderCombinable,
 } from "@/api/bet/apiBetBuilderPrice";
 import {
+  sportsbookStore,
+} from "@/state/sportsbookStoreContext";
+
+const {
   betBuilderCombinable,
   betBuilderPrice,
   betBuilderPriceLoading,
   betBuilderRejectMessage,
   isBuilding,
   selectedOdds,
-} from "@/state/betState";
+} = sportsbookStore;
 
 const DEFAULT_SEGMENT_ID = 2359;
 

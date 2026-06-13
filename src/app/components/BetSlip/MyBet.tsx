@@ -1,4 +1,4 @@
-import { isOpenedMyBet } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { FunctionComponent } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
 import { getAppConfig } from "@/shared/config/appConfig";
@@ -7,12 +7,11 @@ import { notify } from "@/shared/toast";
 import "./myBetStyle.scss";
 import { Select, SelectItem } from "@/app/components/Select";
 // import { apiGetBetHistory } from "@/api/bet/apiGetBetHistor";
-import { betHistoryState } from "@/state/betHistoryState";
 import { BetItemType } from "@/shared/utils/bet";
 import { BetComponent } from "./BetComponent";
-import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 export const MyBet: FunctionComponent = () => {
+  const { isOpenedMyBet, betHistoryState, isMobile } = useSportsbookStore();
   const { t } = useTranslate("betslip");
   const { t: tCommon } = useTranslate("common");
   const myBetDialogRef = useRef<any>(null);

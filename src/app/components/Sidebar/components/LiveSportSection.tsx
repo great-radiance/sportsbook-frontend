@@ -1,20 +1,12 @@
 import { FunctionComponent } from "preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { isMobile } from "@/state/isMobile";
 import { MiniMatch } from "@/app/components/MatchesBoard/components/Match/MiniMatch";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { storeState } from "@/state/storeState";
 import { MiniMatchLoader } from "../../Loading";
-import { liveScrollPos } from "@/state/liveScrollPos";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import {
-  countsSummarySportsState,
-  summarySportsLiveState,
-} from "@/state/summarySports";
-import { loadedLiveState } from "@/state/loadedLiveState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
 
 interface LiveSportSectionProps {
@@ -55,6 +47,15 @@ export const LiveSportSection: FunctionComponent<LiveSportSectionProps> = ({
   groupByRegions,
   selectedSportName,
 }) => {
+  const {
+    baseColorTheme,
+    summarySportsLiveState,
+    countsSummarySportsState,
+    loadedLiveState,
+    isMobile,
+    storeState,
+    liveScrollPos,
+  } = useSportsbookStore();
   const baseTheme = baseColorTheme.value;
   const { t: tCommon } = useTranslate("common");
   const { leagueName, eventId } = useRouteParams();

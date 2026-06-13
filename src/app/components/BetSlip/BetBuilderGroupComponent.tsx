@@ -3,11 +3,10 @@ import { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { selectedOdds, betBuilderPricesByEvent } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
-import { selectionStoreKey } from "@/state/storeState";
+import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { baseColorTheme } from "@/state/baseColorTheme";
 import type { BetBuilderSlipLeg } from "@/helpers/betslipLegs";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { formatCurrency } from "@/shared/utils/formatters";
@@ -34,6 +33,8 @@ export const BetBuilderGroupComponent: FunctionComponent<
   maxStake,
 }) => {
   useSignal();
+  const { selectedOdds, betBuilderPricesByEvent, baseColorTheme } =
+    useSportsbookStore();
   const { t } = useTranslate("betslip");
   const baseTheme = baseColorTheme.value;
 

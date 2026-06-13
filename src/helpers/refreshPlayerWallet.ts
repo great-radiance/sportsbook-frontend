@@ -1,4 +1,6 @@
-import { balance, currency } from "@/state/betState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { balance, currency } = sportsbookStore;
 import { getAppConfig } from "@/shared/config/appConfig";
 import { apiGetSportsbookBalance } from "@/api/bet/apiSportsbookBalance";
 import { refreshPlayerExposure } from "./refreshPlayerExposure";

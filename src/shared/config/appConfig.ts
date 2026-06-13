@@ -1,6 +1,7 @@
 import { setLanguageId, setPlayerSessionHeaders } from "@/api/instance";
-import { bottomLayoutHeight } from "@/state/bottomLayoutHeight";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { bottomLayoutHeight, baseColorTheme } = sportsbookStore;
 
 export interface AppConfig {
   host: string;

@@ -3,7 +3,7 @@ import { useEffect } from "preact/hooks";
 import { UpcomingMatches } from "@/app/components/Specials/UpcomingMatches";
 import TrendingAccas from "@/app/components/HomePage/TrendingAccas";
 import { StarPlayers } from "@/app/components/StarPlayers";
-import { loadHomeWidgetsBatch } from "@/state/homeWidgetsCache";
+import { loadHomeWidgetsBatch } from "@/state/sportsbookStoreHelpers";
 import { CardListSection } from "@/app/components/CardListSection";
 import { PrimePicks } from "@/app/components/HomePage/PrimePicks";
 import { PreMatchPanel } from "@/app/components/Specials/preMatchPanel";

@@ -3,8 +3,7 @@ import { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { selectedOdds, currency } from "@/state/betState";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
 import {
   getOddsMv,
@@ -13,8 +12,7 @@ import {
 } from "@/helpers/getOddsValue";
 import { computed } from "@preact/signals";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
-import { selectionStoreKey } from "@/state/storeState";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { formatCurrency } from "@/shared/utils/formatters";
 
@@ -39,6 +37,8 @@ export const SelectedOddComponent: FunctionComponent<
   minStake,
   maxStake,
 }) => {
+  const { selectedOdds, currency, isMobile, baseColorTheme } =
+    useSportsbookStore();
   const { t } = useTranslate("betslip");
   const baseTheme = baseColorTheme.value;
   const oddsValue = computed(() => {

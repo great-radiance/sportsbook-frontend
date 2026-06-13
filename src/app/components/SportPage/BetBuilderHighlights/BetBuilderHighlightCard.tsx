@@ -5,7 +5,7 @@ import {
   betBuilderHighlightOdds,
   betBuilderHighlightPickLine,
 } from "@/helpers/widgetDisplayNames";
-import { cachedTeamLogoUrl } from "@/state/teamlogosState";
+import { cachedTeamLogoUrl } from "@/state/sportsbookStoreHelpers";
 
 type Props = {
   card: BetBuilderHighlightCardResponse;

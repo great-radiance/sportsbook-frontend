@@ -4,19 +4,20 @@ import { BetComponent } from "./BetComponent";
 import { apiGetBetHistory } from "@/api/bet/betHistory";
 import { isOpenBetsListStatus } from "@/helpers/showAcceptedBetInOpenBets";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getAppConfig } from "@/shared/config/appConfig";
-import {
-  betHistoryRefreshNonce,
-  betHistoryState,
-  openBetsTabState,
-  totalPagesState,
-} from "@/state/betHistoryState";
-import { playerSessionReady } from "@/state/betState";
 
 export const OpenBets: FunctionComponent = () => {
   useSignal();
+  const {
+    isMobile,
+    betHistoryRefreshNonce,
+    betHistoryState,
+    openBetsTabState,
+    totalPagesState,
+    playerSessionReady,
+  } = useSportsbookStore();
   const { t: tCommon } = useTranslate("common");
   const { t: tBetslip } = useTranslate("betslip");
   const [loading, setLoading] = useState<boolean>(false);

@@ -6,14 +6,10 @@ import { BASE_ASSET_PUBLIC_URL, modeBySport } from "@/shared/config/appConfig";
 import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/themes/light.css";
 import { Market } from "../MatchesBoard/components/Match/Market";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
-import { loadedMatchesState } from "@/state/loadedMatchesState";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useLocation } from "wouter-preact";
-import { baseColorTheme } from "@/state/baseColorTheme";
-import { apiGetPopularMatches } from "@/api/matches/apiGetPopularMatches";
-import { popularMatchesState } from "@/state/popularMatchesState";
 import { storeEvent } from "@/helpers/storeEvent";
 
 const formatEventTime = (event: tEventModel | undefined): string => {
@@ -40,6 +36,8 @@ const formatEventDate = (event: tEventModel | undefined): string => {
 };
 
 export const EmblaBanner = () => {
+  const { storeState, popularMatchesState, loadedMatchesState } =
+    useSportsbookStore();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const emblaApiRef = useRef<EmblaCarouselType | null>(null);
   const [events, setEvents] = useState<number[]>([]);

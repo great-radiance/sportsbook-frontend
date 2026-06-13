@@ -1,10 +1,12 @@
-import {
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const {
   betBuilderCombinable,
   betBuilderPrice,
   betBuilderRejectMessage,
   isBuilding,
   selectedOdds,
-} from "@/state/betState";
+} = sportsbookStore;
 
 /** Toggle bet-builder mode (same behaviour as MarketsBoard switch). */
 export function setBetBuilderMode(enabled: boolean): void {

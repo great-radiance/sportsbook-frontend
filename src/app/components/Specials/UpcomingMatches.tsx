@@ -6,10 +6,8 @@ import {
   useRef,
   useState,
 } from "preact/hooks";
-import { isMobile } from "@/state/isMobile";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { storeEvent } from "@/helpers/storeEvent";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import { SportsList } from "../SportsList";
 import { UpcomingMatchesLoader, UpcomingMatchSkeleton } from "../Loading";
 import { HorizontalTabs } from "../HorizontalTabs";
@@ -22,12 +20,11 @@ import {
   UpcomingMatchRow,
 } from "./UpcomingMatchRow";
 import { Match } from "../MatchesBoard/components/Match";
-import { summarySportsState } from "@/state/summarySports";
 import { apiGetUpcoming } from "@/api/matches/apiGetUpcoming";
 import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { getAppConfig } from "@/shared/config/appConfig";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 const PAGE_SIZE = 10;
 const DATE_TAB_COUNT = 4;
@@ -104,6 +101,7 @@ function UpcomingMatchesHeader({
 }
 
 export const UpcomingMatches: FunctionComponent = () => {
+  const { isMobile, loadedSidebarState, storeState } = useSportsbookStore();
   const { t: tLive } = useTranslate("liveCalendar");
   const { t: tCommon } = useTranslate("common");
 

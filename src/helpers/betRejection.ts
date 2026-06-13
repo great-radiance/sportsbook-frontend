@@ -1,15 +1,15 @@
 import { getOddsValue } from "@/helpers/getOddsValue";
 import { refreshPlayerProfile } from "@/helpers/refreshPlayerProfile";
 import { refreshBalanceFromOperator } from "@/helpers/refreshPlayerWallet";
-import { refreshHomeWidgets } from "@/state/homeWidgetsRefresh";
 import {
-  homeWidgetsCache,
   loadHomeWidgetsBatch,
-} from "@/state/homeWidgetsCache";
-import {
+  refreshHomeWidgets,
   showOddsChangedDialog,
   type OddsChangedLine,
-} from "@/state/oddsChangedDialogState";
+} from "@/state/sportsbookStoreHelpers";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { homeWidgetsCache } = sportsbookStore;
 
 export type SubmittedSelectionLine = {
   label: string;

@@ -1,14 +1,12 @@
 import { FunctionComponent } from "preact";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { isMobile } from "@/state/isMobile";
-import { storeState } from "@/state/storeState";
 import {
   isBetslipSelectionSelected,
   toggleBetslipSelection,
 } from "@/helpers/betslipSelection";
 import { formatSnakeCaseMarketName } from "@/helpers/completeName";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
-import { isBuilding } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 interface MarketProps {
   marketId: number;
@@ -161,6 +159,7 @@ export const Market: FunctionComponent<MarketProps> = ({
   eventId,
   single = false,
 }) => {
+  const { isMobile, storeState, isBuilding } = useSportsbookStore();
   const evSig = storeState.value[eventId];
   const event = evSig?.value;
   const market = event?.markets?.[marketId]?.value;

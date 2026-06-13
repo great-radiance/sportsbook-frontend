@@ -3,20 +3,14 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { Market } from "./Market";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
-import {
-  currentCompactState,
-  panelCompactState,
-} from "@/state/panelCompactState";
-import { storeState } from "@/state/storeState";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { RacingMatch } from "./RacingMatch";
 import { isRacingSport } from "@/helpers/isRacingSport";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
 import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
-import { isBuilding } from "@/state/betState";
 
 interface MatchProps {
   eventId: number;
@@ -60,6 +54,13 @@ export const Match: FunctionComponent<MatchProps> = ({
   showLeagueLogo = false,
   allowRounded = false,
 }) => {
+  const {
+    storeState,
+    baseColorTheme,
+    panelCompactState,
+    currentCompactState,
+    isBuilding,
+  } = useSportsbookStore();
   const event = storeState.value[eventId]?.value;
   if (!event) return null;
 

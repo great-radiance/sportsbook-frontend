@@ -1,11 +1,12 @@
 import { useTranslate } from "@/shared/i18n/i18n";
-import { isOpenedFavoritesDialog } from "@/state/isOpenedFavoriteDialog";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { FunctionComponent } from "preact/compat";
 import { useEffect, useRef } from "preact/hooks";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./favoritesDialogStyle.scss";
 
 export const FavoritesDialog: FunctionComponent = () => {
+  const { isOpenedFavoritesDialog } = useSportsbookStore();
   const { t } = useTranslate("favorites");
   const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {

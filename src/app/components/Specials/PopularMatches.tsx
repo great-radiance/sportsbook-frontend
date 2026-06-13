@@ -1,23 +1,9 @@
 import { FunctionComponent } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { SportsList } from "../SportsList";
-import { MarketNavigation } from "../marketNavigation";
-import { storeEvent } from "@/helpers/storeEvent";
-import { Match } from "../MatchesBoard/components/Match";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
-import { storeState } from "@/state/storeState";
-import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
-import {
-  eventHasMarketType,
-  isMoneylineSport,
-} from "@/helpers/sidebarMarketNavigation";
-import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
-import { summarySportsState } from "@/state/summarySports";
-import { isRacingSport } from "@/helpers/isRacingSport";
-import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 // import {
 //   allEventIdsFromBuckets,
 //   isDisplayablePopularEvent,

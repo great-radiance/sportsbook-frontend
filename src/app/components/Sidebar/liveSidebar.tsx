@@ -4,10 +4,10 @@ import { LiveSportsNavigation } from "@/app/components/Sidebar/components/LiveSp
 import { BetBuilderSidebarToggle } from "@/app/components/Sidebar/components/BetBuilderSidebarToggle";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { liveScrollPos } from "@/state/liveScrollPos";
-import { countsSummarySportsState } from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 export const LiveSidebar: FunctionComponent = () => {
+  const { liveScrollPos, countsSummarySportsState } = useSportsbookStore();
   const [groupByRegions, setGroupByRegions] = useState<boolean>(false);
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState<boolean>(false);
   const timeFilterRef = useRef<HTMLDivElement>(null);

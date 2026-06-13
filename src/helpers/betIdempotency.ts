@@ -1,4 +1,6 @@
-import { betSlipIdempotencyKey } from "@/state/betState";
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { betSlipIdempotencyKey } = sportsbookStore;
 
 /** Integration guide § Step 4 — new key when slip or stake changes. */
 export function rotateBetSlipIdempotencyKey(): string {

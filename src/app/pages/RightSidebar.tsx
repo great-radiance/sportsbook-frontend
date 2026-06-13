@@ -1,12 +1,12 @@
 import { StateScoreBoard } from "@/app/components/StateScoreBoard";
 import { FunctionComponent } from "preact";
 import { OpenBets } from "../components/BetSlip/OpenBets";
-import { isMobile } from "@/state/isMobile";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 
 export const RightSidebar: FunctionComponent = () => {
+  const { isMobile, loadedSidebarState } = useSportsbookStore();
   const { pageName, regionName, leagueName, eventId } = useRouteParams();
   const sidebarRef = useRef<HTMLDivElement>(null);
   const BOTTOM_OFFSET_PX = !isMobile.value ? 0 : 70;

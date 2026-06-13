@@ -1,6 +1,6 @@
 import { getOddsValue } from "@/helpers/getOddsValue";
 import { SelectedOddType } from "@/shared/utils/bet";
-import { systemBetSpecifier } from "@/state/betState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
@@ -39,6 +39,7 @@ const SystemBetLineComponent = (props: {
   selections: SelectedOddType[];
   systemSpecifier: number;
 }) => {
+  const { systemBetSpecifier } = useSportsbookStore();
   const { selections, systemSpecifier } = props;
   const [lines, setLines] = useState<SelectedOddType[][]>([]);
   const [lineOdds, setLineOdds] = useState<number[]>([]);

@@ -7,7 +7,7 @@ import { UpcomingMatchesLoader } from "../Loading";
 // import { orderConfigState } from "@/state/orderConfigState";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { Match } from "../MatchesBoard/components/Match";
-import { countsSummarySportsState } from "@/state/summarySports";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import {
   apiGetOutrights,
   OutrightResponse,
@@ -32,6 +32,7 @@ type OutrightTree = {
 const MAX_EVENT_IDS_PER_REQUEST = 80;
 
 export const OutrightMatches: FunctionComponent = () => {
+  const { countsSummarySportsState } = useSportsbookStore();
   // Default to Soccer (sportId 1); the SportsList will let the user pick
   // another sport from the outright sidebar data.
   const [selectedSport, setSelectedSport] = useState<number>(1);

@@ -8,7 +8,7 @@ import {
 } from "preact/hooks";
 import EmblaCarousel, { EmblaCarouselType } from "embla-carousel";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { cardListState } from "@/state/cardListState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import type { tCard } from "./tCard";
 import "./style.scss";
 
@@ -52,6 +52,7 @@ function ZoomSlide({ card }: { card: tCard }) {
 }
 
 export const CardListSection = () => {
+  const { cardListState } = useSportsbookStore();
   const cards = cardListState.value;
   const listViewportRef = useRef<HTMLDivElement>(null);
   const listApiRef = useRef<EmblaCarouselType | null>(null);

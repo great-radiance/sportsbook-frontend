@@ -3,13 +3,11 @@ import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
-import { baseColorTheme } from "@/state/baseColorTheme";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import HighlightRender from "@/app/components/SportPage/HighlightRender";
 import { storeEvent } from "@/helpers/storeEvent";
-import { summarySportsState } from "@/state/summarySports";
 import { findSportNode } from "@/helpers/findSidebarNodeByRoute";
 import { apiGetMatchesByNode } from "@/api/matches/apiGetMatchesByNode";
-import { loadedSidebarState } from "@/state/loadedSidebarState";
 import CompetitionsRender from "@/app/components/SportPage/CompetitionsRender";
 import UpcomingRender from "@/app/components/SportPage/UpcomingRender";
 import { apiGetUpcomingBySport } from "@/api/matches/apiGetUpcomingBySport";
@@ -20,6 +18,8 @@ import {
 } from "@/helpers/upcomingSportCatalog";
 
 export const SportPage: FunctionComponent = () => {
+  const { baseColorTheme, summarySportsState, loadedSidebarState } =
+    useSportsbookStore();
   const { sportName, sportIdParam, regionName } = useRouteParams();
   const [loading, setLoading] = useState(true);
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");

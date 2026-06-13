@@ -3,7 +3,7 @@ import type {
   PlaceBetResult,
 } from "@/api/bet/placeBet";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
-import { requestBetHistoryRefresh } from "@/state/betHistoryState";
+import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import { notify } from "@/shared/toast";
 

@@ -18,7 +18,7 @@ import { addBetBuilderHighlightToSlip } from "@/helpers/homeWidgetBetslip";
 
 import { widgetPickToSlipInput } from "@/helpers/widgetDisplayNames";
 
-import { homeWidgetsCache } from "@/state/homeWidgetsCache";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 
 import { SportsList } from "@/app/components/SportsList";
 
@@ -37,6 +37,7 @@ const SPORT_TABS = [
 ] as const;
 
 export function PrimePicks() {
+  const { homeWidgetsCache } = useSportsbookStore();
   const [cards, setCards] = useState<BetBuilderHighlightCardResponse[]>([]);
 
   const [showAll, setShowAll] = useState(false);

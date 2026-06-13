@@ -10,15 +10,13 @@ import { MarketComponent } from "@/app/components/MarketsBoard/components/Market
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { MarketBoardLoader } from "@/app/components/Loading/MarketBoardLoader";
 // import { stateScoreBoardId } from "@/state/summarySports";
-import { isMobile } from "@/state/isMobile";
 import { StateScoreBoard } from "../StateScoreBoard";
-import { isBuilding } from "@/state/betState";
 import { setBetBuilderMode } from "@/helpers/setBetBuilderMode";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { apiGetMatchData } from "@/api/matches/apiGetMatchData";
 import { storeEvent } from "@/helpers/storeEvent";
-import { storeState } from "@/state/storeState";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import {
   tEventModel,
   tMarketModel,
@@ -26,7 +24,6 @@ import {
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { HorizontalTabs } from "../HorizontalTabs";
 import { Switch } from "@/app/components/Switch";
-import { baseColorTheme } from "@/state/baseColorTheme";
 import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
 import {
   collectMarketGroupTabs,
@@ -54,6 +51,8 @@ const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
 };
 
 export const MarketsBoard: FunctionComponent = () => {
+  const { baseColorTheme, isMobile, isBuilding, storeState } =
+    useSportsbookStore();
   const baseTheme = baseColorTheme.value;
   const { t: tMarkets } = useTranslate("markets");
   const { t: tAlt } = useTranslate("alt");

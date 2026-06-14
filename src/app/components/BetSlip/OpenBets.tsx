@@ -32,7 +32,8 @@ export const OpenBets: FunctionComponent = () => {
   const lastFetchedKeyRef = useRef<string>("");
 
   useEffect(() => {
-    if (!xUserId || !sessionReady) return;
+    console.log("xUserId", xUserId);
+    if (!xUserId) return;
 
     const fetchKey = `${xUserId}|${page}|${selectedTab}|${refreshToken}|${betHistoryRefreshNonce.value}`;
     if (lastFetchedKeyRef.current === fetchKey) return;
@@ -84,7 +85,7 @@ export const OpenBets: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [xUserId, sessionReady, page, selectedTab, refreshToken, betHistoryRefreshNonce.value]);
+  }, [xUserId, page, selectedTab, refreshToken, betHistoryRefreshNonce.value]);
 
   const handleTabChange = (tab: "open" | "settled") => {
     if (tab === selectedTab) return;
@@ -117,7 +118,7 @@ export const OpenBets: FunctionComponent = () => {
   }
 
   return (
-    <div className="w-full min-h-[400px] pb-30 md:pb-20 rounded-t-[16px] overflow-y-auto rounded-[4px] flex text-[12px] bg-[var(--sub-element-color)] text-[var(--text-basic-color)] flex-col gap-2 py-2">
+    <div className="w-full h-full md:min-h-[400px] pb-30 md:pb-20 rounded-t-[16px] overflow-y-auto rounded-[4px] flex text-[12px] bg-[var(--sub-element-color)] text-[var(--text-basic-color)] flex-col gap-2 py-2">
       <div className="flex items-center justify-center w-full border-b-[1px] border-[var(--border-color)] py-4 uppercase">
         {tBetslip("mybets")}
       </div>

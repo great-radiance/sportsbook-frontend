@@ -24,7 +24,7 @@ export const RouterView: FunctionComponent<RouterViewProps> = ({
     : "useHashLocation";
 
   return (
-    <Router hook={hook}>
+    <Router hook={useHashLocation}>
       <MainLayout>
         {routes.map((r) => (
           <Route key={r.path} path={r.path} component={r.component} />

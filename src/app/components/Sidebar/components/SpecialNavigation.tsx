@@ -21,7 +21,7 @@ function buildPrematchPath(
   regionName?: string,
   regionId?: number,
   leagueName?: string,
-  leagueId?: number,
+  leagueId?: number | string,
 ): string {
   const parts = [
     sportName,
@@ -140,17 +140,25 @@ export const SpecialNavigation: FunctionComponent<
                   </div>
                 ) : (
                   featuredLeagues.map((row: sidebarNode) => {
-                    const leagueId = row.leagueId;
+                    const leagueId =
+                      row.type === "combined_league" ? row.id : row.leagueId;
                     const leagueName = row.name;
+                    const regionName =
+                      row.type === "combined_league"
+                        ? "International"
+                        : row.region?.name;
                     const sportId = row.sport?.id;
-                    const sportName = row.sport?.name;
+                    const sportName =
+                      row.type === "combined_league"
+                        ? "featured_leagues"
+                        : row.sport?.name;
                     const path = buildPrematchPath(
                       sportName ?? "",
                       sportId ?? 0,
-                      row.region?.name ?? "",
+                      regionName ?? "",
                       row.region?.id ?? 0,
                       leagueName ?? "",
-                      leagueId ?? 0,
+                      leagueId ?? "",
                     );
                     return (
                       <div

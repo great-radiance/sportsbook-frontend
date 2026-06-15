@@ -328,11 +328,11 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                       onClick={() => toggleLeague(row.key)}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <img
+                        {/* <img
                           src={`${BASE_ASSET_PUBLIC_URL}/icons/star.png`}
                           alt=""
                           className={`h-4 w-4 shrink-0 object-contain ${baseTheme === "dark" ? "brightness-0 invert" : "brightness-0"}`}
-                        />
+                        /> */}
                         <img
                           src={getFlagIconFromregionName(row.regionName)}
                           alt=""

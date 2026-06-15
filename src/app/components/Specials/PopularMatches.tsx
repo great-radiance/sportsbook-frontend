@@ -1,227 +1,212 @@
 import { FunctionComponent } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { UpcomingMatchSkeleton } from "@/app/components/Loading";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { SportsList } from "../SportsList";
-// import {
-//   allEventIdsFromBuckets,
-//   isDisplayablePopularEvent,
-// } from "@/helpers/buildPopularMatchesFromSidebar";
-
-import { POPULAR_SPORT_ID, SOCCER_SPORT_ID } from "@/helpers/summaryIds";
-import { sortEventIdsByStartDate } from "@/helpers/sortEventIdsByStartDate";
-
-const BATCH_SIZE = 25;
+import { MarketNavigation } from "../marketNavigation";
+import { Match } from "../MatchesBoard/components/Match";
+import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
+import { useSportsbookStore } from "@/state/sportsbookStoreContext";
+import { useSidebarMarketNavigation } from "@/hooks/useSidebarMarketNavigation";
+import {
+  eventHasMarketType,
+  isMoneylineSport,
+} from "@/helpers/sidebarMarketNavigation";
+import { getSportMarkets } from "@/helpers/findSidebarNodeByRoute";
+import { isRacingSport } from "@/helpers/isRacingSport";
+import { SOCCER_SPORT_ID } from "@/helpers/summaryIds";
+import {
+  isEventValidForDisplay,
+  sortEventIdsByStartDate,
+} from "@/helpers/sortEventIdsByStartDate";
 
 export const PopularMatches: FunctionComponent = () => {
+  const {
+    loadedSidebarState,
+    popularMatchesState,
+    storeState,
+    summarySportsState,
+  } = useSportsbookStore();
   const { t } = useTranslate("liveCalendar");
 
   const [selectedSport, setSelectedSport] = useState<number>(SOCCER_SPORT_ID);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [hydrated, setHydrated] = useState(false);
-  return null;
-  // const sportBuckets = featuredSportBuckets.value;
+  const [loading, setLoading] = useState(true);
 
-  // const sportTabs = useMemo(
-  //   () => sportBuckets.filter((b) => b.sportId !== POPULAR_SPORT_ID),
-  //   [sportBuckets],
-  // );
+  const sportsData = useMemo(() => {
+    const bySport = new Map<
+      number,
+      { id: number; name: string; count: number }
+    >();
 
-  // const sportsData = useMemo(
-  //   () =>
-  //     sportTabs.map((bucket) => ({
-  //       id: bucket.sportId,
-  //       name: bucket.sportName,
-  //       count: bucket.eventRefs.length,
-  //     })),
-  //   [sportTabs],
-  // );
+    for (const match of popularMatchesState.value) {
+      const sportId = match.eventInfo.sport?.id ?? 0;
+      if (sportId <= 0) continue;
 
-  // const selectedBucket = featuredBucketForSport(selectedSport);
+      const existing = bySport.get(sportId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        bySport.set(sportId, {
+          id: sportId,
+          name: match.eventInfo.sport?.name ?? `Sport ${sportId}`,
+          count: 1,
+        });
+      }
+    }
 
-  // const displayedEventIds = useMemo(() => {
-  //   const refs = selectedBucket?.eventRefs ?? [];
-  //   const ids = refs
-  //     .map((ref) => ref.eventId)
-  //     .filter((id) => {
-  //       const ev = storeState.value[id]?.value;
-  //       return isDisplayablePopularEvent(ev);
-  //     });
-  //   return sortEventIdsByStartDate(ids);
-  // }, [selectedBucket, storeState.value, hydrated]);
+    return [...bySport.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [popularMatchesState.value]);
 
-  // const loadedEventsForMarkets = useMemo(
-  //   () =>
-  //     displayedEventIds
-  //       .map((id) => storeState.value[id]?.value)
-  //       .filter(Boolean),
-  //   [displayedEventIds, storeState.value],
-  // );
+  const displayedEventIds = useMemo(() => {
+    const ids = popularMatchesState.value
+      .filter((match) => (match.eventInfo.sport?.id ?? 0) === selectedSport)
+      .map((match) => match.eventInfo.id);
+    // .filter((id) => {
+    //   const event = storeState.value[id]?.value;
+    //   return event ? isEventValidForDisplay(event) : false;
+    // });
 
-  // const selectedSportName = useMemo(
-  //   () =>
-  //     sportsData.find((s) => s.id === selectedSport)?.name ??
-  //     `Sport ${selectedSport}`,
-  //   [sportsData, selectedSport],
-  // );
+    return sortEventIdsByStartDate(ids);
+  }, [popularMatchesState.value, selectedSport, storeState.value]);
 
-  // const sportMarkets = useMemo(
-  //   () => getSportMarkets(summarySportsState.value, selectedSport),
-  //   [selectedSport, summarySportsState.value],
-  // );
+  const loadedEventsForMarkets = useMemo(
+    () =>
+      displayedEventIds
+        .map((id) => storeState.value[id]?.value)
+        .filter(Boolean),
+    [displayedEventIds, storeState.value],
+  );
 
-  // const {
-  //   marketOptions,
-  //   showMarketNav,
-  //   selectedMarketType,
-  //   setSelectedMarketType,
-  //   matchMarketType,
-  //   allowAutoSelect,
-  // } = useSidebarMarketNavigation({
-  //   markets: sportMarkets,
-  //   loadedEvents: loadedEventsForMarkets,
-  //   suppressMarketNav:
-  //     isMoneylineSport(selectedSport, selectedSportName) ||
-  //     isRacingSport(selectedSport, selectedSportName),
-  // });
+  const selectedSportName = useMemo(
+    () =>
+      sportsData.find((sport) => sport.id === selectedSport)?.name ??
+      `Sport ${selectedSport}`,
+    [sportsData, selectedSport],
+  );
 
-  // useEffect(() => {
-  //   if (!loadedSidebarState.value) return;
+  const sportMarkets = useMemo(
+    () => getSportMarkets(summarySportsState.value, selectedSport),
+    [selectedSport, summarySportsState.value],
+  );
 
-  //   const eventIds = allEventIdsFromBuckets(sportTabs);
-  //   if (eventIds.length === 0) {
-  //     setHydrated(true);
-  //     setLoading(false);
-  //     return;
-  //   }
+  const {
+    marketOptions,
+    showMarketNav,
+    selectedMarketType,
+    setSelectedMarketType,
+    matchMarketType,
+    allowAutoSelect,
+  } = useSidebarMarketNavigation({
+    markets: sportMarkets,
+    loadedEvents: loadedEventsForMarkets,
+    suppressMarketNav:
+      isMoneylineSport(selectedSport, selectedSportName) ||
+      isRacingSport(selectedSport, selectedSportName),
+  });
 
-  //   let cancelled = false;
+  useEffect(() => {
+    if (!loadedSidebarState.value) return;
+    setLoading(false);
+  }, [loadedSidebarState.value, popularMatchesState.value]);
 
-  //   const load = async () => {
-  //     setLoading(true);
-  //     setHydrated(false);
-  //     try {
-  //       for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-  //         const batchIds = eventIds.slice(i, i + BATCH_SIZE);
-  //         const batch = await apiGetMatches(batchIds);
-  //         if (cancelled) return;
-  //         (batch ?? []).forEach((event) => storeEvent(event));
-  //       }
+  useEffect(() => {
+    if (sportsData.length === 0) return;
+    if (!sportsData.some((sport) => sport.id === selectedSport)) {
+      setSelectedSport(sportsData[0].id);
+    }
+  }, [sportsData, selectedSport]);
 
-  //       if (cancelled) return;
+  if (!loadedSidebarState.value || sportsData.length === 0) {
+    return null;
+  }
 
-  //       setHydrated(true);
-  //     } catch (error) {
-  //       console.error("Error fetching popular featured matches:", error);
-  //       if (!cancelled) {
-  //         setHydrated(true);
-  //       }
-  //     } finally {
-  //       if (!cancelled) setLoading(false);
-  //     }
-  //   };
+  return (
+    <div className="flex flex-col md:px-2 rounded-[16px] text-[var(--text-basic-color)] w-full min-h-0 overflow-y-auto">
+      <div className="flex flex-1 items-center pt-4 pb-2 md:px-4 gap-2 text-[20px]">
+        <img
+          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/top.png`}
+          className="w-[24px] h-[24px] object-contain invert"
+          alt=""
+        />
+        <span className="text-[20px] font-bold">{t("TopMatches")}</span>
+      </div>
 
-  //   void load();
+      <div className="flex w-full md:px-2">
+        <SportsList
+          sportsData={sportsData}
+          selectedSport={selectedSport}
+          onSelectSport={setSelectedSport}
+          showPopular={false}
+        />
+      </div>
 
-  //   return () => {
-  //     cancelled = true;
-  //   };
-  // }, [sportTabs, loadedSidebarState.value]);
+      {showMarketNav ? (
+        <MarketNavigation
+          options={marketOptions}
+          selectedValue={selectedMarketType}
+          onSelect={setSelectedMarketType}
+        />
+      ) : null}
 
-  // useEffect(() => {
-  //   if (sportTabs.length === 0) return;
-  //   if (!sportTabs.some((b) => b.sportId === selectedSport)) {
-  //     setSelectedSport(sportTabs[0].sportId);
-  //   }
-  // }, [sportTabs, selectedSport]);
-
-  // if (!loadedSidebarState.value || sportTabs.length === 0) {
-  //   return null;
-  // }
-
-  // return (
-  //   <div className="flex flex-col md:px-2 rounded-[16px] text-[var(--text-basic-color)] w-full min-h-0 overflow-y-auto">
-  //     <div className="flex flex-1 items-center pt-4 pb-2 md:px-4 gap-2 text-[20px]">
-  //       <img
-  //         src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/top.png`}
-  //         className="w-[24px] h-[24px] object-contain invert"
-  //         alt=""
-  //       />
-  //       <span className="text-[20px] font-bold">{t("TopMatches")}</span>
-  //     </div>
-
-  //     <div className="flex w-full md:px-2">
-  //       <SportsList
-  //         sportsData={sportsData}
-  //         selectedSport={selectedSport}
-  //         onSelectSport={setSelectedSport}
-  //         showPopular={false}
-  //       />
-  //     </div>
-
-  //     {showMarketNav ? (
-  //       <MarketNavigation
-  //         options={marketOptions}
-  //         selectedValue={selectedMarketType}
-  //         onSelect={setSelectedMarketType}
-  //       />
-  //     ) : null}
-
-  //     {loading ? (
-  //       <div className="flex flex-col w-full gap-[2px] mt-1">
-  //         {Array.from({ length: 4 }).map((_, index) => (
-  //           <UpcomingMatchSkeleton key={`skeleton-${index}`} />
-  //         ))}
-  //       </div>
-  //     ) : (
-  //       <div className="flex flex-col w-full h-full rounded-lg overflow-hidden">
-  //         {displayedEventIds.length === 0 ? (
-  //           <div className="px-2 py-4 text-[12px] text-[var(--text-sub-color)]">
-  //             {t("noDataAvailable")}
-  //           </div>
-  //         ) : (
-  //           displayedEventIds.map((eventId) => (
-  //             <div key={eventId} className="flex flex-col w-full rounded-[4px]">
-  //               <div className="w-full h-full transition-all duration-300 ease-in-out">
-  //                 <div className="flex flex-col w-full h-full">
-  //                   {(() => {
-  //                     const stored = storeState.value[eventId]?.value;
-  //                     if (
-  //                       showMarketNav &&
-  //                       stored &&
-  //                       !isMoneylineSport(
-  //                         stored.sport?.id ?? selectedSport,
-  //                         stored.sport?.name,
-  //                       ) &&
-  //                       !eventHasMarketType(stored, selectedMarketType)
-  //                     ) {
-  //                       return null;
-  //                     }
-  //                     if (
-  //                       stored &&
-  //                       isMoneylineSport(
-  //                         stored.sport?.id ?? selectedSport,
-  //                         stored.sport?.name,
-  //                       )
-  //                     ) {
-  //                       return <MoneylineMatch eventId={eventId} />;
-  //                     }
-  //                     return (
-  //                       <Match
-  //                         eventId={eventId}
-  //                         marketType={matchMarketType}
-  //                         allowAutoSelect={allowAutoSelect}
-  //                       />
-  //                     );
-  //                   })()}
-  //                 </div>
-  //               </div>
-  //             </div>
-  //           ))
-  //         )}
-  //       </div>
-  //     )}
-  //   </div>
-  // );
+      {loading ? (
+        <div className="flex flex-col w-full gap-[2px] mt-1">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <UpcomingMatchSkeleton key={`skeleton-${index}`} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col w-full h-full rounded-lg overflow-hidden">
+          {displayedEventIds.length === 0 ? (
+            <div className="px-2 py-4 text-[12px] text-[var(--text-sub-color)]">
+              {t("noDataAvailable")}
+            </div>
+          ) : (
+            displayedEventIds.map((eventId) => {
+              const stored = storeState.value[eventId]?.value;
+              if (
+                showMarketNav &&
+                stored &&
+                !isMoneylineSport(
+                  stored.sport?.id ?? selectedSport,
+                  stored.sport?.name,
+                ) &&
+                !eventHasMarketType(stored, selectedMarketType)
+              ) {
+                return null;
+              }
+              if (
+                stored &&
+                isMoneylineSport(
+                  stored.sport?.id ?? selectedSport,
+                  stored.sport?.name,
+                )
+              ) {
+                return (
+                  <div
+                    key={eventId}
+                    className="flex flex-col w-full rounded-[4px]"
+                  >
+                    <MoneylineMatch eventId={eventId} />
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={eventId}
+                  className="flex flex-col w-full rounded-[4px]"
+                >
+                  <Match
+                    eventId={eventId}
+                    marketType={matchMarketType}
+                    allowAutoSelect={allowAutoSelect}
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
 };

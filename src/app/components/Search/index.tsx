@@ -17,6 +17,7 @@ import "./style.css";
 import { apiSearchEvents } from "@/api/events/apiSearchEvents";
 import type { SearchEventRow } from "@/types/searchEvent";
 import { searchRowPrematchPath } from "@/helpers/mapGuideSearchEvent";
+import { PopularMatches } from "../Specials/PopularMatches";
 
 const PAGE_SIZE = 5;
 

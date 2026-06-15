@@ -466,7 +466,8 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
           {event.isOutright ? (
             <span className="truncate font-bold">OutRight</span>
           ) : (
-            <div className="flex flex-col justify-space-between h-full">
+            <>
+              {/* <div className="flex flex-col justify-space-between h-full"> */}
               <div className="flex flex-col gap-2 h-full">
                 <div className="flex items-center gap-2 text-[11px] text-[var(--text-sub-color)]">
                   {isLive ? (
@@ -503,7 +504,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                       alt=""
                     />
 
-                    <span className="truncate text-[13px] font-bold">
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-bold">
                       {teamFirst}
                     </span>
                   </div>
@@ -530,7 +531,7 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                     }}
                   />
 
-                  <span className="truncate text-[13px] font-bold">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-bold">
                     {teamSecond}
                   </span>
                 </div>
@@ -540,23 +541,23 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
                   </span>
                 )}
               </div>
-            </div>
+            </>
           )}
         </div>
 
         <div
-          className="grid min-w-0 flex-1 grid-cols-3 gap-1.5 max-w-[52%]"
+          className="flex min-w-[52%] flex-1 gap-1.5 max-w-[52%]"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 flex-1">
             {renderOddButton(mlOdds[0], moneylineMarket, 0, "moneyline")}
             {renderOddButton(mlOdds[1], moneylineMarket, 1, "moneyline")}
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 flex-1">
             {renderOddButton(spOdds[0], spreadMarket, 0, "spread")}
             {renderOddButton(spOdds[1], spreadMarket, 1, "spread")}
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 flex-1">
             {renderOddButton(totOdds[0], totalMarket, 0, "total")}
             {renderOddButton(totOdds[1], totalMarket, 1, "total")}
           </div>

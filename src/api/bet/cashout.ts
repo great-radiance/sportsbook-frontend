@@ -14,10 +14,10 @@ export function extractApiErrorMessage(
       | { error?: unknown; message?: unknown }
       | undefined;
     const raw =
-      typeof body?.error === "string"
-        ? body.error
-        : typeof body?.message === "string"
-          ? body.message
+      typeof body?.message === "string"
+        ? body.message
+        : typeof body?.error === "string"
+          ? body.error
           : null;
     if (raw && raw.trim()) return raw.trim();
   }

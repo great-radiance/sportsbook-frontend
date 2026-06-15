@@ -31,6 +31,7 @@ export const storeEvent = (event: MatchDataResponse) => {
   //   Date.now() - 1000 * 60 * 60 * 24
   // )
   //   return;
+  // if (event.eventInfo.status !== 0) return;
   const eventExists = storeState.value[event.eventInfo.id] ? true : false;
   if (!eventExists) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(

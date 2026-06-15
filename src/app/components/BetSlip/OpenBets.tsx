@@ -20,7 +20,7 @@ export const OpenBets: FunctionComponent = () => {
   } = useSportsbookStore();
   const { t: tCommon } = useTranslate("common");
   const { t: tBetslip } = useTranslate("betslip");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -33,7 +33,10 @@ export const OpenBets: FunctionComponent = () => {
 
   useEffect(() => {
     console.log("xUserId", xUserId);
-    if (!xUserId) return;
+    if (!xUserId) {
+      setLoading(false);
+      return;
+    }
 
     const fetchKey = `${xUserId}|${page}|${selectedTab}|${refreshToken}|${betHistoryRefreshNonce.value}`;
     if (lastFetchedKeyRef.current === fetchKey) return;
@@ -41,7 +44,7 @@ export const OpenBets: FunctionComponent = () => {
     let cancelled = false;
 
     (async () => {
-      setLoading(true);
+      // setLoading(true);
       setError(null);
 
       try {
@@ -67,7 +70,7 @@ export const OpenBets: FunctionComponent = () => {
           const localOnly = betHistoryState.value.filter(
             (b) => !apiIds.has(b.betId) && isOpenBetsListStatus(b.status),
           );
-          betHistoryState.value = [...localOnly, ...apiBets];
+          betHistoryState.value = [...apiBets];
         } else {
           betHistoryState.value = apiBets;
         }

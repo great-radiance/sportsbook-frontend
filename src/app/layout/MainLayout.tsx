@@ -158,7 +158,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
   );
 
   useSocketEvent("event:update", handleEventsUpdated);
-  useSocketEvent("event:notification", handleEventNotification);
+  // useSocketEvent("event:notification", handleEventNotification);
 
   useEffect(() => {
     // console.log("selectedOdds-mainlayout", selectedOdds.value);

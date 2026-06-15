@@ -132,6 +132,10 @@ export const MatchesBoard: FunctionComponent = () => {
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(true);
   const [selectedMarketType, setSelectedMarketType] = useState(1);
+  const [matchEventIds, setMatchEventIds] = useState<{
+    pre: number[];
+    outright: number[];
+  }>({ pre: [], outright: [] });
   const sportId = Number(sportIdParam) || 0;
   const lang = getAppConfig().lang;
   const sportNode = useMemo(
@@ -174,6 +178,13 @@ export const MatchesBoard: FunctionComponent = () => {
   }, [leagueSelectEntries, selectValue, regionName]);
 
   const node = useMemo(() => {
+    if (sportName === "featured_leagues") {
+      return (
+        summarySportsState.value
+          ?.find((node) => node.type === "featured_leagues")
+          ?.children?.find((node) => node.id === leagueIdParam) ?? undefined
+      );
+    }
     if (!sportIdParam) return undefined;
 
     const hasNestedLeagueRoute = Boolean(regionIdParam && leagueIdParam);
@@ -201,13 +212,29 @@ export const MatchesBoard: FunctionComponent = () => {
     lang,
     summarySportsState.value,
   ]);
+  const preEventIds =
+    matchEventIds.pre.length > 0 ? matchEventIds.pre : (node?.pre ?? []);
+  const outrightEventIds =
+    matchEventIds.outright.length > 0
+      ? matchEventIds.outright
+      : (node?.outright ?? []);
+
   const categories = useMemo(() => {
-    if (node?.pre?.length !== 0 && node?.outright?.length !== 0)
-      return ["Matches", "Outright"];
-    if (node?.pre?.length !== 0) return ["Matches"];
-    if (node?.outright?.length !== 0) return ["Outright"];
-    return [];
-  }, [node]);
+    const cats: string[] = [];
+    if (preEventIds.length > 0) cats.push("Matches");
+    if (outrightEventIds.length > 0) cats.push("Outright");
+    return cats;
+  }, [preEventIds, outrightEventIds]);
+
+  useEffect(() => {
+    setMatchEventIds({ pre: [], outright: [] });
+  }, [node?.id]);
+
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(selectedCategory)) {
+      setSelectedCategory(categories[0]);
+    }
+  }, [categories, selectedCategory, node?.id]);
 
   const getMatchesBoard = useCallback(async () => {
     const hasNestedLeagueRoute = Boolean(
@@ -234,6 +261,10 @@ export const MatchesBoard: FunctionComponent = () => {
           new Date(a.eventInfo.startTime).getTime() -
           new Date(b.eventInfo.startTime).getTime(),
       );
+      setMatchEventIds({
+        pre: (newEvents ?? []).map((event) => event.eventInfo.id),
+        outright: (newOutrightEvents ?? []).map((event) => event.eventInfo.id),
+      });
       // const tempMarkets: Record<string, string[]> = {};
       // tempMarkets["Matches"] = res.marketsMeta;
       // tempMarkets["Outright"] = resOutright.marketsMeta;
@@ -426,8 +457,8 @@ export const MatchesBoard: FunctionComponent = () => {
         ) : (
           switchCategory(
             selectedCategory,
-            node?.pre ?? [],
-            node?.outright ?? [],
+            preEventIds,
+            outrightEventIds,
             selectedMarketType,
             false,
             sportIdParam ?? "",

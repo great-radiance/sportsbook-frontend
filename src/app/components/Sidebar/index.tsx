@@ -27,15 +27,18 @@ export const Sidebar: FunctionComponent = () => {
     storeState,
   } = useSportsbookStore();
   const [loading, setLoading] = useState<boolean>(true);
-  const { pageName } = useRouteParams();
+  const { pageName, sportName } = useRouteParams();
 
   useEffect(() => {
     (async () => {
       try {
         // setLoading(true);
-        if (pageName === "live") {
+        if (pageName === "live" && sportName) {
           if (loadedLiveState.value) return;
-          await apiGetLiveSidebar();
+          const [{ data, countsSummary }, { sports, liveCount }] =
+            await Promise.all([apiGetSidebar(), apiGetLiveSidebar()]);
+          summarySportsState.value = data;
+          countsSummarySportsState.value = countsSummary;
           loadedLiveState.value = true;
         } else {
           if (loadedSidebarState.value) return;

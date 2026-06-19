@@ -6,5 +6,5 @@ export function computePriceMv(
   const eps = 0.0001;
   if (nextPrice > previousPrice + eps) return 1;
   if (nextPrice < previousPrice - eps) return -1;
-  return 0;
+  return previousPrice;
 }

@@ -13,6 +13,7 @@
 :host,
 #sportsbook-main-layout,
 #sportsbook-main-layout[data-theme="light"] {
+  font-family: "Open Sans", sans-serif;
   /* Backgrounds */
   --background-header: #ffffff;
   --background-color: #eef3ef;
@@ -54,6 +55,7 @@
 :root,
 :host,
 #sportsbook-main-layout[data-theme="dark"] {
+  font-family: "Open Sans", sans-serif;
   /* Backgrounds (deep green, not black) */
   --background-header: #0f1512;
   --background-color: #0b110d;

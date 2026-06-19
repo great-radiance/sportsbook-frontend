@@ -61,9 +61,7 @@ function formatSnakeWord(word: string): string {
   const alphaNum = lower.match(/^([a-z]+)(\d.*)$/);
   if (alphaNum) {
     return (
-      alphaNum[1].charAt(0).toUpperCase() +
-      alphaNum[1].slice(1) +
-      alphaNum[2]
+      alphaNum[1].charAt(0).toUpperCase() + alphaNum[1].slice(1) + alphaNum[2]
     );
   }
   return lower.charAt(0).toUpperCase() + lower.slice(1);
@@ -76,11 +74,7 @@ export function formatSnakeCaseMarketName(rawName: string): string {
   if (!rawName.includes("_")) return rawName;
   if (!FEED_MARKET_KEY_RE.test(rawName)) return rawName;
 
-  return rawName
-    .split("_")
-    .filter(Boolean)
-    .map(formatSnakeWord)
-    .join(" ");
+  return rawName.split("_").filter(Boolean).map(formatSnakeWord).join(" ");
 }
 
 /**
@@ -153,22 +147,109 @@ export const completeName = (
   return formatSnakeCaseMarketName(result);
 };
 
+const DRAW_NICK = "X";
+const OR_SEPARATOR_RE = /\s+or\s+/i;
+
+function isDrawLabel(text: string): boolean {
+  return text.trim().toLowerCase() === "draw";
+}
+
+function resolvePlaceholderCompetitorNicks(
+  competitors: competitor[],
+  extraParameters?: Record<string, string>,
+): { competitor1: string; competitor2: string } {
+  let competitor1 = "1";
+  let competitor2 = "2";
+
+  const cidStr = extraParameters?.competitorId;
+  if (!cidStr) return { competitor1, competitor2 };
+
+  const cid = Number(cidStr);
+  const idx = competitors.findIndex((c) => c.id === cid);
+  if (idx < 0) return { competitor1, competitor2 };
+
+  const nick = String(idx + 1);
+  return { competitor1: nick, competitor2: nick };
+}
+
+function resolveCompetitorNickToken(
+  part: string,
+  homeName: string,
+  awayName: string,
+): string | null {
+  const trimmed = part.trim();
+  if (!trimmed) return null;
+
+  if (isDrawLabel(trimmed)) return DRAW_NICK;
+  if (trimmed === "1" || trimmed === "2" || trimmed === DRAW_NICK) {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (homeName && lower === homeName.trim().toLowerCase()) return "1";
+  if (awayName && lower === awayName.trim().toLowerCase()) return "2";
+
+  return null;
+}
+
+/**
+ * Map translated selection labels (team names, draw, double-chance combos)
+ * to compact 1 / 2 / X notation.
+ */
+function nickNameFromCompetitorText(
+  rawName: string,
+  competitors: competitor[],
+): string | null {
+  if (!competitors.length) return null;
+
+  const homeName = competitors[0]?.name ?? "";
+  const awayName = competitors[1]?.name ?? "";
+  const trimmed = rawName.trim();
+  if (!trimmed) return null;
+
+  if (OR_SEPARATOR_RE.test(trimmed)) {
+    const parts = trimmed
+      .split(OR_SEPARATOR_RE)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length < 2) return null;
+
+    const tokens = parts.map((part) =>
+      resolveCompetitorNickToken(part, homeName, awayName),
+    );
+    if (tokens.some((token) => token === null)) return null;
+    return tokens.join("");
+  }
+
+  return resolveCompetitorNickToken(trimmed, homeName, awayName);
+}
+
 export const completeNickName = (
   rawName: string,
   competitors?: competitor[],
   parameters?: Record<string, string>,
   extraParameters?: Record<string, string>,
 ): string => {
-  if (rawName.toLowerCase() === "draw") return "X";
   if (!rawName) return rawName;
-  if (!rawName.includes("{")) return formatSnakeCaseMarketName(rawName);
 
-  let competitor1 = "1";
-  let competitor2 = "2";
+  const list = competitors ?? [];
+
+  if (!rawName.includes("{")) {
+    const fromCompetitors = nickNameFromCompetitorText(rawName, list);
+    if (fromCompetitors != null) return fromCompetitors;
+    if (isDrawLabel(rawName)) return DRAW_NICK;
+    return formatSnakeCaseMarketName(rawName);
+  }
+
+  const { competitor1, competitor2 } = resolvePlaceholderCompetitorNicks(
+    list,
+    extraParameters,
+  );
 
   let result = rawName
     .replace(/\{\$competitor1\}/g, competitor1)
-    .replace(/\{\$competitor2\}/g, competitor2);
+    .replace(/\{\$competitor2\}/g, competitor2)
+    .replace(/\{!?draw\}/gi, DRAW_NICK);
 
   const hcpRaw = resolveHandicapRaw(parameters, extraParameters);
   if (hcpRaw !== undefined) {
@@ -184,10 +265,15 @@ export const completeNickName = (
     if (key === "competitorId" || HANDICAP_PARAM_KEYS.has(key)) {
       continue;
     }
+    const replacement = key.toLowerCase() === "draw" ? DRAW_NICK : val;
     const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`\\{!?${safeKey}\\}`, "g");
-    result = result.replace(re, val);
+    const re = new RegExp(`\\{!?${safeKey}\\}`, "gi");
+    result = result.replace(re, replacement);
   }
+
+  const fromCompetitors = nickNameFromCompetitorText(result, list);
+  if (fromCompetitors != null) return fromCompetitors;
+  if (isDrawLabel(result)) return DRAW_NICK;
 
   return formatSnakeCaseMarketName(result);
 };

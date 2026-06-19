@@ -218,7 +218,7 @@ export const BetSlip: FunctionComponent = () => {
   const betTypeTabs = [
     { value: "single", label: t("single"), enabled: true },
     { value: "multi", label: t("multiple"), enabled: multiBetEnabled },
-    { value: "system", label: t("system"), enabled: systemBetEnabled },
+    // { value: "system", label: t("system"), enabled: systemBetEnabled },
   ];
 
   useEffect(() => {

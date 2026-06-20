@@ -31,7 +31,6 @@ export const storeEvent = (event: MatchDataResponse) => {
   //   Date.now() - 1000 * 60 * 60 * 24
   // )
   //   return;
-  // if (event.eventInfo.status !== 0) return;
   const eventExists = storeState.value[event.eventInfo.id] ? true : false;
   if (!eventExists) {
     storeState.value[event.eventInfo.id] = signal<tEventModel>(
@@ -52,13 +51,13 @@ export const storeEvent = (event: MatchDataResponse) => {
       };
       const completedSelection: tSelectionValue = {
         ...selection,
-        name: completeName(
+        nickName: completeNickName(
           selection.name,
           competitors,
           market.parameters,
           selectionExtra,
         ),
-        nickName: completeNickName(
+        name: completeName(
           selection.name,
           competitors,
           market.parameters,

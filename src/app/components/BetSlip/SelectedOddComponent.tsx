@@ -1,20 +1,26 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
+import { computed } from "@preact/signals";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
-import { useSportsbookStore } from "@/state/sportsbookStoreContext";
+import {
+  sportsbookStore,
+  selectionStoreKey,
+  useSportsbookStore,
+} from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
 import {
   getOddsMv,
   getOddsValue,
   hasSelectionOddsSource,
 } from "@/helpers/getOddsValue";
-import { computed } from "@preact/signals";
 import { removeFromOddsStore } from "@/helpers/storeEvent";
-import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
-import { formatCurrency } from "@/shared/utils/formatters";
+import {
+  formatCurrency,
+  getCurrencySymbol,
+} from "@/shared/utils/formatters";
 
 interface SelectedOddComponentProps {
   bet: SelectedOddType;
@@ -30,47 +36,34 @@ export const SelectedOddComponent: FunctionComponent<
   SelectedOddComponentProps
 > = ({
   bet,
-  index,
   forceUpdate,
   selectedBetType,
-  setForceUpdate,
   minStake,
   maxStake,
 }) => {
-  const { selectedOdds, currency, isMobile, baseColorTheme } =
-    useSportsbookStore();
+  const { currency } = useSportsbookStore();
   const { t } = useTranslate("betslip");
-  const baseTheme = baseColorTheme.value;
-  const oddsValue = computed(() => {
-    return getOddsValue(bet.eventId, bet.marketId, Number(bet.oddsId));
-  });
+  const baseTheme = sportsbookStore.baseColorTheme.value;
+  void sportsbookStore.storeState.value;
+  void sportsbookStore.selectionsStoreState.value;
+
+  const oddsValue = computed(() =>
+    getOddsValue(bet.eventId, bet.marketId, Number(bet.oddsId)),
+  );
   const oddsMv = computed(() =>
     getOddsMv(bet.eventId, bet.marketId, Number(bet.oddsId)),
   );
 
-  const calculatePossibleWin = (stake: number, odds: number): number => {
-    return stake * odds;
-  };
-
   const onRemove = (id: string) => {
-    selectedOdds.value = selectedOdds.value.filter((bet) => bet.oddsId !== id);
+    sportsbookStore.selectedOdds.value =
+      sportsbookStore.selectedOdds.value.filter((bet) => bet.oddsId !== id);
+    sportsbookStore.betSlipWarning.value = null;
     removeFromOddsStore([
       selectionStoreKey(bet.eventId, bet.marketId, Number(id)),
     ]);
   };
 
-  const handleCopyStakeToAll = (stake: number) => {
-    if (selectedOdds.value.length === 0) return;
-    selectedOdds.value.forEach((bet) => {
-      bet.amount = stake;
-    });
-    // Force re-render to update input values
-    selectedOdds.value = [...selectedOdds.value];
-    rotateBetSlipIdempotencyKey();
-    setForceUpdate((prev) => prev + 1);
-  };
-
-  const possibleWin = calculatePossibleWin(bet.amount, oddsValue.value);
+  const possibleWin = computed(() => bet.amount * oddsValue.value);
 
   const oddsUnavailable = !hasSelectionOddsSource(
     bet.eventId,
@@ -80,10 +73,12 @@ export const SelectedOddComponent: FunctionComponent<
 
   useEffect(() => {
     if (!oddsUnavailable) return;
-    if (!selectedOdds.value.some((o) => o.oddsId === bet.oddsId)) return;
-    selectedOdds.value = selectedOdds.value.filter(
-      (o) => o.oddsId !== bet.oddsId,
-    );
+    if (
+      !sportsbookStore.selectedOdds.value.some((o) => o.oddsId === bet.oddsId)
+    )
+      return;
+    sportsbookStore.selectedOdds.value =
+      sportsbookStore.selectedOdds.value.filter((o) => o.oddsId !== bet.oddsId);
     removeFromOddsStore([
       selectionStoreKey(bet.eventId, bet.marketId, Number(bet.oddsId)),
     ]);
@@ -91,127 +86,155 @@ export const SelectedOddComponent: FunctionComponent<
 
   if (oddsUnavailable) return null;
 
+  const stakeQuickButtons = [2, 10, 50];
+  const setStake = (value: number) => {
+    bet.amount = Math.max(0, value);
+    sportsbookStore.selectedOdds.value = [
+      ...sportsbookStore.selectedOdds.value,
+    ];
+    rotateBetSlipIdempotencyKey();
+  };
+
   return (
     <div
-      className={`flex flex-col w-full bg-[var(--sub-element-secondary)] ${oddsValue.value === 0 && "opacity-50"} border-[1px] p-2 border-[var(--border-color)] rounded-[12px] animate-[fade-in_0.3s_ease-out]`}
+      className={`flex w-full flex-col rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-3 ${oddsValue.value === 0 ? "opacity-50" : ""}`}
     >
-      <div
-        className={`w-full rounded-[4px] flex flex-col gap-1 overflow-hidden relative ${bet.isBuilding ? "border-l-[2px] border-[var(--primary-color)] pl-2" : ""}`}
-      >
-        {/* Selection name */}
-        <div className="flex items-center justify-between w-full text-[14px] font-bold">
-          <div className="flex items-center gap-2">
-            <img
-              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${bet.sport.id}.svg`}
-              onError={(e) => {
-                e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
-              }}
-              className={`w-5 h-5 ${baseTheme === "dark" ? "invert" : ""}`}
-            />
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <img
+            src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${bet.sport.id}.svg`}
+            onError={(e) => {
+              e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+            }}
+            className={`h-5 w-5 shrink-0 ${baseTheme === "dark" ? "invert" : ""}`}
+            alt=""
+          />
+          <span className="truncate text-[14px] font-bold leading-none">
             {bet.name || ""}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onRemove(bet.oddsId)}
-              className={`flex items-center justify-end w-full transition-colors ${!isMobile.value ? "hover:" : ""}`}
-            >
-              <img
-                src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/trash.png`}
-                alt="close"
-                className="w-4"
-              />
-            </button>
-            <span className="relative inline-flex text-[var(--primary-color)] text-[12px] font-normal">
-              {oddsValue.value.toFixed(2)}
-              {/* <OddsMoveIndicator mv={oddsMv.value} /> */}
-            </span>
-          </div>
+          </span>
         </div>
-        {/* Market name */}
-        <div className="flex justify-between text-[12px] font-normal">
-          {bet.marketName || ""}
-          {!bet.isBuilding && selectedBetType === "system" && (
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-[6px] bg-[var(--background-element)] px-2 py-1 text-[11px] font-bold leading-none">
+            {oddsValue.value.toFixed(2)}
+          </span>
+          {selectedBetType === "system" && (
             <button
-              className={`w-5 h-5 rounded-[2px] ${bet.selectedBank ? "bg-[var(--primary-color)] text-black" : "bg-[var(--background-element)] "}`}
+              className={`h-6 w-6 rounded-[6px] border border-[var(--border-color)] text-[11px] font-bold ${bet.selectedBank ? "bg-[var(--background-element)]" : "bg-transparent"}`}
               onClick={(e) => {
                 e.stopPropagation();
-                const idx = selectedOdds.value.findIndex(
+                const idx = sportsbookStore.selectedOdds.value.findIndex(
                   (o) => o.oddsId === bet.oddsId,
                 );
                 if (idx !== -1) {
-                  // toggle on the item in the shared state and replace the array to trigger reactivity
-                  selectedOdds.value[idx] = {
-                    ...selectedOdds.value[idx],
-                    selectedBank: !selectedOdds.value[idx].selectedBank,
+                  sportsbookStore.selectedOdds.value[idx] = {
+                    ...sportsbookStore.selectedOdds.value[idx],
+                    selectedBank:
+                      !sportsbookStore.selectedOdds.value[idx].selectedBank,
                   };
-                  selectedOdds.value = [...selectedOdds.value];
-                } else {
-                  // fallback: toggle local object and still replace array
-                  bet.selectedBank = !bet.selectedBank;
-                  selectedOdds.value = [...selectedOdds.value];
+                  sportsbookStore.selectedOdds.value = [
+                    ...sportsbookStore.selectedOdds.value,
+                  ];
                 }
               }}
             >
               B
             </button>
           )}
+          <button
+            onClick={() => onRemove(bet.oddsId)}
+            className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-[var(--border-color)]"
+          >
+            <img
+              src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/trash.png`}
+              alt="close"
+              className="h-3.5 w-3.5"
+            />
+          </button>
         </div>
-        {/* Event name */}
-        <div className="text-[12px] font-normal">
-          {bet.participants[0]?.name || ""} - {bet.participants[1]?.name || ""}
-        </div>
-        {/* Stake input - only show for single bets */}
-        {selectedBetType === "single" && !bet.isBuilding && (
-          <div className="flex flex-col gap-1 mt-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <input
-                  key={`${selectionStoreKey(bet.eventId, bet.marketId, Number(bet.oddsId))}-${forceUpdate}`}
-                  type="number"
-                  min={minStake}
-                  max={maxStake}
-                  value={bet.amount.toString()}
-                  onInput={(e) => {
-                    const value = (e.target as HTMLInputElement).value;
-                    if (/^\d*\.?\d*$/.test(value)) {
-                      bet.amount = parseFloat(value) || 0;
-                      selectedOdds.value = [...selectedOdds.value];
-                      rotateBetSlipIdempotencyKey();
-                    }
-                  }}
-                  disabled={oddsValue.value === 0}
-                  inputMode="numeric"
-                  placeholder={t("enterStake")}
-                  className="w-full px-2 py-1.5 text-[12px] bg-[var(--sub-element-secondary)] border-[2px] border-[var(--border-color)] rounded-[4px] placeholder: focus:outline-none focus:border-[var(--focused-primary-border-color)]"
-                />
-              </div>
-              {index === 0 && (
-                <button
-                  onClick={() => handleCopyStakeToAll(bet.amount)}
-                  className={`px-2 py-1.5 border-[1px] border-[var(--border-color)] rounded-[4px] transition-colors ${!isMobile.value ? "hover:bg-white/20" : ""}`}
-                  title={t("copyStakeToAll")}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                  </svg>
-                </button>
-              )}
-            </div>
-            <div className="flex items-center font-bold justify-between text-[13px]">
-              <span>{t("possibleWin")}:</span>
-              <span className="text-[var(--primary-color)]">
-                {formatCurrency(possibleWin, currency.value)}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
+
+      <div className="mt-1 text-[13px] font-normal text-[var(--text-sub-color)]">
+        {bet.marketName || ""}
+      </div>
+      <div className="mt-1 flex flex-col gap-0.5 text-[12px]">
+        <div className="flex items-center gap-1.5">
+          <img
+            src={`${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-home.svg`}
+            className="h-4 w-4 rounded-full"
+            alt=""
+          />
+          <span className="truncate">{bet.participants[0]?.name || ""}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <img
+            src={`${BASE_ASSET_PUBLIC_URL}/logo/default-logo/default-away.svg`}
+            className="h-4 w-4 rounded-full"
+            alt=""
+          />
+          <span className="truncate">{bet.participants[1]?.name || ""}</span>
+        </div>
+      </div>
+
+      {selectedBetType === "single" && !bet.isBuilding && (
+        <>
+          <div className="mt-3 flex items-center gap-1.5">
+            <div className="flex h-10 min-w-0 flex-1 items-center rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2">
+              <span className="shrink-0 text-[12px] text-[var(--text-sub-color)]">
+                {getCurrencySymbol(currency.value)}
+              </span>
+              <input
+                key={`${selectionStoreKey(bet.eventId, bet.marketId, Number(bet.oddsId))}-${forceUpdate}`}
+                type="number"
+                min={minStake}
+                max={maxStake}
+                value={Number(bet.amount).toString() || ""}
+                onInput={(e) => {
+                  const value = (e.target as HTMLInputElement).value;
+                  if (/^\d*\.?\d*$/.test(value)) {
+                    setStake(parseFloat(value) || 0);
+                  }
+                }}
+                disabled={oddsValue.value === 0}
+                inputMode="numeric"
+                className="w-full bg-transparent px-1 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <img
+                src={`${BASE_ASSET_PUBLIC_URL}/icons/edit.png`}
+                alt=""
+                className="h-3.5 w-3.5 opacity-70"
+              />
+            </div>
+            {stakeQuickButtons.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStake(value)}
+                className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
+              >
+                +{value}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setStake(maxStake ?? 0)}
+              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
+            >
+              MAX
+            </button>
+          </div>
+          <div className="mt-2 flex items-center justify-end text-[13px] font-semibold">
+            <span className="text-[var(--text-sub-color)]">
+              {formatCurrency(possibleWin.value, currency.value)} {t("profit")}
+            </span>
+          </div>
+        </>
+      )}
+
+      {selectedBetType !== "single" && oddsMv.value !== 0 && (
+        <div className="mt-2 text-right text-[11px] text-[var(--text-sub-color)]">
+          mv {oddsMv.value > 0 ? `+${oddsMv.value}` : oddsMv.value}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   sportsbookStore,
   useSportsbookStore,
@@ -17,7 +17,6 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { SelectedOddComponent } from "./SelectedOddComponent";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { formatCurrency } from "@/shared/utils/formatters";
 import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
@@ -28,7 +27,6 @@ import {
 import { useEnableBetType } from "@/hooks/useEnableBetType";
 import { useSlipBetBuilderPricesSync } from "@/hooks/useSlipBetBuilderPrices";
 import { canPlayerPlaceBets, playerStatusMessage } from "@/api/user/apiUsersMe";
-import { apiCashoutSubscribe } from "@/api/bet/cashout";
 import {
   maxParlayLegsFromLimits,
   stakeLimitsForBetType,
@@ -37,9 +35,7 @@ import {
 import { Switch } from "../Switch";
 import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { getOddsValue } from "@/helpers/getOddsValue";
-import { computed } from "@preact/signals";
 import SystemBetLineComponent from "./SystembetSection";
-import { PlayerExposureBar } from "./PlayerExposureBar";
 import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
 import {
   handleOddsChangedRejection,
@@ -160,7 +156,6 @@ export const BetSlip: FunctionComponent = () => {
     selectedOdds,
     multipleBetAmount,
     selectedBetType,
-    isBonusInfoOpen,
     systemBetSpecifier,
     balance,
     currency,
@@ -168,17 +163,14 @@ export const BetSlip: FunctionComponent = () => {
     betBuilderPricesByEvent,
     playerProfile,
     playerLimits,
+    betSlipWarning,
     isMobile,
     baseColorTheme,
   } = useSportsbookStore();
   const { t } = useTranslate("betslip");
   useSlipBetBuilderPricesSync();
-  const [selectedValue, setSelectedValue] = useState("always-ask");
   const [isChanged, setIsChanged] = useState(true);
   const [forceUpdate, setForceUpdate] = useState(0);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [quickAmounts, setQuickAmounts] = useState([50, 100, 500]);
-  const firstInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [betable, setBetable] = useState(false);
   const config = getAppConfig();
@@ -191,6 +183,12 @@ export const BetSlip: FunctionComponent = () => {
     : null;
   const slipLegs = groupSelectedOddsIntoLegs(selectedOdds.value);
   const slipLegTotal = slipLegCount(selectedOdds.value);
+  const betBuilderWarning = betBuilderLegRejectMessage(
+    slipLegs,
+    betBuilderPricesByEvent.value,
+  );
+  const inlineBetslipWarning =
+    betSlipWarning.value ?? betBuilderWarning;
   const regularSlipOdds = slipLegs
     .filter((leg) => leg.type === "regular")
     .map((leg) => (leg.type === "regular" ? leg.selection : null))
@@ -218,8 +216,13 @@ export const BetSlip: FunctionComponent = () => {
   const betTypeTabs = [
     { value: "single", label: t("single"), enabled: true },
     { value: "multi", label: t("multiple"), enabled: multiBetEnabled },
-    // { value: "system", label: t("system"), enabled: systemBetEnabled },
+    { value: "system", label: t("system"), enabled: systemBetEnabled },
   ];
+
+  const toggleBetSlipExpanded = () => {
+    if (selectedOdds.value.length === 0) return;
+    betSlipExpanded.value = !betSlipExpanded.value;
+  };
 
   useEffect(() => {
     const wasExpanded = prevExpandedRef.current;
@@ -350,32 +353,15 @@ export const BetSlip: FunctionComponent = () => {
     slipLegs,
   ]);
 
-  const combinedMultipleOdds = computed(() =>
-    combinedLegOdds(slipLegs, currentBbPriceMap()),
-  );
-
-  const handleQuickAmountClick = (amount: number) => {
-    if (selectedBetType.value === "single") {
-      // Set amount for all single bets
-      selectedOdds.value.forEach((bet) => {
-        bet.amount = amount;
-      });
-      // Force re-render to update input values
-      selectedOdds.value = [...selectedOdds.value];
-      rotateBetSlipIdempotencyKey();
-      setForceUpdate((prev) => prev + 1);
-    } else {
-      // Set amount for multiple bet
-      multipleBetAmount.value = amount;
-      rotateBetSlipIdempotencyKey();
-      setForceUpdate((prev) => prev + 1);
-    }
-  };
+  const combinedMultipleOddsLabel = betBuilderWarning
+    ? "—"
+    : combinedLegOdds(slipLegs, currentBbPriceMap()).toFixed(2);
 
   const RemoveAllBets = () => {
     selectedOdds.value = [];
     selectedBetType.value = "single";
     multipleBetAmount.value = 0;
+    betSlipWarning.value = null;
     window.localStorage.removeItem("selectedOdds");
     rotateBetSlipIdempotencyKey();
   };
@@ -385,6 +371,7 @@ export const BetSlip: FunctionComponent = () => {
     setIsLoading(true);
     try {
       if (!betable) {
+        if (inlineBetslipWarning) return;
         notify(
           "Please check your betslip and try again",
           "error",
@@ -401,7 +388,7 @@ export const BetSlip: FunctionComponent = () => {
         betBuilderPricesByEvent.value,
       );
       if (bbReject) {
-        notify(bbReject, "error", "x-circle", 3500);
+        betSlipWarning.value = bbReject;
         return;
       }
 
@@ -599,16 +586,8 @@ export const BetSlip: FunctionComponent = () => {
     if (!isChanged) {
       betSlipExpanded.value = true;
       setIsChanged(true);
-      return;
     }
-  }, [selectedOdds.value.length, betSlipExpanded.value]);
-
-  useEffect(() => {
-    if (isEditMode && firstInputRef.current) {
-      firstInputRef.current.focus();
-      firstInputRef.current.select();
-    }
-  }, [isEditMode]);
+  }, [selectedOdds.value.length, isChanged]);
 
   const handleDragStart = (clientY: number) => {
     isDraggingRef.current = true;
@@ -704,17 +683,14 @@ export const BetSlip: FunctionComponent = () => {
   return (
     <>
       <div
-        className={`flex flex-col ${
-          isMobileFabCollapsed
-            ? "max-h-none w-auto max-w-none ml-auto items-end bg-transparent border-0 shadow-none p-0 mr-3"
-            : `max-h-[calc(100vh-200px)] mb-2 w-full bg-[var(--sub-element-color)] shadow-[-8px_-8px_4px_rgba(0,0,0,0.15)] ${
-                isExpanded
-                  ? "rounded-t-[32px]"
-                  : "rounded-[32px] border border-[var(--border-color)]"
-              }`
-        } ${isMobileFabCollapsed ? "overflow-visible" : "overflow-hidden"} text-[var(--text-basic-color)] relative ${
-          betSlipExpanded.value ? "z-[50]" : "z-45"
-        }`}
+        className={`flex flex-col ${isMobileFabCollapsed
+            ? "max-h-none w-auto max-w-none ml-auto items-end bg-transparent shadow-none p-0 mr-3"
+            : `max-h-[calc(100vh-200px)] mb-2 w-full bg-[var(--sub-element-color)] shadow-[-8px_-8px_4px_rgba(0,0,0,0.15)] ${isExpanded
+              ? "rounded-t-[32px] border border-[var(--border-color)]"
+              : "rounded-[32px] border border-[var(--border-color)]"
+            }`
+          } ${isMobileFabCollapsed ? "overflow-visible" : "overflow-hidden"} text-[var(--text-basic-color)] relative ${betSlipExpanded.value ? "z-[50]" : "z-45"
+          }`}
       >
         {/* Header — full bar (desktop / mobile expanded) or floating FAB (mobile collapsed) */}
         {selectedOdds.value.length > 0 &&
@@ -722,11 +698,7 @@ export const BetSlip: FunctionComponent = () => {
             <button
               type="button"
               className="relative flex h-[72px] w-[72px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-full bg-[var(--primary-color)] text-[var(--text-basic-color)] shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-transform active:scale-95"
-              onClick={() => {
-                if (selectedOdds.value.length > 0) {
-                  betSlipExpanded.value = !betSlipExpanded.value;
-                }
-              }}
+              onClick={toggleBetSlipExpanded}
               aria-label={t("betSlip")}
             >
               <span className="text-[15px] font-bold leading-none tabular-nums">
@@ -739,11 +711,7 @@ export const BetSlip: FunctionComponent = () => {
           ) : (
             <div
               className="flex w-full bg-[var(--primary-color)] items-center justify-between px-6 py-3 cursor-pointer"
-              onClick={() => {
-                if (selectedOdds.value.length > 0) {
-                  betSlipExpanded.value = !betSlipExpanded.value;
-                }
-              }}
+              onClick={toggleBetSlipExpanded}
             >
               <div className="relative flex items-center h-full">
                 <img
@@ -776,9 +744,9 @@ export const BetSlip: FunctionComponent = () => {
           <div className="min-h-0 overflow-hidden flex flex-col">
             {/* Bet slip view */}
             {showContent && selectedBetslipTab.value === "bet-slip" && (
-              <div className="flex flex-col w-full flex-1 min-h-0 overflow-hidden">
+              <div className="flex w-full min-h-0 flex-1 flex-col overflow-hidden p-2">
                 {accountStatusMessage && (
-                  <div className="mx-2 mt-2 rounded-[8px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] px-3 py-2 text-[11px] leading-snug text-[var(--text-sub-color)]">
+                  <div className="mb-2 rounded-[8px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] px-3 py-2 text-[11px] leading-snug text-[var(--text-sub-color)]">
                     {accountStatusMessage}
                   </div>
                 )}
@@ -886,375 +854,165 @@ export const BetSlip: FunctionComponent = () => {
                   </div>
                 </div> */}
 
-                <div className="w-full flex px-2 items-center justify-between">
-                  {/* Tablist for bet types */}
-                  <nav
-                    role="tablist"
-                    aria-label="Bet types"
-                    className="flex w-full items-center bg-[var(--sub-element-secondary)] border border-[var(--border-color)] rounded-[4px] justify-between px-4 gap-2"
-                  >
-                    {betTypeTabs.map((tab) => (
-                      <button
-                        key={tab.value}
-                        role="tab"
-                        aria-selected={selectedBetType.value === tab.value}
-                        onClick={() =>
-                          tab.enabled &&
-                          (selectedBetType.value = tab.value as any)
-                        }
-                        disabled={!tab.enabled}
-                        className={`px-4 py-2 text-[12px] ${
-                          selectedBetType.value === tab.value
-                            ? "border-b-[2px] border-[var(--primary-color)]"
-                            : ""
-                        } ${!tab.enabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </nav>
-                </div>
-
-                {/* ✅ THIS is the scroll area. Needs ancestors with min-h-0 + container height */}
-                <div className="w-full flex flex-col flex-1 min-h-0 overflow-y-auto gap-[2px]">
-                  <div className="w-full flex items-center justify-center">
-                    {selectedOdds.value.length === 0 ? (
-                      <div className="w-full min-h-[114px] flex items-center justify-center">
-                        <span className="text-[12px] font-normal ">
-                          {t("empty")}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="w-full flex flex-col gap-[2px] px-2">
-                        <div className="w-full flex flex-col gap-[2px] transition-[opacity,transform] duration-300 ease-in-out">
-                          {slipLegs.map((leg) =>
-                            leg.type === "betbuilder" ? (
-                              <BetBuilderGroupComponent
-                                key={`bb-${leg.eventId}`}
-                                leg={leg}
-                                forceUpdate={forceUpdate}
-                                selectedBetType={
-                                  selectedBetType.value as
-                                    | "single"
-                                    | "multi"
-                                    | "system"
-                                }
-                                setForceUpdate={setForceUpdate}
-                                minStake={singleStakeLimits.minStake}
-                                maxStake={singleStakeLimits.maxStake}
-                              />
-                            ) : (
-                              <SelectedOddComponent
-                                key={selectionStoreKey(
-                                  leg.selection.eventId,
-                                  leg.selection.marketId,
-                                  Number(leg.selection.oddsId),
-                                )}
-                                bet={leg.selection}
-                                index={0}
-                                forceUpdate={forceUpdate}
-                                selectedBetType={
-                                  selectedBetType.value as "single" | "multi"
-                                }
-                                setForceUpdate={setForceUpdate}
-                                minStake={singleStakeLimits.minStake}
-                                maxStake={singleStakeLimits.maxStake}
-                              />
-                            ),
-                          )}
-                        </div>
-
-                        {selectedBetType.value === "multi" &&
-                          slipLegTotal > 0 && (
-                            <>
-                              <div className="w-full flex items-center justify-between px-2 py-2">
-                                <span className=" text-[12px] font-normal">
-                                  {t("odds")}
-                                </span>
-                                <span className="text-[var(--primary-color)] text-[14px] font-normal">
-                                  {combinedMultipleOdds.value.toFixed(3)}
-                                </span>
-                              </div>
-
-                              <div className="w-full flex flex-col gap-1 px-2 py-2">
-                                <input
-                                  key={`multiple-${forceUpdate}`}
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={parlayStakeLimits.minStake}
-                                  max={parlayStakeLimits.maxStake}
-                                  value={
-                                    multipleBetAmount.value.toString() || ""
-                                  }
-                                  onInput={(e) => {
-                                    const value = (e.target as HTMLInputElement)
-                                      .value;
-                                    multipleBetAmount.value =
-                                      parseFloat(value) || 0;
-                                    rotateBetSlipIdempotencyKey();
-                                  }}
-                                  placeholder={t("enterStake")}
-                                  className="w-full px-2 py-1.5 bg-[var(--sub-element-secondary)] text-[12px] border-[1px] border-[var(--border-color)] rounded-[4px] placeholder: focus:outline-none focus:border-[var(--focused-primary-border-color)]"
-                                />
-
-                                <div className="flex items-center justify-between text-[13px] font-bold">
-                                  {/* <span className="">{t("possibleWin")}:</span> */}
-                                  <span className="">
-                                    {slipLegTotal === 2
-                                      ? t("doubleEqualsOne")
-                                      : `${slipLegTotal}-${t("foldEqualsOne")}`}
-                                    :
-                                  </span>
-                                  <span className="text-[var(--primary-color)]">
-                                    {formatCurrency(
-                                      multipleBetAmount.value *
-                                        combinedMultipleOdds.value,
-                                    )}
-                                  </span>
-                                </div>
-                                {parlayStakeLimits.maxPayout != null && (
-                                  <div className="flex items-center justify-between text-[11px] text-[var(--text-sub-color)]">
-                                    <span>{t("maxPayout")}</span>
-                                    <span>
-                                      {formatCurrency(
-                                        parlayStakeLimits.maxPayout,
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        {selectedBetType.value === "system" && (
-                          <>
-                            <div className="flex flex-col gap-1 mt-5 p-2 bg-white/5 rounded-[4px] border border-white/10">
-                              <div className="text-white font-bold">
-                                System Bet lines
-                              </div>
-                              {[
-                                ...Array(Math.min(regularSlipOdds.length, 5)),
-                              ].map((_, i) => (
-                                <SystemBetLineComponent
-                                  key={i} // Always add a key for list items in React
-                                  selections={regularSlipOdds}
-                                  systemSpecifier={i + 1} // Starts at 2, based on your original loop logic
-                                />
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedBetType.value === "multi" && slipLegTotal > 1 && (
-                    <div
-                      className="flex items-center gap-2 mt-1 px-2 cursor-pointer"
-                      onClick={() => (isBonusInfoOpen.value = true)}
+                <nav
+                  role="tablist"
+                  aria-label="Bet types"
+                  className="mb-2 flex items-center rounded-full border border-[var(--border-color)] bg-[var(--background-element)] p-1"
+                >
+                  {betTypeTabs.map((tab) => (
+                    <button
+                      key={tab.value}
+                      role="tab"
+                      aria-selected={selectedBetType.value === tab.value}
+                      onClick={() =>
+                        tab.enabled &&
+                        (selectedBetType.value = tab.value as any)
+                      }
+                      disabled={!tab.enabled}
+                      className={`flex-1 rounded-full px-3 py-1.5 text-[13px] font-medium ${
+                        selectedBetType.value === tab.value
+                          ? "bg-[var(--sub-element-secondary)] shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+                          : "opacity-80"
+                      } ${!tab.enabled ? "cursor-not-allowed opacity-35" : ""}`}
                     >
-                      <img
-                        src={`${BASE_ASSET_PUBLIC_URL}/icons/info.png`}
-                        alt="bonus"
-                        className="w-4 h-4 brightness-0 invert"
-                      />
-                      <span className=" text-[12px]">{t("bonusInfo")}</span>
-                    </div>
-                  )}
+                      {tab.label}
+                    </button>
+                  ))}
+                </nav>
 
-                  <div className="flex flex-col w-full h-full gap-[2px]">
-                    {xUserId === "" && (
-                      <div className="w-full min-h-[34px] flex items-center justify-center bg-[#AA7F0033] rounded-[4px] py-[9px] px-[5px]">
-                        <div className="flex items-center gap-2 px-[3px]">
-                          <img
-                            className="w-4 flex-shrink-0"
-                            src={`${BASE_ASSET_PUBLIC_URL}/icons/wanning.png`}
-                            alt="lock"
+                {inlineBetslipWarning && selectedOdds.value.length > 0 && (
+                  <div className="mb-2 rounded-[8px] border border-[#ff7a1a] px-3 py-2 text-[12px] leading-snug text-[#ff7a1a]">
+                    {inlineBetslipWarning}
+                  </div>
+                )}
+
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  {selectedOdds.value.length === 0 ? (
+                    <div className="flex min-h-[114px] items-center justify-center">
+                      <span className="text-[12px] font-normal">{t("empty")}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {slipLegs.map((leg, index) =>
+                        leg.type === "betbuilder" ? (
+                          <BetBuilderGroupComponent
+                            key={`bb-${leg.eventId}`}
+                            leg={leg}
+                            forceUpdate={forceUpdate}
+                            selectedBetType={
+                              selectedBetType.value as
+                                | "single"
+                                | "multi"
+                                | "system"
+                            }
+                            setForceUpdate={setForceUpdate}
+                            minStake={singleStakeLimits.minStake}
+                            maxStake={singleStakeLimits.maxStake}
                           />
-                          <span className="text-[12px] font-normal ">
-                            To place your bet, please{" "}
-                            <span
-                              className={` transition-colors cursor-pointer ${
-                                !isMobile.value ? "hover:" : ""
-                              }`}
-                              style={{ textDecoration: "underline" }}
-                              onClick={() => {
-                                window.postMessage(
-                                  JSON.stringify({
-                                    type: "click",
-                                    target: "loginButton",
-                                  }),
-                                  "*",
-                                );
-                              }}
-                            >
-                              Sign in
-                            </span>{" "}
-                            or{" "}
-                            <span
-                              className={` transition-colors cursor-pointer ${
-                                !isMobile.value ? "hover:" : ""
-                              }`}
-                              style={{ textDecoration: "underline" }}
-                              onClick={() => {
-                                window.postMessage(
-                                  JSON.stringify({
-                                    type: "click",
-                                    target: "loginButton",
-                                  }),
-                                  "*",
-                                );
-                              }}
-                            >
-                              Register
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="w-full p-[5px] rounded-[4px]">
-                      <div className="flex h-[37px] gap-[2px] items-center justify-center w-full min-w-0">
-                        {isEditMode ? (
-                          <>
-                            <input
-                              ref={firstInputRef}
-                              type="number"
-                              inputMode="numeric"
-                              value={quickAmounts[0]}
-                              onInput={(e) => {
-                                const value = (e.target as HTMLInputElement)
-                                  .value;
-                                if (/^\d*\.?\d*$/.test(value)) {
-                                  setQuickAmounts([
-                                    parseFloat(value) || 0,
-                                    quickAmounts[1],
-                                    quickAmounts[2],
-                                  ]);
-                                }
-                              }}
-                              className="flex flex-1 min-w-0 w-full items-center justify-center h-full  text-[14px] font-normal px-[2px] rounded-[4px] border-[1px] border-[var(--border-color)] text-center focus:outline-none focus:border-[var(--focused-primary-border-color)] bg-[var(--sub-element-secondary)]"
-                            />
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              value={quickAmounts[1]}
-                              onInput={(e) => {
-                                const value = (e.target as HTMLInputElement)
-                                  .value;
-                                if (/^\d*\.?\d*$/.test(value)) {
-                                  setQuickAmounts([
-                                    quickAmounts[0],
-                                    parseFloat(value) || 0,
-                                    quickAmounts[2],
-                                  ]);
-                                }
-                              }}
-                              className="flex flex-1 min-w-0 w-full items-center justify-center h-full  text-[14px] font-normal px-[2px] rounded-[4px] border-[1px] border-[var(--border-color)] text-center focus:outline-none focus:border-[var(--focused-primary-border-color)] bg-[var(--sub-element-secondary)]"
-                            />
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              value={quickAmounts[2]}
-                              onInput={(e) => {
-                                const value = (e.target as HTMLInputElement)
-                                  .value;
-                                if (/^\d*\.?\d*$/.test(value)) {
-                                  setQuickAmounts([
-                                    quickAmounts[0],
-                                    quickAmounts[1],
-                                    parseFloat(value) || 0,
-                                  ]);
-                                }
-                              }}
-                              className="flex flex-1 min-w-0 w-full items-center justify-center h-full  text-[14px] font-normal px-[2px] rounded-[4px] border-[1px] border-[var(--border-color)] text-center focus:outline-none focus:border-[var(--focused-primary-border-color)] bg-[var(--sub-element-secondary)]"
-                            />
-                          </>
                         ) : (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleQuickAmountClick(quickAmounts[0])
-                              }
-                              className={`flex flex-1 items-center justify-center h-full  text-[14px] font-normal px-[2px] rounded-[4px] transition-colors border-[1px] border-[var(--border-color)] cursor-pointer ${
-                                !isMobile.value ? "hover:bg-white/10" : ""
-                              }`}
-                            >
-                              {quickAmounts[0]}
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleQuickAmountClick(quickAmounts[1])
-                              }
-                              className={`flex flex-1 items-center justify-center h-full  text-[14px] font-normal border-[1px] border-[var(--border-color)] px-[2px] rounded-[4px] transition-colors cursor-pointer ${
-                                !isMobile.value ? "hover:bg-white/20" : ""
-                              }`}
-                            >
-                              {quickAmounts[1]}
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleQuickAmountClick(quickAmounts[2])
-                              }
-                              className={`flex flex-1 items-center justify-center h-full  text-[14px] font-normal border-[1px] border-[var(--border-color)] px-[2px] rounded-[4px] transition-colors cursor-pointer ${
-                                !isMobile.value ? "hover:bg-white/20" : ""
-                              }`}
-                            >
-                              {quickAmounts[2]}
-                            </button>
-                          </>
-                        )}
+                          <SelectedOddComponent
+                            key={selectionStoreKey(
+                              leg.selection.eventId,
+                              leg.selection.marketId,
+                              Number(leg.selection.oddsId),
+                            )}
+                            bet={leg.selection}
+                            index={index}
+                            forceUpdate={forceUpdate}
+                            selectedBetType={
+                              selectedBetType.value as
+                                | "single"
+                                | "multi"
+                                | "system"
+                            }
+                            setForceUpdate={setForceUpdate}
+                            minStake={singleStakeLimits.minStake}
+                            maxStake={singleStakeLimits.maxStake}
+                          />
+                        ),
+                      )}
 
-                        <button
-                          onClick={() => setIsEditMode(!isEditMode)}
-                          className={`flex w-[34px] items-center justify-center h-full border-[1px] border-[var(--border-color)] rounded-[4px] transition-colors cursor-pointer ${
-                            !isMobile.value ? "hover:bg-white/20" : ""
-                          }`}
-                        >
-                          {isEditMode ? (
-                            <svg
-                              className="w-[18px] h-[18px] "
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
+                      {selectedBetType.value === "multi" && slipLegTotal > 1 && (
+                        <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-[14px] font-semibold">
+                                {slipLegTotal}-{t("foldEqualsOne")}
+                              </div>
+                              <div className="text-[18px] text-[13px] font-bold">
+                                {combinedMultipleOddsLabel}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                key={`multiple-${forceUpdate}`}
+                                type="number"
+                                inputMode="numeric"
+                                min={parlayStakeLimits.minStake}
+                                max={parlayStakeLimits.maxStake}
+                                value={multipleBetAmount.value.toString() || ""}
+                                onInput={(e) => {
+                                  const value = (e.target as HTMLInputElement).value;
+                                  multipleBetAmount.value = parseFloat(value) || 0;
+                                  rotateBetSlipIdempotencyKey();
+                                }}
+                                className="h-10 w-[92px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               />
-                            </svg>
-                          ) : (
-                            <img
-                              src={`${BASE_ASSET_PUBLIC_URL}/icons/edit.png`}
-                              alt="edit"
-                              className={`w-[18px] h-[18px] ${baseTheme === "dark" ? "" : "brightness-0"}`}
-                            />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <PlayerExposureBar />
-                    <div className="w-full rounded-[4px] p-[5px] mb-[20px] relative">
-                      {isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-[var(--sub-element-secondary)] rounded-[4px] z-10">
-                          <Loader />
+                              <button
+                                type="button"
+                                className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold"
+                                onClick={() => {
+                                  multipleBetAmount.value =
+                                    parlayStakeLimits.maxStake ?? 0;
+                                  rotateBetSlipIdempotencyKey();
+                                }}
+                              >
+                                MAX
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
-                      <button
-                        onClick={() => {
-                          handleBetNow();
-                        }}
-                        disabled={isLoading || !betable}
-                        className={`w-full h-[36px] px-[10px] rounded-[4px] disabled:opacity-50 disabled:cursor-not-allowed bg-[var(--primary-color)]`}
-                      >
-                        <span className="text-[12px] text-[var(--text-basic-color)] uppercase font-normal ">
-                          {t("betNow")}
-                        </span>
-                      </button>
+
+                      {selectedBetType.value === "system" && (
+                        <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
+                          <div className="mb-1 text-[13px] font-semibold">{t("system")}</div>
+                          {[...Array(Math.min(regularSlipOdds.length, 5))].map((_, i) => (
+                            <SystemBetLineComponent
+                              key={i}
+                              selections={regularSlipOdds}
+                              systemSpecifier={i + 1}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
+                  )}
+                </div>
+
+                {xUserId === "" && (
+                  <div className="mt-2 rounded-[8px] bg-[#AA7F0033] px-3 py-2 text-[11px]">
+                    To place your bet, please sign in or register.
                   </div>
+                )}
+
+                <div className="relative mt-2 rounded-[8px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
+                  {isLoading && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[8px] bg-[var(--sub-element-secondary)]">
+                      <Loader />
+                    </div>
+                  )}
+                  <div className="mb-2 flex items-center justify-between text-[13px]">
+                    <span className="text-[var(--text-sub-color)]">Bets</span>
+                    <span className="font-semibold">{slipLegTotal}</span>
+                  </div>
+                  <button
+                    onClick={handleBetNow}
+                    disabled={isLoading || !betable}
+                    className="h-[40px] w-full rounded-[9px] bg-[var(--primary-color)] text-[13px] font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {t("betNow")}
+                  </button>
                 </div>
               </div>
             )}

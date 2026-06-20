@@ -1,7 +1,11 @@
 import { storeEvent } from "@/helpers/storeEvent";
 import { instance } from "../instance";
-import type { MatchDataResponse } from "../matches/apiGetMatchData";
+import { toMatchDataResponse } from "../matches/apiGetMatchData";
 import { sportsbookStore } from "@/state/sportsbookStoreContext";
+import {
+  decodeLiveSidebar,
+  type EncodedLiveSidebar,
+} from "@/helpers/liveSidebar.codec";
 
 const { countsSummarySportsState, summarySportsLiveState } = sportsbookStore;
 
@@ -19,7 +23,7 @@ export type LiveSidebarSport = {
     leagues: {
       id: number;
       name: string;
-      events: MatchDataResponse[];
+      events: number[];
     }[];
   }[];
 };
@@ -39,27 +43,33 @@ export type LiveSidebarStoreSport = {
   }[];
 };
 
-type LiveSidebarResponse = {
-  sports: LiveSidebarSport[];
-};
-
 export async function apiGetLiveSidebar() {
-  const res = await instance.get<LiveSidebarResponse>("users/sidebar/live");
-  const sports = res.data.sports ?? [];
+  const res = await instance.get<
+    EncodedLiveSidebar | { sports: EncodedLiveSidebar }
+  >("users/sidebar/live");
+  const encoded = Array.isArray(res.data)
+    ? res.data
+    : (res.data?.sports ?? []);
+  const { sports } = decodeLiveSidebar(encoded);
 
   const storeSports: LiveSidebarStoreSport[] = sports.map((sport) => ({
     id: sport.id,
-    name: sport.name,
-    markets: sport.markets ?? [],
+    name: sport.name ?? "",
+    markets: (sport.markets ?? []).map((market) => ({
+      type: market.type,
+      candidates: market.candidates,
+      name: market.name ?? "",
+    })),
     regions: (sport.regions ?? []).map((region) => ({
       id: region.id,
-      name: region.name,
+      name: region.name ?? "",
       leagues: (region.leagues ?? []).map((league) => ({
         id: league.id,
-        name: league.name,
+        name: league.name ?? "",
         events: (league.events ?? []).map((event) => {
-          storeEvent(event);
-          return event.eventInfo.id;
+          const matchData = toMatchDataResponse(event);
+          storeEvent(matchData);
+          return matchData.eventInfo.id;
         }),
       })),
     })),

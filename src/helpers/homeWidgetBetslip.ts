@@ -1,6 +1,5 @@
 import {
   isBetslipSelectionSelected,
-  removeSlipSelectionsForEvent,
   toggleBetslipSelection,
   toggleBetslipSelectionAwait,
   type WidgetEventContext,
@@ -8,7 +7,9 @@ import {
 import { verifyBetBuilderGroup } from "@/helpers/betBuilderSlipValidation";
 import {
   applyBetBuilderPriceForEvent,
+  betBuilderSelectionKey,
   betBuilderPriceSyncSuspended,
+  syncLegacyBetBuilderSignals,
 } from "@/helpers/betBuilderPriceState";
 import { notify } from "@/shared/toast";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
@@ -28,7 +29,9 @@ import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
 const {
   betBuilderCombinable,
   betBuilderPrice,
+  betBuilderPricesByEvent,
   betBuilderRejectMessage,
+  betSlipWarning,
   buildingBetAmount,
   homeWidgetsSelectionsCache,
   isBuilding,
@@ -340,10 +343,22 @@ export async function addStarPlayerBundleToSlip(
     if (group.length >= 2) {
       const check = await verifyBetBuilderGroup(eventId, group);
       if (!check.combinable) {
-        removeSlipSelectionsForEvent(eventId);
-        notify(check.message, "error", "x-circle", 3500);
+        betSlipWarning.value = check.message;
+        betBuilderPricesByEvent.value = {
+          ...betBuilderPricesByEvent.value,
+          [eventId]: {
+            price: null,
+            combinable: false,
+            loading: false,
+            rejectMessage: check.message,
+            selectionKey: betBuilderSelectionKey(group),
+          },
+        };
+        syncLegacyBetBuilderSignals(betBuilderPricesByEvent.value);
+        betSlipExpanded.value = true;
         return;
       }
+      betSlipWarning.value = null;
       applyBetBuilderPriceForEvent(eventId, check.price, group);
     } else if (
       typeof card.bbCombinedOdds === "number" &&

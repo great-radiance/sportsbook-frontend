@@ -1,6 +1,5 @@
 import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { SelectedOddType } from "@/shared/utils/bet";
-import { notify } from "@/shared/toast";
 import { storeSelection, removeFromOddsStore } from "@/helpers/storeEvent";
 import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { tSelectionValue } from "@/types/typesForSocket.ts/tEventModel";
@@ -10,9 +9,16 @@ import { maxParlayLegsFromLimits } from "@/helpers/betLimits";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { verifyBetBuilderGroup } from "@/helpers/betBuilderSlipValidation";
 import { applyBetBuilderPriceForEvent } from "@/helpers/betBuilderPriceState";
+import { notify } from "@/shared/toast";
 
-const { selectedBetType, selectedOdds, playerLimits, storeState } =
-  sportsbookStore;
+const {
+  selectedBetType,
+  selectedOdds,
+  playerLimits,
+  storeState,
+  isBuilding,
+  betSlipWarning,
+} = sportsbookStore;
 
 export function isBetslipSelectionSelected(
   eventId: number,
@@ -131,12 +137,22 @@ async function toggleBetslipSelectionAsync({
           o.oddsId === oddsId
         ),
     );
+    betSlipWarning.value = null;
     rotateBetSlipIdempotencyKey();
     return;
   }
 
   const ev = storeState.value[eventId]?.value;
   if (!ev && !widgetEvent) return;
+
+  // if (isBuilding.value) {
+  //   const buildingEventId = selectedOdds.value.find((o) => o.isBuilding)?.eventId;
+  //   if (buildingEventId != null && buildingEventId !== eventId) {
+  //     betSlipWarning.value =
+  //       "Bet builder selections must be from the same event";
+  //     return;
+  //   }
+  // }
 
   if (selectedBetType.value !== "multi" && selectedBetType.value !== "system") {
     const toRemove = selectedOdds.value.filter(
@@ -207,6 +223,7 @@ async function toggleBetslipSelectionAsync({
         "exclamation-triangle",
         2800,
       );
+      betSlipWarning.value = `Maximum ${maxLegs} legs per parlay`;
       return;
     }
   }
@@ -220,11 +237,13 @@ async function toggleBetslipSelectionAsync({
     const check = await verifyBetBuilderGroup(eventId, candidateGroup);
     if (!check.combinable) {
       notify(check.message, "error", "x-circle", 3500);
+      betSlipWarning.value = check.message;
       return;
     }
     applyBetBuilderPriceForEvent(eventId, check.price, candidateGroup);
   }
 
+  betSlipWarning.value = null;
   selectedOdds.value = [...selectedOdds.value, row];
   storeSelection(eventId, marketId, selection.id);
   rotateBetSlipIdempotencyKey();

@@ -127,7 +127,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
         );
       } else {
         addEventToSummarySports(data.data as MatchDataResponse);
-        const shouldStore = useMemo(() => {
+        const shouldStore = (() => {
           if (event) return true;
           if (leagueIdParam) {
             return (
@@ -141,7 +141,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
             return parseInt(sportIdParam) === data.data.eventInfo.sport?.id;
           }
           return true;
-        }, [sportIdParam, regionIdParam, leagueIdParam]);
+        })();
         if (shouldStore) {
           storeEvent(data.data as MatchDataResponse);
         } else {
@@ -154,7 +154,7 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
       }
       // console.log("event:notification", data);
     },
-    [],
+    [sportIdParam, regionIdParam, leagueIdParam],
   );
 
   useSocketEvent("event:update", handleEventsUpdated);

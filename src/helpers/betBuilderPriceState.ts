@@ -12,6 +12,7 @@ const {
   betBuilderPriceLoading,
   betBuilderPricesByEvent,
   betBuilderRejectMessage,
+  betSlipWarning,
   selectedOdds,
 } = sportsbookStore;
 
@@ -71,6 +72,7 @@ export function applyBetBuilderPriceForEvent(
   price: number,
   selections: SelectedOddType[],
 ): void {
+  betSlipWarning.value = null;
   betBuilderPricesByEvent.value = {
     ...betBuilderPricesByEvent.value,
     [eventId]: {

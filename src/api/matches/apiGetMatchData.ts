@@ -1,5 +1,9 @@
 import { instance } from "../instance";
-import { getAppConfig } from "@/shared/config/appConfig";
+import {
+  decodeSnapshot,
+  type DecodedSnapshot,
+  type EncodedSnapshot,
+} from "@/helpers/snapshot.codec";
 
 export type MarketRef = {
   id: number;
@@ -78,23 +82,102 @@ export type MatchDataResponse = {
   scoreboard?: any;
   /** Market type metadata and group tabs for the event detail UI. */
   marketRef?: MarketRef[];
-  // scoreboard: any;
-  // betCancellations: any[];
-  // time: number;
-  // eventId: number;
-  // version: number;
-  // correlationId: string;
-  // creationTime: string;
-  // sportId: number;
-  // locationId: number;
-  // leagueId: number;
-  // updateSequence: number;
-  // lastUpdatedTime: number;
 };
 
+export function toMatchDataResponse(
+  snapshot: Pick<DecodedSnapshot, "eventInfo" | "markets"> & {
+    scoreboard?: DecodedSnapshot["scoreboard"];
+    marketRef?: DecodedSnapshot["marketRef"];
+  },
+): MatchDataResponse {
+  const { eventInfo, markets, scoreboard, marketRef = [] } = snapshot;
+  const competitors = eventInfo.competitors ?? [];
+  const sportId = eventInfo.sport?.id ?? 0;
+  const eventName = (eventInfo as DecodedSnapshot["eventInfo"] & { name?: string }).name;
+  const name =
+    eventName ??
+    (competitors.length >= 2
+      ? `${competitors[0]?.name ?? ""} - ${competitors[1]?.name ?? ""}`
+      : (competitors[0]?.name ?? ""));
+
+  return {
+    eventInfo: {
+      id: eventInfo.id,
+      name,
+      status: eventInfo.status,
+      tradingStatus: eventInfo.tradingStatus,
+      statusDescription: "",
+      country: {
+        id: eventInfo.country?.id ?? 0,
+        name: eventInfo.country?.name ?? "",
+      },
+      sport: {
+        id: sportId,
+        name: eventInfo.sport?.name ?? "",
+      },
+      competition: {
+        id: eventInfo.competition?.id ?? 0,
+        name: eventInfo.competition?.name ?? "",
+      },
+      season: {
+        id: eventInfo.season?.id ?? 0,
+        name: eventInfo.season?.name ?? "",
+      },
+      competitors: competitors.map((c) => ({
+        id: c.id ?? 0,
+        name: c.name ?? "",
+      })),
+      startTime: eventInfo.startTime ?? "",
+      isOutright: eventInfo.isOutright ?? false,
+      isBetBuilderSupported: eventInfo.isBetBuilderSupported ?? false,
+      customDisplayData: undefined,
+      mappingInfo: [],
+    },
+    markets: markets.map((market) => ({
+      id: market.id,
+      name: market.name,
+      tradingStatus: market.tradingStatus,
+      selections: (market.selections ?? []).map((selection) => ({
+        id: selection.id,
+        name: selection.name,
+        probability: selection.probability,
+        price: selection.price,
+        originalPrice: selection.originalPrice,
+        status: selection.status,
+        settlement: selection.settlement,
+        deadHeatFactor: selection.deadHeatFactor,
+        extraParameters: selection.extraParameters ?? {},
+        isBetBuilderSupported: selection.isBetBuilderSupported,
+        competitionId: 0,
+        startingPrice: selection.startingPrice ?? 0,
+      })),
+      type: market.type,
+      isBestLine: market.isBestLine ?? false,
+      parameters: market.parameters ?? {},
+      extraParameters: (market.extraData as Record<string, string> | undefined) ?? {},
+      isBetBuilderSupported: market.isBetBuilderSupported ?? false,
+    })),
+    scoreboard,
+    marketRef: marketRef.map((ref) => ({
+      id: ref.id,
+      name: ref.name,
+      groups: ref.groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        order: group.order,
+        sportId,
+      })),
+      isMultilineMarket: ref.isMultilineMarket,
+      isFreeText: ref.isFreeText,
+      sportId,
+    })),
+  };
+}
+
 export const apiGetMatchData = async (eventId: number) => {
-  const response = await instance.get<MatchDataResponse | null>(
+  const response = await instance.get<EncodedSnapshot | null>(
     `users/events/${eventId}/snapshot`,
   );
-  return response.data ?? null;
+  if (!response.data) return null;
+  return toMatchDataResponse(decodeSnapshot(response.data));
 };

@@ -91,6 +91,7 @@ export type SportsbookContextType = {
   betBuilderRejectMessage: Signal<string | null>;
   betBuilderPriceLoading: Signal<boolean>;
   betBuilderPricesByEvent: Signal<Record<number, EventBetBuilderPriceState>>;
+  betSlipWarning: Signal<string | null>;
   betSlipIdempotencyKey: Signal<string>;
   isRepeatConfirmOpen: Signal<boolean>;
   selectedRepeatBet: Signal<BetItemType | null>;
@@ -254,6 +255,7 @@ export function createSportsbookStore(): SportsbookContextType {
     betBuilderRejectMessage: signal(null),
     betBuilderPriceLoading: signal(false),
     betBuilderPricesByEvent: signal({}),
+    betSlipWarning: signal(null),
     betSlipIdempotencyKey: signal(crypto.randomUUID()),
     isRepeatConfirmOpen: signal(false),
     selectedRepeatBet: signal(null),

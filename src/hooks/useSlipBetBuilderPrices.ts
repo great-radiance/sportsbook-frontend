@@ -11,13 +11,11 @@ import {
   hasFreshBetBuilderPrice,
   syncLegacyBetBuilderSignals,
 } from "@/helpers/betBuilderPriceState";
-import { removeSlipSelectionsForEvent } from "@/helpers/betslipSelection";
 import { groupSelectedOddsIntoLegs } from "@/helpers/betslipLegs";
 import {
   sportsbookStore,
   type EventBetBuilderPriceState,
 } from "@/state/sportsbookStoreContext";
-import { notify } from "@/shared/toast";
 
 const { betBuilderPricesByEvent, selectedOdds } = sportsbookStore;
 
@@ -82,8 +80,6 @@ export function useSlipBetBuilderPricesSync() {
       const timer = window.setTimeout(async () => {
         try {
           const result = await apiBetBuilderPrice({
-            // requestId: crypto.randomUUID(),
-            // segmentId: DEFAULT_SEGMENT_ID,
             eventId: leg.eventId,
             bets: leg.selections.map((b) => ({
               marketId: b.apiMarketId ?? b.marketId,
@@ -113,17 +109,17 @@ export function useSlipBetBuilderPricesSync() {
               };
 
           if (!state.combinable) {
-            const message =
+            sportsbookStore.betSlipWarning.value =
               state.rejectMessage ?? "These selections cannot be combined";
-            removeSlipSelectionsForEvent(leg.eventId);
-            notify(message, "error", "x-circle", 3500);
-            const afterRemove = { ...betBuilderPricesByEvent.value };
-            delete afterRemove[leg.eventId];
-            betBuilderPricesByEvent.value = afterRemove;
-            syncLegacyBetBuilderSignals(afterRemove);
+            betBuilderPricesByEvent.value = {
+              ...betBuilderPricesByEvent.value,
+              [leg.eventId]: state,
+            };
+            syncLegacyBetBuilderSignals(betBuilderPricesByEvent.value);
             return;
           }
 
+          sportsbookStore.betSlipWarning.value = null;
           betBuilderPricesByEvent.value = {
             ...betBuilderPricesByEvent.value,
             [leg.eventId]: state,
@@ -131,6 +127,8 @@ export function useSlipBetBuilderPricesSync() {
           syncLegacyBetBuilderSignals(betBuilderPricesByEvent.value);
         } catch {
           if (requestSeqByEvent.current.get(leg.eventId) !== seq) return;
+          sportsbookStore.betSlipWarning.value =
+            "Could not load bet builder price";
           betBuilderPricesByEvent.value = {
             ...betBuilderPricesByEvent.value,
             [leg.eventId]: {

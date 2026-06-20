@@ -939,7 +939,7 @@ export const BetSlip: FunctionComponent = () => {
                               <div className="text-[14px] font-semibold">
                                 {slipLegTotal}-{t("foldEqualsOne")}
                               </div>
-                              <div className="text-[18px] text-[13px] font-bold">
+                              <div className="text-[13px] font-bold">
                                 {combinedMultipleOddsLabel}
                               </div>
                             </div>

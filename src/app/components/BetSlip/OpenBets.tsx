@@ -1,8 +1,11 @@
+/** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
 import { useSignal } from "@preact/signals";
 import { BetComponent } from "./BetComponent";
+import { SystemBetGroupComponent } from "./SystemBetGroupComponent";
 import { apiGetBetHistory } from "@/api/bet/betHistory";
 import { isOpenBetsListStatus } from "@/helpers/showAcceptedBetInOpenBets";
+import { useBetHistorySocket } from "@/hooks/useBetHistorySocket";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { useTranslate } from "@/shared/i18n/i18n";
@@ -23,16 +26,36 @@ export const OpenBets: FunctionComponent = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
+  const [pageInput, setPageInput] = useState("1");
   const [refreshToken, setRefreshToken] = useState(0);
   const { xUserId } = getAppConfig();
   const selectedTab = openBetsTabState.value;
   const bets = betHistoryState.value;
   const sessionReady = playerSessionReady.value;
 
+  useBetHistorySocket(Boolean(xUserId) && selectedTab === "open");
+
   const lastFetchedKeyRef = useRef<string>("");
 
   useEffect(() => {
-    console.log("xUserId", xUserId);
+    setPageInput(String(page));
+  }, [page]);
+
+  const commitPageInput = () => {
+    const numericValue = pageInput === "" ? 1 : Number(pageInput);
+    if (!Number.isFinite(numericValue)) {
+      setPageInput(String(page));
+      return;
+    }
+    const clamped = Math.min(
+      Math.max(1, numericValue),
+      totalPagesState.value,
+    );
+    setPage(clamped);
+    setPageInput(String(clamped));
+  };
+
+  useEffect(() => {
     if (!xUserId) {
       setLoading(false);
       return;
@@ -44,7 +67,7 @@ export const OpenBets: FunctionComponent = () => {
     let cancelled = false;
 
     (async () => {
-      // setLoading(true);
+      setLoading(true);
       setError(null);
 
       try {
@@ -67,9 +90,6 @@ export const OpenBets: FunctionComponent = () => {
         const apiBets = response.bets;
         if (selectedTab === "open" && page === 1) {
           const apiIds = new Set(apiBets.map((b) => b.betId));
-          const localOnly = betHistoryState.value.filter(
-            (b) => !apiIds.has(b.betId) && isOpenBetsListStatus(b.status),
-          );
           betHistoryState.value = [...apiBets];
         } else {
           betHistoryState.value = apiBets;
@@ -88,7 +108,7 @@ export const OpenBets: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [xUserId, page, selectedTab, refreshToken, betHistoryRefreshNonce.value]);
+  }, [xUserId, sessionReady, page, selectedTab, refreshToken, betHistoryRefreshNonce.value]);
 
   const handleTabChange = (tab: "open" | "settled") => {
     if (tab === selectedTab) return;
@@ -171,14 +191,22 @@ export const OpenBets: FunctionComponent = () => {
           <div className="flex flex-col gap-2 pt-2">
             {bets.map((bet) => (
               <div
-                key={bet.betId}
+                key={bet.isSystemGroup ? `sys-${bet.systemGroupId}` : bet.betId}
                 className="w-full flex items-center justify-center px-2"
               >
-                <BetComponent
-                  bet={bet}
-                  onCashoutSuccess={handleCashoutSuccess}
-                  isSettledView={selectedTab === "settled"}
-                />
+                {bet.isSystemGroup && bet.subBets?.length ? (
+                  <SystemBetGroupComponent
+                    bet={bet}
+                    onCashoutSuccess={handleCashoutSuccess}
+                    isSettledView={selectedTab === "settled"}
+                  />
+                ) : (
+                  <BetComponent
+                    bet={bet}
+                    onCashoutSuccess={handleCashoutSuccess}
+                    isSettledView={selectedTab === "settled"}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -202,21 +230,19 @@ export const OpenBets: FunctionComponent = () => {
             {tBetslip("paginationPage")}{" "}
             <input
               type="number"
-              value={page}
+              min={1}
+              max={totalPagesState.value}
+              value={pageInput}
+              onInput={(e) =>
+                setPageInput((e.target as HTMLInputElement).value)
+              }
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  const value = (e.target as HTMLInputElement).value;
-                  const numericValue = value === "" ? 1 : Number(value);
-                  if (!isNaN(numericValue)) {
-                    setPage(
-                      Math.min(
-                        Math.max(1, numericValue),
-                        totalPagesState.value,
-                      ),
-                    );
-                  }
+                  e.preventDefault();
+                  commitPageInput();
                 }
               }}
+              onBlur={commitPageInput}
               className="mx-2 w-12 text-center bg-transparent border-b border-white/30 focus:outline-none"
             />{" "}
             {tBetslip("paginationOf")} {totalPagesState.value}

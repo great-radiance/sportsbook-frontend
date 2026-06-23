@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import {
@@ -11,12 +11,15 @@ import {
 import { removeFromOddsStore } from "@/helpers/storeEvent";
 import { useTranslate } from "@/shared/i18n/i18n";
 import type { BetBuilderSlipLeg } from "@/helpers/betslipLegs";
+import { legOdds } from "@/helpers/betslipLegs";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
-import {
-  formatCurrency,
-  getCurrencySymbol,
-} from "@/shared/utils/formatters";
+import { formatCurrency, getCurrencySymbol } from "@/shared/utils/formatters";
 import { hasSelectionOddsSource } from "@/helpers/getOddsValue";
+import {
+  clampStake,
+  effectiveMaxStake,
+  fetchMaxBetStake,
+} from "@/helpers/maxBetStake";
 
 type BetBuilderGroupComponentProps = {
   leg: BetBuilderSlipLeg;
@@ -42,6 +45,8 @@ export const BetBuilderGroupComponent: FunctionComponent<
   const { selectedOdds, betBuilderPricesByEvent, baseColorTheme, currency } =
     useSportsbookStore();
   const { t } = useTranslate("betslip");
+  const [apiMaxBet, setApiMaxBet] = useState<number | null>(null);
+  const [maxBetLoading, setMaxBetLoading] = useState(false);
   const baseTheme = baseColorTheme.value;
 
   const bbState = betBuilderPricesByEvent.value[leg.eventId];
@@ -63,6 +68,10 @@ export const BetBuilderGroupComponent: FunctionComponent<
     .join(",");
 
   useEffect(() => {
+    setApiMaxBet(null);
+  }, [leg.eventId, selectionKeys, apiPrice]);
+
+  useEffect(() => {
     const group = selectedOdds.value.filter((o) => o.eventId === leg.eventId);
     if (group.length >= 2) {
       const first = group[0].amount;
@@ -77,11 +86,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
   useEffect(() => {
     const unavailable = leg.selections.filter(
       (sel) =>
-        !hasSelectionOddsSource(
-          sel.eventId,
-          sel.marketId,
-          Number(sel.oddsId),
-        ),
+        !hasSelectionOddsSource(sel.eventId, sel.marketId, Number(sel.oddsId)),
     );
     if (unavailable.length === 0) return;
 
@@ -142,13 +147,46 @@ export const BetBuilderGroupComponent: FunctionComponent<
     selectedOdds.value.find((o) => o.eventId === leg.eventId)?.amount ?? 0;
   const stakeDisabled = priceLoading || !hasValidApiPrice;
   const stakeQuickButtons = [2, 10, 50];
+  const inputMaxStake = effectiveMaxStake(apiMaxBet, maxStake);
 
   const setStake = (value: number) => {
+    const clamped = clampStake(value, apiMaxBet, maxStake);
     selectedOdds.value.forEach((o) => {
-      if (o.eventId === leg.eventId) o.amount = value;
+      if (o.eventId === leg.eventId) o.amount = clamped;
     });
     selectedOdds.value = [...selectedOdds.value];
     rotateBetSlipIdempotencyKey();
+  };
+
+  const handleMaxClick = async () => {
+    setMaxBetLoading(true);
+    try {
+      const bbPrices = { [leg.eventId]: apiPrice };
+      const fetched = await fetchMaxBetStake(
+        "single",
+        [
+          {
+            eventId: leg.eventId,
+            marketId: -1,
+            selectionId: -1,
+            odds: legOdds(leg, bbPrices),
+            betBuilderBetItems: leg.selections.map((sel) => ({
+              marketId: sel.apiMarketId ?? sel.marketId,
+              selectionId: sel.apiSelectionId ?? Number(sel.oddsId),
+            })),
+          },
+        ],
+        currency.value,
+      );
+      if (fetched != null) {
+        setApiMaxBet(fetched);
+        setStake(fetched);
+      } else {
+        setStake(maxStake ?? 0);
+      }
+    } finally {
+      setMaxBetLoading(false);
+    }
   };
 
   const displayOdds = priceLoading
@@ -241,11 +279,14 @@ export const BetBuilderGroupComponent: FunctionComponent<
               )}
               className="flex gap-2 pb-1"
             >
-              <div className="flex w-4 shrink-0 flex-col items-center">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full border-2 border-[var(--primary-color)] bg-transparent" />
+              <div className="relative flex w-4 shrink-0 self-stretch flex-col items-center">
                 {!isLast && (
-                  <span className="my-0.5 w-[2px] flex-1 min-h-[20px] bg-[var(--primary-color)]/70" />
+                  <span
+                    className="absolute left-1/2 top-[10px] -bottom-1 w-[2px] -translate-x-1/2 bg-[var(--primary-color)] opacity-70"
+                    aria-hidden
+                  />
                 )}
+                <span className="relative z-[1] mt-1 h-2 w-2 shrink-0 rounded-full border-2 border-[var(--primary-color)] bg-[var(--sub-element-secondary)]" />
               </div>
               <div className="mb-1 flex min-w-0 flex-1 items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -285,7 +326,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
                 key={`bb-stake-${leg.eventId}-${forceUpdate}`}
                 type="number"
                 min={minStake}
-                max={maxStake}
+                max={inputMaxStake}
                 inputMode="numeric"
                 value={Number(stakeAmount).toString() || ""}
                 disabled={stakeDisabled}
@@ -315,14 +356,17 @@ export const BetBuilderGroupComponent: FunctionComponent<
             ))}
             <button
               type="button"
-              onClick={() => setStake(maxStake ?? 0)}
-              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
+              onClick={() => void handleMaxClick()}
+              disabled={maxBetLoading || stakeDisabled}
+              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50"
             >
               MAX
             </button>
           </div>
           <div className="mt-2 flex items-center justify-end text-[12px] font-semibold">
-            <span className="text-[var(--text-sub-color)]">{possibleWinLabel}</span>
+            <span className="text-[var(--text-sub-color)]">
+              {possibleWinLabel}
+            </span>
           </div>
         </div>
       )}

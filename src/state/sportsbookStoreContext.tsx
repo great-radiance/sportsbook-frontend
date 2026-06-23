@@ -104,6 +104,11 @@ export type SportsbookContextType = {
   openBetsTabState: Signal<"open" | "settled">;
   betHistoryRefreshNonce: Signal<number>;
 
+  // Admin refer ordering
+  leagueOrderBySportState: Signal<Record<number, number[]>>;
+  marketOrderBySportState: Signal<Record<number, number[]>>;
+  liveMarketOrderBySportState: Signal<Record<number, number[]>>;
+
   // Layout & UI
   isMobile: Signal<boolean | undefined>;
   baseColorTheme: Signal<"light" | "dark">;
@@ -266,6 +271,10 @@ export function createSportsbookStore(): SportsbookContextType {
     totalPagesState: signal(1),
     openBetsTabState: signal("open"),
     betHistoryRefreshNonce: signal(0),
+
+    leagueOrderBySportState: signal({}),
+    marketOrderBySportState: signal({}),
+    liveMarketOrderBySportState: signal({}),
 
     isMobile,
     baseColorTheme: signal("dark"),

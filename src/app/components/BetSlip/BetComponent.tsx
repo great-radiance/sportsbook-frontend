@@ -12,6 +12,11 @@ import { notify } from "@/shared/toast";
 import { cashoutAmountForBet } from "@/api/bet/cashout";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { getBetStatusLabel, isCashoutableStatus } from "@/helpers/betStatus";
+import {
+  betBuilderSelectionCount,
+  betTypeDisplayKey,
+  isBetBuilderBet,
+} from "@/helpers/betDisplayType";
 import { BetHistoryLegRow } from "./BetHistoryLegRow";
 
 interface BetComponentProps {
@@ -19,6 +24,7 @@ interface BetComponentProps {
   onCashoutSuccess?: () => void;
   isMyBet?: boolean;
   isSettledView?: boolean;
+  isSubBet?: boolean;
 }
 
 function shortBetId(betId: string): string {
@@ -31,6 +37,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   onCashoutSuccess,
   isMyBet,
   isSettledView = false,
+  isSubBet = false,
 }) => {
   const {
     selectedCashoutAmount,
@@ -61,11 +68,15 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
   const canCashout =
     isCashoutableStatus(status) && canCashoutExplicit && availableCashout > 0;
 
+  const isBetBuilder = isBetBuilderBet(bet);
+  const betTypeLabelKey = betTypeDisplayKey(bet);
+
   const legCount = useMemo(() => {
+    if (isBetBuilder) return betBuilderSelectionCount(bet);
     const fromMeta = bet.metadata?.selectionCount;
     if (typeof fromMeta === "number" && fromMeta > 0) return fromMeta;
     return bet.legs.length || 1;
-  }, [bet.legs.length, bet.metadata?.selectionCount]);
+  }, [bet, isBetBuilder]);
 
   const handleCashoutClick = () => {
     if (!isCashoutableStatus(status)) return;
@@ -105,13 +116,17 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
 
   return (
     <div
-      className={`flex ${isMyBet ? "" : "flex-col"} w-full bg-[var(--sub-element-secondary)] border-[1px] border-[var(--border-color)] min-h-[200px] text-[11px] text-[var(--text-basic-color)] rounded-[8px]  gap-2 p-3 overflow-hidden`}
+      className={`flex ${isMyBet ? "" : "flex-col"} w-full bg-[var(--sub-element-secondary)] ${isSubBet ? "border-0 min-h-0" : "border-[1px] border-[var(--border-color)] min-h-[200px]"} text-[11px] text-[var(--text-basic-color)] rounded-[8px]  gap-2 p-3 overflow-hidden`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div className="flex items-center justify-center gap-2">
             <div className="w-5 h-5 flex items-center justify-center rounded-full border-[2px] text-[12px] border-[var(--background-element-light)]">
-              {bet.betType === "single" ? (
+              {isBetBuilder ? (
+                <span className="text-[9px] font-bold leading-none">
+                  {t("betBuilderShortLabel")}
+                </span>
+              ) : bet.betType === "single" ? (
                 1
               ) : (
                 <img
@@ -123,7 +138,7 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
             </div>
             <div className="flex flex-col text-[11px]">
               <div>
-                {t(bet.betType)}
+                {t(betTypeLabelKey)}
                 {legCount > 1 ? ` (${legCount})` : ""}
               </div>
               <div className="flex items-center gap-1">

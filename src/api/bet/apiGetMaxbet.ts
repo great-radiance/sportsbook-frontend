@@ -1,9 +1,24 @@
 import { getAppConfig } from "@/shared/config/appConfig";
 import { instance } from "../instance";
-export async function apiGetMaxBet() {
+import type { PlaceBetSelectionPayload } from "./placeBet";
+
+export type MaxBetRequest = {
+  betType: "single" | "parlay";
+  currency?: string;
+  selections: PlaceBetSelectionPayload[];
+};
+
+export type MaxBetResult = {
+  maxBet: number;
+};
+
+export async function apiGetMaxBet(
+  payload: MaxBetRequest,
+): Promise<MaxBetResult | unknown> {
   const response = await instance.post("users/bets/max-bet", {
-    currency: getAppConfig().currency,
-    selections: [],
+    betType: payload.betType,
+    currency: payload.currency ?? getAppConfig().currency,
+    selections: payload.selections,
   });
   return response.data;
 }

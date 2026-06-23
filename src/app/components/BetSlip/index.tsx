@@ -17,7 +17,7 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { SelectedOddComponent } from "./SelectedOddComponent";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { apiPlaceBetWithRetry } from "@/api/bet/placeBet";
+import { apiPlaceBetWithRetry, isPlaceBetAccepted, isPlaceBetRejected, placeBetAcceptedReference } from "@/api/bet/placeBet";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 import {
@@ -35,7 +35,11 @@ import {
 import { Switch } from "../Switch";
 import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { getOddsValue } from "@/helpers/getOddsValue";
-import SystemBetLineComponent from "./SystembetSection";
+import SystemBetSection from "./SystembetSection";
+import {
+  buildSystemCombinationPayload,
+  getSystemTotalStake,
+} from "@/helpers/systemBet";
 import { refreshAfterWalletAction } from "@/helpers/refreshPlayerWallet";
 import {
   handleOddsChangedRejection,
@@ -55,6 +59,11 @@ import {
   slipLegCount,
 } from "@/helpers/betslipLegs";
 import { BetBuilderGroupComponent } from "./BetBuilderGroupComponent";
+import {
+  clampStake,
+  effectiveMaxStake,
+  fetchMaxBetStake,
+} from "@/helpers/maxBetStake";
 
 function extractAxiosMessage(err: unknown): string {
   const e = err as {
@@ -173,11 +182,14 @@ export const BetSlip: FunctionComponent = () => {
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [betable, setBetable] = useState(false);
+  const [multiApiMaxBet, setMultiApiMaxBet] = useState<number | null>(null);
+  const [multiMaxBetLoading, setMultiMaxBetLoading] = useState(false);
   const config = getAppConfig();
   const { xUserId, currency: userCurrency } = config;
   const maxParlayLegs = maxParlayLegsFromLimits(playerLimits.value);
   const singleStakeLimits = stakeLimitsForBetType(playerLimits.value, "single");
   const parlayStakeLimits = stakeLimitsForBetType(playerLimits.value, "parlay");
+  const systemStakeLimits = parlayStakeLimits;
   const accountStatusMessage = playerProfile.value
     ? playerStatusMessage(playerProfile.value.status)
     : null;
@@ -335,6 +347,37 @@ export const BetSlip: FunctionComponent = () => {
         setBetable(false);
         return;
       }
+
+      if (selectedBetType.value === "system") {
+        if (regularSlipOdds.length < 3 || regularSlipOdds.length > 8) {
+          setBetable(false);
+          return;
+        }
+
+        const systemCombinations = buildSystemCombinationPayload(
+          systemBetSpecifier.value,
+          regularSlipOdds.length,
+        );
+        if (systemCombinations.length === 0) {
+          setBetable(false);
+          return;
+        }
+
+        const cur = userCurrency || currency.value || "USD";
+        for (const entry of systemCombinations) {
+          if (
+            validateStakeAmount(
+              entry.stake,
+              playerLimits.value,
+              "parlay",
+              cur,
+            )
+          ) {
+            setBetable(false);
+            return;
+          }
+        }
+      }
     }
 
     setBetable(true);
@@ -351,16 +394,65 @@ export const BetSlip: FunctionComponent = () => {
     maxParlayLegs,
     playerLimits.value,
     slipLegs,
+    regularSlipOdds.length,
+    systemBetSpecifier.value,
   ]);
 
   const combinedMultipleOddsLabel = betBuilderWarning
     ? "—"
     : combinedLegOdds(slipLegs, currentBbPriceMap()).toFixed(2);
 
+  const slipSelectionsKey = selectedOdds.value
+    .map(
+      (o) =>
+        `${o.eventId}:${o.marketId}:${o.oddsId}:${getOddsValue(o.eventId, o.marketId, Number(o.oddsId))}`,
+    )
+    .join("|");
+
+  useEffect(() => {
+    setMultiApiMaxBet(null);
+  }, [slipSelectionsKey]);
+
+  const multiInputMaxStake = effectiveMaxStake(
+    multiApiMaxBet,
+    parlayStakeLimits.maxStake,
+  );
+
+  const setMultiStake = (value: number) => {
+    multipleBetAmount.value = clampStake(
+      value,
+      multiApiMaxBet,
+      parlayStakeLimits.maxStake,
+    );
+    rotateBetSlipIdempotencyKey();
+  };
+
+  const handleMultiMaxClick = async () => {
+    setMultiMaxBetLoading(true);
+    try {
+      const selections = slipSelectionsPayload(selectedOdds.value);
+      const fetched = await fetchMaxBetStake(
+        "parlay",
+        selections,
+        userCurrency || currency.value || "USD",
+      );
+      if (fetched != null) {
+        setMultiApiMaxBet(fetched);
+        setMultiStake(fetched);
+      } else {
+        setMultiStake(parlayStakeLimits.maxStake ?? 0);
+      }
+    } finally {
+      setMultiMaxBetLoading(false);
+    }
+  };
+
   const RemoveAllBets = () => {
     selectedOdds.value = [];
     selectedBetType.value = "single";
     multipleBetAmount.value = 0;
+    systemBetSpecifier.value = {};
+    setMultiApiMaxBet(null);
     betSlipWarning.value = null;
     window.localStorage.removeItem("selectedOdds");
     rotateBetSlipIdempotencyKey();
@@ -425,7 +517,7 @@ export const BetSlip: FunctionComponent = () => {
               continue;
             }
             const d = call.result;
-            if (d?.status === "rejected") {
+            if (isPlaceBetRejected(d)) {
               notifyBetRejected(
                 d.rejectionReason,
                 toSubmittedLines(selectionsForLeg(leg)),
@@ -433,10 +525,10 @@ export const BetSlip: FunctionComponent = () => {
               );
               selectionsForLeg(leg).forEach((o) => failedBets.add(o));
               rotateBetSlipIdempotencyKey();
-            } else if (d?.status === "accepted") {
+            } else if (isPlaceBetAccepted(d)) {
               notify("Bet accepted", "success", "check2-circle", 2500);
               void refreshAfterWalletAction();
-              void showAcceptedBetInOpenBets(d.betId);
+              void showAcceptedBetInOpenBets(placeBetAcceptedReference(d));
               rotateBetSlipIdempotencyKey();
             } else {
               notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -474,8 +566,8 @@ export const BetSlip: FunctionComponent = () => {
             selectedOdds.value = [];
             return;
           }
-          if (call.httpStatus === 409 && call.result?.betId) {
-            await showAcceptedBetInOpenBets(call.result.betId);
+          if (call.httpStatus === 409 && placeBetAcceptedReference(call.result)) {
+            await showAcceptedBetInOpenBets(placeBetAcceptedReference(call.result));
             notify(
               "This bet was already submitted.",
               "primary",
@@ -488,7 +580,7 @@ export const BetSlip: FunctionComponent = () => {
             return;
           }
           const d = call.result;
-          if (d?.status === "rejected") {
+          if (isPlaceBetRejected(d)) {
             notifyBetRejected(
               d.rejectionReason,
               toSubmittedLines(selectedOdds.value),
@@ -496,12 +588,12 @@ export const BetSlip: FunctionComponent = () => {
             );
             selectedOdds.value.forEach((o) => failedBets.add(o));
             rotateBetSlipIdempotencyKey();
-          } else if (d?.status === "accepted") {
+          } else if (isPlaceBetAccepted(d)) {
             selectedOdds.value = [];
             window.localStorage.removeItem("selectedOdds");
             notify("Bet accepted", "success", "check2-circle", 2500);
             void refreshAfterWalletAction();
-            void showAcceptedBetInOpenBets(d.betId);
+            void showAcceptedBetInOpenBets(placeBetAcceptedReference(d));
             rotateBetSlipIdempotencyKey();
           } else {
             notify("Unexpected bet response", "error", "x-circle", 2500);
@@ -512,55 +604,78 @@ export const BetSlip: FunctionComponent = () => {
           selectedOdds.value.forEach((o) => failedBets.add(o));
         }
       } else if (selectedBetType.value === "system") {
-        await Promise.all(
-          [...Array(Math.min(regularSlipOdds.length, 5))].map((_, index) => {
-            const stake = systemBetSpecifier.value[index + 1] || 0;
-            if (stake === 0) return Promise.resolve();
-            return (async () => {
-              try {
-                const call = await apiPlaceBetWithRetry({
-                  idempotencyKey: currentBetSlipIdempotencyKey(),
-                  betType: "system",
-                  stake,
-                  currency: cur,
-                  selections: slipSelectionsPayload(regularSlipOdds),
-                  systemMinCombination: index + 1,
-                  description: buildPlaceBetDescription(regularSlipOdds),
-                });
-                if (
-                  call.providerRegistrationFailed ||
-                  call.httpStatus === 502
-                ) {
-                  handleProviderRegistrationFailure();
-                  return;
-                }
-                const d = call.result;
-                if (d?.status === "rejected") {
-                  notifyBetRejected(
-                    d.rejectionReason,
-                    toSubmittedLines(regularSlipOdds),
-                    d.betId,
-                  );
-                  regularSlipOdds.forEach((o) => failedBets.add(o));
-                  rotateBetSlipIdempotencyKey();
-                } else if (d?.status === "accepted") {
-                  selectedOdds.value = [];
-                  window.localStorage.removeItem("selectedOdds");
-                  notify("Bet accepted", "success", "check2-circle", 2500);
-                  void refreshAfterWalletAction();
-                  void showAcceptedBetInOpenBets(d.betId);
-                  rotateBetSlipIdempotencyKey();
-                } else {
-                  notify("Unexpected bet response", "error", "x-circle", 2500);
-                  regularSlipOdds.forEach((o) => failedBets.add(o));
-                }
-              } catch (error) {
-                notify(extractAxiosMessage(error), "error", "x-circle", 3500);
-                regularSlipOdds.forEach((o) => failedBets.add(o));
-              }
-            })();
-          }),
+        const systemCombinations = buildSystemCombinationPayload(
+          systemBetSpecifier.value,
+          regularSlipOdds.length,
         );
+        if (systemCombinations.length === 0) {
+          notify(
+            "Enter a stake for at least one system combination",
+            "error",
+            "x-circle",
+            2500,
+          );
+          return;
+        }
+
+        try {
+          const totalSystemStake = getSystemTotalStake(
+            systemBetSpecifier.value,
+            regularSlipOdds.length,
+          );
+          const call = await apiPlaceBetWithRetry({
+            idempotencyKey: currentBetSlipIdempotencyKey(),
+            betType: "system",
+            stake: totalSystemStake,
+            currency: cur,
+            selections: slipSelectionsPayload(regularSlipOdds),
+            systemCombinations,
+            description: buildPlaceBetDescription(regularSlipOdds),
+          });
+          if (call.providerRegistrationFailed || call.httpStatus === 502) {
+            handleProviderRegistrationFailure();
+            selectedOdds.value = [];
+            return;
+          }
+          if (call.httpStatus === 409 && placeBetAcceptedReference(call.result)) {
+            await showAcceptedBetInOpenBets(placeBetAcceptedReference(call.result));
+            notify(
+              "This bet was already submitted.",
+              "primary",
+              "info-circle",
+              3500,
+            );
+            selectedOdds.value = [];
+            systemBetSpecifier.value = {};
+            window.localStorage.removeItem("selectedOdds");
+            rotateBetSlipIdempotencyKey();
+            return;
+          }
+          const d = call.result;
+          if (isPlaceBetRejected(d)) {
+            notifyBetRejected(
+              d.rejectionReason,
+              toSubmittedLines(regularSlipOdds),
+              d.betId,
+            );
+            regularSlipOdds.forEach((o) => failedBets.add(o));
+            rotateBetSlipIdempotencyKey();
+          } else if (isPlaceBetAccepted(d)) {
+            selectedOdds.value = [];
+            systemBetSpecifier.value = {};
+            window.localStorage.removeItem("selectedOdds");
+            notify("Bet accepted", "success", "check2-circle", 2500);
+            void refreshAfterWalletAction();
+            void showAcceptedBetInOpenBets(placeBetAcceptedReference(d));
+            rotateBetSlipIdempotencyKey();
+          } else {
+            notify("Unexpected bet response", "error", "x-circle", 2500);
+            regularSlipOdds.forEach((o) => failedBets.add(o));
+          }
+        } catch (error) {
+          notify(extractAxiosMessage(error), "error", "x-circle", 3500);
+          regularSlipOdds.forEach((o) => failedBets.add(o));
+        }
       }
 
       if (failedBets.size > 0) {
@@ -949,23 +1064,19 @@ export const BetSlip: FunctionComponent = () => {
                                 type="number"
                                 inputMode="numeric"
                                 min={parlayStakeLimits.minStake}
-                                max={parlayStakeLimits.maxStake}
+                                max={multiInputMaxStake}
                                 value={multipleBetAmount.value.toString() || ""}
                                 onInput={(e) => {
                                   const value = (e.target as HTMLInputElement).value;
-                                  multipleBetAmount.value = parseFloat(value) || 0;
-                                  rotateBetSlipIdempotencyKey();
+                                  setMultiStake(parseFloat(value) || 0);
                                 }}
                                 className="h-10 w-[92px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               />
                               <button
                                 type="button"
-                                className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold"
-                                onClick={() => {
-                                  multipleBetAmount.value =
-                                    parlayStakeLimits.maxStake ?? 0;
-                                  rotateBetSlipIdempotencyKey();
-                                }}
+                                className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold disabled:opacity-50"
+                                disabled={multiMaxBetLoading || Boolean(betBuilderWarning)}
+                                onClick={() => void handleMultiMaxClick()}
                               >
                                 MAX
                               </button>
@@ -974,16 +1085,16 @@ export const BetSlip: FunctionComponent = () => {
                         </div>
                       )}
 
-                      {selectedBetType.value === "system" && (
+                      {selectedBetType.value === "system" &&
+                        regularSlipOdds.length >= 3 &&
+                        regularSlipOdds.length <= 8 && (
                         <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
                           <div className="mb-1 text-[13px] font-semibold">{t("system")}</div>
-                          {[...Array(Math.min(regularSlipOdds.length, 5))].map((_, i) => (
-                            <SystemBetLineComponent
-                              key={i}
-                              selections={regularSlipOdds}
-                              systemSpecifier={i + 1}
-                            />
-                          ))}
+                          <SystemBetSection
+                            selections={regularSlipOdds}
+                            minStake={systemStakeLimits.minStake}
+                            maxStake={systemStakeLimits.maxStake}
+                          />
                         </div>
                       )}
                     </div>

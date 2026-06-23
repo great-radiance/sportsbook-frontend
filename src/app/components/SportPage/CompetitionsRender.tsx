@@ -5,10 +5,15 @@ import {
 } from "@/helpers/buildPrematchPath";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 import { getLeagueId, getRegionId } from "@/helpers/findSidebarNodeByRoute";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
+import {
+  cssOrderFromReferList,
+  ensureLeagueOrder,
+  leagueNodeNumericId,
+} from "@/helpers/referOrder";
 import { useLocation } from "wouter-preact";
 
 type Props = {
@@ -32,7 +37,12 @@ const isRegionNode = (node: sidebarNode): boolean =>
 const nodeLabel = (node: sidebarNode, lang: string): string => node.name || "";
 
 const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
-  const { baseColorTheme } = useSportsbookStore();
+  const { baseColorTheme, leagueOrderBySportState } = useSportsbookStore();
+
+  useEffect(() => {
+    if (sportId) void ensureLeagueOrder(sportId);
+  }, [sportId]);
+
   const lang = getAppConfig().lang;
   const baseTheme = baseColorTheme.value;
   const [openContinents, setOpenContinents] = useState<Record<string, boolean>>(
@@ -192,6 +202,12 @@ const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
                     key={league.id}
                     href={standaloneLeagueHref(league)}
                     className="flex items-center justify-between gap-2 p-2 rounded-lg text-[13px] hover:bg-white/5 transition-colors"
+                    style={{
+                      order: cssOrderFromReferList(
+                        leagueOrderBySportState.value[sportId],
+                        leagueNodeNumericId(league),
+                      ),
+                    }}
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <img
@@ -263,6 +279,12 @@ const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
                                 leagueId,
                               )}
                               className="p-2 rounded-lg text-[12px] hover:bg-white/5 hover:font-semibold transition-colors"
+                              style={{
+                                order: cssOrderFromReferList(
+                                  leagueOrderBySportState.value[sportId],
+                                  leagueNodeNumericId(league),
+                                ),
+                              }}
                             >
                               {leagueName}
                             </a>
@@ -308,6 +330,12 @@ const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
                         );
                       }}
                       className="flex items-center gap-2 p-2.5 rounded-lg bg-[var(--sub-element-secondary)] text-[13px] hover:bg-[var(--highlight-background)] transition-colors min-w-0"
+                      style={{
+                        order: cssOrderFromReferList(
+                          leagueOrderBySportState.value[sportId],
+                          leagueNodeNumericId(league),
+                        ),
+                      }}
                     >
                       <div className="flex items-center justify-center w-7 h-7 bg-white/90 rounded-[4px] shrink-0">
                         <img
@@ -360,6 +388,12 @@ const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
                           key={league.id}
                           href={standaloneLeagueHref(league)}
                           className="flex items-center gap-2 p-2 rounded-lg text-[13px] hover:bg-white/5 transition-colors"
+                          style={{
+                            order: cssOrderFromReferList(
+                              leagueOrderBySportState.value[sportId],
+                              leagueNodeNumericId(league),
+                            ),
+                          }}
                         >
                           <img
                             src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${sportId}.svg`}
@@ -420,6 +454,12 @@ const CompetitionsRender = ({ sportNode, sportName, sportId }: Props) => {
                                       leagueId,
                                     )}
                                     className="p-2 rounded-lg text-[12px] hover:bg-white/5 hover:font-semibold transition-colors"
+                                    style={{
+                                      order: cssOrderFromReferList(
+                                        leagueOrderBySportState.value[sportId],
+                                        leagueNodeNumericId(league),
+                                      ),
+                                    }}
                                   >
                                     {leagueName}
                                   </a>

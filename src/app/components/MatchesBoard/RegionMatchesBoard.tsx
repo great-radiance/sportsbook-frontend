@@ -20,12 +20,17 @@ import {
 } from "@/helpers/findSidebarNodeByRoute";
 import { apiGetMatchesByNode } from "@/api/matches/apiGetMatchesByNode";
 import type { sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import {
+  cssOrderFromReferList,
+  ensureLeagueOrder,
+  leagueNodeNumericId,
+} from "@/helpers/referOrder";
 
 const isLeagueNode = (node: sidebarNode): boolean =>
   node.type === "league" || node.type === "combined_league";
 
 export const RegionMatchesBoard: FunctionComponent = () => {
-  const { loadedSidebarState, storeState, summarySportsState } =
+  const { loadedSidebarState, storeState, summarySportsState, leagueOrderBySportState } =
     useSportsbookStore();
   const { sportIdParam, regionName, regionIdParam } = useRouteParams();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
@@ -33,6 +38,10 @@ export const RegionMatchesBoard: FunctionComponent = () => {
   const sportId = Number(sportIdParam) || 0;
   const [selectedLeague, setSelectedLeague] = useState<string>("");
   const lang = getAppConfig().lang;
+
+  useEffect(() => {
+    if (sportId) void ensureLeagueOrder(sportId);
+  }, [sportId]);
 
   const regionNode = useMemo(() => {
     const sportNode = findSportNode(
@@ -159,7 +168,12 @@ export const RegionMatchesBoard: FunctionComponent = () => {
                       : "bg-[var(--sub-element-secondary)] hover:bg-[var(--highlight-background)]",
                   ].join(" ")}
                   onClick={() => setSelectedLeague(leagueId)}
-                  style={{ order: league.order || 999 }}
+                  style={{
+                    order: cssOrderFromReferList(
+                      leagueOrderBySportState.value[sportId],
+                      leagueNodeNumericId(league),
+                    ),
+                  }}
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img

@@ -88,7 +88,14 @@ export type ProviderResponseType = {
   message: string;
 };
 
+export type SystemCombinationDisplay = {
+  size: number;
+  stake: number;
+  count: number;
+};
+
 export type BetItemType = {
+  _id?: string;
   betId: string;
   userId: string;
   startingOdds: number;
@@ -107,6 +114,12 @@ export type BetItemType = {
   settledAt: string | null;
   providerResponse: ProviderResponseType;
   metadata: Record<string, any>;
+  /** True when this row is a system bet group (no top-level cashout). */
+  isSystemGroup?: boolean;
+  /** Group id for system bets — same as `betId` on the group row. */
+  systemGroupId?: string;
+  /** Individual combinations inside a system group (each has its own `betId` for cashout). */
+  subBets?: BetItemType[];
 };
 
 function normalizeBetContextRef(value: unknown, fallbackId = 0): BetContextRef {

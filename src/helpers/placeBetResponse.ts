@@ -2,6 +2,11 @@ import type {
   PlaceBetCallResult,
   PlaceBetResult,
 } from "@/api/bet/placeBet";
+import {
+  isPlaceBetAccepted,
+  isPlaceBetRejected,
+  placeBetAcceptedReference,
+} from "@/api/bet/placeBet";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
@@ -33,7 +38,8 @@ export async function handlePlaceBetCallResult(
   }
 
   if (call.httpStatus === 409) {
-    if (call.result?.betId) {
+    const duplicateRef = placeBetAcceptedReference(call.result);
+    if (duplicateRef) {
       requestBetHistoryRefresh();
       notify("This bet was already submitted.", "primary", "info-circle", 3500);
       effects.clearSlip();
@@ -47,21 +53,24 @@ export async function handlePlaceBetCallResult(
     return "rejected";
   }
 
-  if (result.status === "accepted") {
+  if (isPlaceBetAccepted(result)) {
+    const betRef = placeBetAcceptedReference(result);
+    if (!betRef) return "rejected";
     notify("Bet accepted", "success", "check2-circle", 2500);
     effects.refreshWallet();
-    effects.subscribeCashout(result.betId);
-    await showAcceptedBetInOpenBets(result.betId);
-    effects.onAccepted(result.betId);
+    effects.subscribeCashout(betRef);
+    await showAcceptedBetInOpenBets(betRef);
+    effects.onAccepted(betRef);
     effects.clearSlip();
     rotateBetSlipIdempotencyKey();
     return "accepted";
   }
 
-  effects.onRejected(
-    (result as { rejectionReason?: string }).rejectionReason,
-    result,
-  );
-  rotateBetSlipIdempotencyKey();
+  if (isPlaceBetRejected(result)) {
+    effects.onRejected(result.rejectionReason, result);
+    rotateBetSlipIdempotencyKey();
+    return "rejected";
+  }
+
   return "rejected";
 }

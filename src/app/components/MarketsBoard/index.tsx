@@ -30,6 +30,7 @@ import {
   filterMarketsByGroupTab,
   sortMarketsByMarketsRefOrder,
 } from "@/helpers/eventMarketGroups";
+import { cssOrderFromReferList, ensureLiveMarketOrder, ensureMarketOrder } from "@/helpers/referOrder";
 
 /**
  * Read a competitor's score from the scoreboard shape.
@@ -51,7 +52,7 @@ const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
 };
 
 export const MarketsBoard: FunctionComponent = () => {
-  const { baseColorTheme, isMobile, isBuilding, storeState } =
+  const { baseColorTheme, isMobile, isBuilding, storeState, marketOrderBySportState, liveMarketOrderBySportState } =
     useSportsbookStore();
   const baseTheme = baseColorTheme.value;
   const { t: tMarkets } = useTranslate("markets");
@@ -71,6 +72,14 @@ export const MarketsBoard: FunctionComponent = () => {
   const eventData = eventId
     ? storeState.value[parseInt(eventId)]?.value
     : ({} as tEventModel);
+  const sportId = eventData?.sport?.id ?? 0;
+  const isLiveEvent = pageName === "live" || eventData?.status === 3;
+
+  useEffect(() => {
+    if (!sportId) return;
+    if (isLiveEvent) void ensureLiveMarketOrder(sportId);
+    else void ensureMarketOrder(sportId);
+  }, [sportId, isLiveEvent]);
 
   const markets =
     Object.values(eventData?.markets ?? {}).map((sig) => sig.value) || [];
@@ -385,6 +394,12 @@ export const MarketsBoard: FunctionComponent = () => {
                   eventId={eventId ? parseInt(eventId) : 0}
                   Collapsed={allCollapsed}
                   type={group.type}
+                  displayOrder={cssOrderFromReferList(
+                    isLiveEvent
+                      ? liveMarketOrderBySportState.value[sportId]
+                      : marketOrderBySportState.value[sportId],
+                    group.type,
+                  )}
                 />
               ))
             )}

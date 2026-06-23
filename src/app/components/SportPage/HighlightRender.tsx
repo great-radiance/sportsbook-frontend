@@ -1,4 +1,4 @@
-import { useMemo } from "preact/hooks";
+import { useEffect, useMemo } from "preact/hooks";
 import { Match } from "../MatchesBoard/components/Match";
 import { MoneylineMatch } from "../MatchesBoard/components/Match/MoneylineMatch";
 import { UpcomingMatchSkeleton } from "../Loading";
@@ -17,6 +17,11 @@ import { isRacingSport } from "@/helpers/isRacingSport";
 import { BASE_ASSET_PUBLIC_URL, getAppConfig } from "@/shared/config/appConfig";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { getLeagueId } from "@/helpers/findSidebarNodeByRoute";
+import {
+  cssOrderFromReferList,
+  ensureLeagueOrder,
+  leagueNodeNumericId,
+} from "@/helpers/referOrder";
 
 type Props = {
   leagueEntries: sidebarNode[];
@@ -43,7 +48,12 @@ const HighlightRender = ({
   matches,
   markets,
 }: Props) => {
-  const { storeState } = useSportsbookStore();
+  const { storeState, leagueOrderBySportState } = useSportsbookStore();
+
+  useEffect(() => {
+    if (sportId) void ensureLeagueOrder(sportId);
+  }, [sportId]);
+
   const loadedEventsForMarkets = useMemo(
     () =>
       eventsFromStoreByIds(matches.pre, (id) => storeState.value[id]?.value),
@@ -118,6 +128,12 @@ const HighlightRender = ({
                       : "bg-[var(--sub-element-secondary)] hover:bg-[var(--highlight-background)]",
                   ].join(" ")}
                   onClick={() => setSelectedLeagueKey(league.id)}
+                  style={{
+                    order: cssOrderFromReferList(
+                      leagueOrderBySportState.value[sportId],
+                      leagueNodeNumericId(league),
+                    ),
+                  }}
                 >
                   <div className="flex items-center justify-center w-6 h-6 bg-white/90 rounded-[4px]">
                     <img

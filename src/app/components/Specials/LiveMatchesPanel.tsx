@@ -19,11 +19,13 @@ import { apiGetLiveSidebar } from "@/api/sidebar/apiGetLiveSidebar";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
+import { cssOrderFromReferList, ensureLeagueOrder } from "@/helpers/referOrder";
 
 type LeagueRow = {
   key: string;
   regionName: string;
   leagueName: string;
+  leagueId: number;
   eventIds: number[];
 };
 
@@ -50,6 +52,7 @@ function leaguesForSport(
         key: `${region.id}-${league.id}`,
         regionName: region.name,
         leagueName: league.name,
+        leagueId: league.id,
         eventIds: league.events,
       });
     }
@@ -64,6 +67,7 @@ export const LiveMatchesPanel: FunctionComponent = () => {
     loadedLiveState,
     storeState,
     countsSummarySportsState,
+    leagueOrderBySportState,
   } = useSportsbookStore();
   const { t: tCommon } = useTranslate("common");
   const [, setLocation] = useLocation();
@@ -76,6 +80,10 @@ export const LiveMatchesPanel: FunctionComponent = () => {
   const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(
     new Set(),
   );
+
+  useEffect(() => {
+    if (selectedSportId) void ensureLeagueOrder(selectedSportId);
+  }, [selectedSportId]);
 
   useEffect(() => {
     return summarySportsLiveState.subscribe(setLiveSports);
@@ -321,6 +329,12 @@ export const LiveMatchesPanel: FunctionComponent = () => {
                   <div
                     key={row.key}
                     className={`flex flex-col md:px-[5px] ${isExpanded ? "pb-[5px]" : ""}`}
+                    style={{
+                      order: cssOrderFromReferList(
+                        leagueOrderBySportState.value[selectedSportId ?? 0],
+                        row.leagueId,
+                      ),
+                    }}
                   >
                     <button
                       type="button"

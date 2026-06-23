@@ -1,104 +1,176 @@
-import { getOddsValue } from "@/helpers/getOddsValue";
-import { SelectedOddType } from "@/shared/utils/bet";
-import { useSportsbookStore } from "@/state/sportsbookStoreContext";
-import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
+/** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useMemo } from "preact/hooks";
+import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
+import {
+  combinationCount,
+  getDefaultNamedSystem,
+  getNamedSystemTotals,
+  getSystemSizeLabel,
+  getSystemSizeTotalOdds,
+  NAMED_SYSTEM_STAKE_KEY,
+} from "@/helpers/systemBet";
+import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { useTranslate } from "@/shared/i18n/i18n";
+import { formatOdds, getCurrencySymbol } from "@/shared/utils/formatters";
+import { SelectedOddType } from "@/shared/utils/bet";
+import {
+  sportsbookStore,
+  useSportsbookStore,
+} from "@/state/sportsbookStoreContext";
 
-export function getCombinations<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  const n = arr.length;
-
-  // Generate all bitmasks with exactly 'size' bits set
-  // Note: this approach is fine for reasonably small n (e.g. n <= 20)
-  for (let mask = 0; mask < 1 << n; mask++) {
-    if (countBits(mask) !== size) continue;
-
-    const combo: T[] = [];
-    for (let i = 0; i < n; i++) {
-      if (mask & (1 << i)) {
-        combo.push(arr[i]);
-      }
-    }
-    result.push(combo);
-  }
-
-  return result;
-}
-
-function countBits(x: number): number {
-  let count = 0;
-  while (x) {
-    count += x & 1;
-    x >>>= 1; // use unsigned shift to avoid negative values for large numbers
-  }
-  return count;
-}
-
-const SystemBetLineComponent = (props: {
-  selections: SelectedOddType[];
-  systemSpecifier: number;
-}) => {
-  const { systemBetSpecifier } = useSportsbookStore();
-  const { selections, systemSpecifier } = props;
-  const [lines, setLines] = useState<SelectedOddType[][]>([]);
-  const [lineOdds, setLineOdds] = useState<number[]>([]);
-  const [stake, setStake] = useState<number>(0);
-  useEffect(() => {
-    const combos = getCombinations(selections, systemSpecifier);
-    setLineOdds(
-      combos.map((line) =>
-        line.reduce(
-          (acc, odd) =>
-            acc * getOddsValue(odd.eventId, odd.marketId, Number(odd.oddsId)),
-          1,
-        ),
-      ),
-    );
-    setLines(combos);
-  }, [selections, systemSpecifier]);
-
-  useEffect(() => {
-    systemBetSpecifier.value[systemSpecifier] = stake;
-  }, [stake, systemSpecifier]);
+function SystemBetRow({
+  label,
+  totalOdds,
+  stake,
+  currencySymbol,
+  minStake,
+  maxStake,
+  onStakeChange,
+  infoTitle,
+}: {
+  label: string;
+  totalOdds: number;
+  stake: number;
+  currencySymbol: string;
+  minStake?: number;
+  maxStake?: number;
+  onStakeChange: (value: number) => void;
+  infoTitle?: string;
+}) {
   return (
-    <div className="w-full flex flex-row items-center justify-center text-[12px]">
-      <div className="w-full flex flex-row items-center justify-start px-1 py-1 rounded-md shadow-md bg-white/10 gap-1">
-        <div className="text-white px-3 py-1 border border-1 border-white/10 rounded-md">
-          {systemSpecifier}
-        </div>
-        <div>
+    <div className="flex items-center gap-2 py-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="truncate text-[12px] font-semibold text-[var(--text-basic-color)]">
+          {label}
+        </span>
+        {infoTitle ? (
+          <span
+            className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-white/40 text-[9px] font-bold text-white/80"
+            title={infoTitle}
+          >
+            i
+          </span>
+        ) : null}
+      </div>
+
+      <span className="w-[52px] shrink-0 text-right text-[12px] font-bold text-[var(--text-basic-color)]">
+        {formatOdds(totalOdds)}
+      </span>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex h-10 w-[110px] shrink-0 items-center rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2">
+          <span className="shrink-0 text-[12px] text-[var(--text-sub-color)]">
+            {currencySymbol}
+          </span>
           <input
-            type="text"
-            value={stake}
-            onChange={(e) => {
-              setStake(Number((e as any).target.value || "0"));
+            type="number"
+            inputMode="numeric"
+            min={minStake}
+            max={maxStake}
+            aria-label={`Stake amount (${currencySymbol})`}
+            value={stake > 0 ? stake.toString() : ""}
+            onInput={(e) => {
+              const value = (e.target as HTMLInputElement).value;
+              onStakeChange(parseFloat(value) || 0);
               rotateBetSlipIdempotencyKey();
             }}
-            className="p-1 border border-1 border-white/10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-10 bg-white/10 text-white"
+            className="w-full bg-transparent px-1 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <img
+            src={`${BASE_ASSET_PUBLIC_URL}/icons/edit.png`}
+            alt=""
+            className="h-3.5 w-3.5 shrink-0 opacity-70"
           />
         </div>
-        <div className="text-white">({lines.length} bets)</div>
-        <div className="text-[var(--primary-color)] font-semibold flex-1">
-          {lineOdds
-            .reduce((acc, odd) => acc + odd, 0)
-            .toLocaleString("tr-TR", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-        </div>
-        <div className="pr-2 text-[var(--primary-color)]">
-          {Math.min(
-            lineOdds.reduce((acc, odd) => acc + odd, 0) * stake,
-            10000,
-          ).toLocaleString("tr-TR", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </div>
+        <button
+          type="button"
+          className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold"
+          onClick={() => {
+            onStakeChange(maxStake ?? 0);
+            rotateBetSlipIdempotencyKey();
+          }}
+        >
+          MAX
+        </button>
       </div>
+    </div>
+  );
+}
+
+const SystemBetSection: FunctionComponent<{
+  selections: SelectedOddType[];
+  minStake?: number;
+  maxStake?: number;
+}> = ({ selections, minStake, maxStake }) => {
+  const { t } = useTranslate("betslip");
+  const { currency, systemBetSpecifier, selectionsStoreState } =
+    useSportsbookStore();
+  void selectionsStoreState.value;
+
+  const currencySymbol = getCurrencySymbol(currency.value);
+
+  const namedSystem = useMemo(
+    () => getDefaultNamedSystem(selections.length),
+    [selections.length],
+  );
+
+  const setSizeStake = (size: number, stake: number) => {
+    systemBetSpecifier.value = {
+      ...systemBetSpecifier.value,
+      [size]: stake,
+    };
+  };
+
+  const setNamedStake = (stake: number) => {
+    systemBetSpecifier.value = {
+      ...systemBetSpecifier.value,
+      [NAMED_SYSTEM_STAKE_KEY]: stake,
+    };
+  };
+
+  const namedStake = systemBetSpecifier.value[NAMED_SYSTEM_STAKE_KEY] ?? 0;
+
+  const sizes = useMemo(
+    () => Array.from({ length: selections.length }, (_, index) => index + 1),
+    [selections.length],
+  );
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {sizes.map((size) => {
+        const count = combinationCount(selections.length, size);
+        const totalOdds = getSystemSizeTotalOdds(selections, size);
+        const stake = systemBetSpecifier.value[size] ?? 0;
+
+        return (
+          <SystemBetRow
+            key={size}
+            label={getSystemSizeLabel(size, count, t)}
+            totalOdds={totalOdds}
+            stake={stake}
+            currencySymbol={currencySymbol}
+            minStake={minStake}
+            maxStake={maxStake}
+            onStakeChange={(value) => setSizeStake(size, value)}
+          />
+        );
+      })}
+
+      {namedSystem ? (
+        <SystemBetRow
+          label={`${namedSystem.label} = ${getNamedSystemTotals(selections, namedSystem).combinationCount}`}
+          totalOdds={getNamedSystemTotals(selections, namedSystem).totalOdds}
+          stake={namedStake}
+          currencySymbol={currencySymbol}
+          minStake={minStake}
+          maxStake={maxStake}
+          onStakeChange={setNamedStake}
+          infoTitle={t("systemNamedInfo")}
+        />
+      ) : null}
     </div>
   );
 };
 
-export default SystemBetLineComponent;
+export default SystemBetSection;

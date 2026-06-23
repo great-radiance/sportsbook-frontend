@@ -30,6 +30,7 @@ interface MarketProps {
   marketId: number | number[];
   eventId: number;
   type: number;
+  displayOrder?: number;
 }
 
 export const MarketComponent: FunctionComponent<MarketProps> = ({
@@ -37,6 +38,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
   marketId,
   eventId,
   type,
+  displayOrder,
 }) => {
   const { isBuilding, isMobile, storeState } = useSportsbookStore();
   const [isCollapsed, setIsCollapsed] = useState(Collapsed);
@@ -105,7 +107,7 @@ export const MarketComponent: FunctionComponent<MarketProps> = ({
     <div
       key={`market-component-${marketIds.join("_")}-${eventId}`}
       className="flex flex-col w-full rounded-[12px] border bg-[var(--sub-element-color)] text-[var(--text-basic-color)] border-[var(--border-color)]"
-      style={{ order: type }}
+      style={{ order: displayOrder ?? type }}
     >
       <div className={`flex flex-col w-full justify-center rounded-[8px] p-3`}>
         <div

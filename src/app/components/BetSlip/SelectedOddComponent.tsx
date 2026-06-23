@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { computed } from "@preact/signals";
 import { SelectedOddType } from "@/shared/utils/bet";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
@@ -21,6 +21,11 @@ import {
   formatCurrency,
   getCurrencySymbol,
 } from "@/shared/utils/formatters";
+import {
+  clampStake,
+  effectiveMaxStake,
+  fetchMaxBetStake,
+} from "@/helpers/maxBetStake";
 
 interface SelectedOddComponentProps {
   bet: SelectedOddType;
@@ -43,6 +48,8 @@ export const SelectedOddComponent: FunctionComponent<
 }) => {
   const { currency } = useSportsbookStore();
   const { t } = useTranslate("betslip");
+  const [apiMaxBet, setApiMaxBet] = useState<number | null>(null);
+  const [maxBetLoading, setMaxBetLoading] = useState(false);
   const baseTheme = sportsbookStore.baseColorTheme.value;
   void sportsbookStore.storeState.value;
   void sportsbookStore.selectionsStoreState.value;
@@ -72,6 +79,10 @@ export const SelectedOddComponent: FunctionComponent<
   );
 
   useEffect(() => {
+    setApiMaxBet(null);
+  }, [bet.oddsId, bet.eventId, bet.marketId]);
+
+  useEffect(() => {
     if (!oddsUnavailable) return;
     if (
       !sportsbookStore.selectedOdds.value.some((o) => o.oddsId === bet.oddsId)
@@ -87,12 +98,40 @@ export const SelectedOddComponent: FunctionComponent<
   if (oddsUnavailable) return null;
 
   const stakeQuickButtons = [2, 10, 50];
+  const inputMaxStake = effectiveMaxStake(apiMaxBet, maxStake);
+
   const setStake = (value: number) => {
-    bet.amount = Math.max(0, value);
+    bet.amount = clampStake(value, apiMaxBet, maxStake);
     sportsbookStore.selectedOdds.value = [
       ...sportsbookStore.selectedOdds.value,
     ];
     rotateBetSlipIdempotencyKey();
+  };
+
+  const handleMaxClick = async () => {
+    setMaxBetLoading(true);
+    try {
+      const fetched = await fetchMaxBetStake(
+        "single",
+        [
+          {
+            eventId: bet.eventId,
+            marketId: bet.apiMarketId ?? bet.marketId,
+            selectionId: bet.apiSelectionId ?? Number(bet.oddsId),
+            odds: oddsValue.value,
+          },
+        ],
+        currency.value,
+      );
+      if (fetched != null) {
+        setApiMaxBet(fetched);
+        setStake(fetched);
+      } else {
+        setStake(maxStake ?? 0);
+      }
+    } finally {
+      setMaxBetLoading(false);
+    }
   };
 
   return (
@@ -186,7 +225,7 @@ export const SelectedOddComponent: FunctionComponent<
                 key={`${selectionStoreKey(bet.eventId, bet.marketId, Number(bet.oddsId))}-${forceUpdate}`}
                 type="number"
                 min={minStake}
-                max={maxStake}
+                max={inputMaxStake}
                 value={Number(bet.amount).toString() || ""}
                 onInput={(e) => {
                   const value = (e.target as HTMLInputElement).value;
@@ -216,8 +255,9 @@ export const SelectedOddComponent: FunctionComponent<
             ))}
             <button
               type="button"
-              onClick={() => setStake(maxStake ?? 0)}
-              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
+              onClick={() => void handleMaxClick()}
+              disabled={maxBetLoading || oddsValue.value === 0}
+              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50"
             >
               MAX
             </button>

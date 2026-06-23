@@ -3,6 +3,7 @@ import {
   BetLegType,
   betType,
   ProviderResponseType,
+  type SystemCombinationDisplay,
 } from "@/shared/utils/bet";
 import type {
   Competition,
@@ -42,22 +43,24 @@ function parseBetHistoryResponse(raw: unknown): BetHistoryApiResponse {
   return { total: 0, page: 1, pageSize: 20, data: [] };
 }
 
-/** One row from `GET /bets/history`. */
+/** One row from `GET /users/bets` — regular bet or system group. */
 export type BetHistoryApiRow = {
-  betId: string;
-  userId: string;
-  operatorId: string;
-  odds88BetId: string;
+  _id?: string;
+  betId?: string;
+  userId?: string;
+  operatorId?: string;
+  odds88BetId?: string;
   betType: string;
-  systemGroupId: string;
+  systemGroupId?: string;
+  systemType?: string;
   status: string;
-  stake: number;
-  potentialPayout: number;
+  stake?: number;
+  potentialPayout?: number;
   currency: string;
-  combinedOdds: number;
+  combinedOdds?: number;
   createdAt: string;
-  updatedAt: string;
-  selections: BetDetailSelection[];
+  updatedAt?: string;
+  selections?: BetDetailSelection[];
   description?: PlaceBetDescriptionItem[];
   /** Legacy list fields — prefer `description` when present. */
   sportName?: string;
@@ -76,6 +79,15 @@ export type BetHistoryApiRow = {
     availableAmount?: number | null;
   };
   cashoutAmount?: number | null;
+  availableCashoutAmount?: number | null;
+  /** System group fields */
+  totalStake?: number;
+  combinationCount?: number;
+  totalSelections?: number;
+  unitStake?: number | null;
+  systemCombinations?: SystemCombinationDisplay[];
+  subBetIds?: string[];
+  subBets?: BetHistoryApiRow[];
 };
 
 export type BetHistoryApiResponse = {
@@ -180,7 +192,38 @@ async function fetchHistoryPage(
 function mapBetTypeFromApi(api: string): betType {
   if (api === "single") return "single";
   if (api === "parlay") return "multi";
+  if (api === "system") return "system";
   return "multi";
+}
+
+function isSystemBetHistoryRow(row: BetHistoryApiRow): boolean {
+  return row.betType === "system" && Array.isArray(row.subBets);
+}
+
+function normalizeHistorySelections(
+  selections?: BetDetailSelection[],
+): BetDetailSelection[] {
+  if (!selections?.length) return [];
+  return selections.map((sel) => ({
+    ...sel,
+    status: sel.status ?? "accepted",
+    oddsAtPlacement:
+      sel.oddsAtPlacement ??
+      (sel as BetDetailSelection & { odds?: number }).odds ??
+      0,
+  }));
+}
+
+function resolveBetId(row: BetHistoryApiRow): string {
+  return row.betId ?? row._id ?? row.systemGroupId ?? "";
+}
+
+function descriptionMatchingSelections(
+  description: PlaceBetDescriptionItem[] | undefined,
+  selections: BetDetailSelection[],
+): PlaceBetDescriptionItem[] | undefined {
+  if (!description?.length || !selections.length) return description;
+  return description;
 }
 
 function summaryLegFromRow(
@@ -250,11 +293,16 @@ export function mapBetHistoryApiRowToBetItem(
       ? row.combinedOdds
       : 1;
 
-  const descriptionLegs = mapDescriptionToBetLegs(
+  const selections = normalizeHistorySelections(row.selections);
+  const selectionLegs = mapSelectionsToBetLegs(selections);
+  const scopedDescription = descriptionMatchingSelections(
     row.description,
-    row.selections,
+    selections,
   );
-  const selectionLegs = mapSelectionsToBetLegs(row.selections);
+  const descriptionLegs = mapDescriptionToBetLegs(
+    scopedDescription,
+    selections,
+  );
   const legs =
     descriptionLegs.length > 0
       ? descriptionLegs
@@ -273,14 +321,32 @@ export function mapBetHistoryApiRowToBetItem(
         ? Number(row.actualPayout)
         : null;
 
+  const apiCashoutAmount =
+    row.availableCashoutAmount ??
+    row.cashout?.availableAmount ??
+    (row.cashoutAmount != null && row.cashoutAmount > 0
+      ? row.cashoutAmount
+      : null);
+
+  const betId = resolveBetId(row);
+  const legCount = legs.length || row.selectionCount || 1;
+  const displayBetType =
+    row.betType === "system" && !row.subBets?.length
+      ? legCount <= 1
+        ? "single"
+        : "multi"
+      : mapBetTypeFromApi(row.betType);
+
   return {
-    betId: row.betId,
-    userId: "",
+    _id: row._id ?? betId,
+    betId,
+    userId: row.userId ?? "",
     startingOdds,
-    betType: mapBetTypeFromApi(row.betType),
+    betType: displayBetType,
     legs,
     details: legs,
-    systemType: "",
+    systemType: row.systemType ?? "",
+    systemGroupId: row.systemGroupId,
     remainingStake,
     autoCashoutSettings: null,
     stakeAmount: stake,
@@ -300,15 +366,87 @@ export function mapBetHistoryApiRowToBetItem(
       potentialPayout: row.potentialPayout,
       actualPayout: row.actualPayout,
       shortResult: row.shortResult,
-      selectionCount: row.selectionCount,
-      apiCashoutAmount:
-        row.cashout?.availableAmount ??
-        (row.cashoutAmount != null && row.cashoutAmount > 0
-          ? row.cashoutAmount
-          : null),
-      canCashout: row.cashout?.canCashout,
+      selectionCount: row.selectionCount ?? legCount,
+      apiCashoutAmount,
+      canCashout:
+        row.cashout?.canCashout ??
+        (apiCashoutAmount != null && apiCashoutAmount > 0),
     },
   };
+}
+
+function mapBetHistorySubBetToBetItem(
+  subBet: BetHistoryApiRow,
+  systemGroupId: string,
+): BetItemType {
+  const item = mapBetHistoryApiRowToBetItem({
+    ...subBet,
+    betId: subBet.betId ?? subBet._id,
+    stakeAmount: subBet.stakeAmount ?? subBet.stake,
+  });
+
+  const legCount = item.legs.length || 1;
+
+  return {
+    ...item,
+    betType: legCount <= 1 ? "single" : "multi",
+    systemGroupId,
+    isSystemGroup: false,
+    metadata: {
+      ...item.metadata,
+      isSystemSubBet: true,
+      selectionCount: legCount,
+    },
+  };
+}
+
+function mapSystemBetHistoryRowToBetItem(row: BetHistoryApiRow): BetItemType {
+  const systemGroupId =
+    row.systemGroupId ?? row._id ?? row.betId ?? "";
+  const subBets = (row.subBets ?? []).map((subBet) =>
+    mapBetHistorySubBetToBetItem(subBet, systemGroupId),
+  );
+  const totalStake = Number(row.totalStake) || 0;
+
+  return {
+    _id: row._id ?? systemGroupId,
+    betId: systemGroupId,
+    systemGroupId,
+    isSystemGroup: true,
+    subBets,
+    userId: row.userId ?? subBets[0]?.userId ?? "",
+    startingOdds: 0,
+    betType: "system",
+    legs: [],
+    details: [],
+    systemType: row.systemType ?? "",
+    remainingStake: totalStake,
+    autoCashoutSettings: null,
+    stakeAmount: totalStake,
+    status: row.status,
+    cashoutHistory: [],
+    cashoutAmount: null,
+    cashedOutAt: null,
+    placedAt: row.createdAt,
+    settledAt: row.settledAt ?? null,
+    providerResponse: emptyProvider,
+    metadata: {
+      currency: row.currency,
+      combinationCount: row.combinationCount,
+      totalSelections: row.totalSelections,
+      systemCombinations: row.systemCombinations,
+      unitStake: row.unitStake,
+      selectionCount: row.totalSelections ?? subBets.length,
+    },
+  };
+}
+
+/** Map one history API row — system groups or regular bets. */
+export function mapBetHistoryRowToBetItem(row: BetHistoryApiRow): BetItemType {
+  if (isSystemBetHistoryRow(row)) {
+    return mapSystemBetHistoryRowToBetItem(row);
+  }
+  return mapBetHistoryApiRowToBetItem(row);
 }
 
 export function filterBetsByTab(
@@ -353,7 +491,7 @@ async function fetchBetHistoryInternal(
     const respPage = body.page ?? page;
     const respLimit = body.pageSize ?? limit;
 
-    const bets = rows.map((row) => mapBetHistoryApiRowToBetItem(row));
+    const bets = rows.map((row) => mapBetHistoryRowToBetItem(row));
     const totalPages = Math.max(1, Math.ceil(total / Math.max(1, respLimit)));
 
     return {

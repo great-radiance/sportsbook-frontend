@@ -24,6 +24,7 @@ import {
 import { notify } from "@/shared/toast";
 import { useTranslate } from "@/shared/i18n/i18n";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
+import { betTypeDisplayKey } from "@/helpers/betDisplayType";
 import type { BetItemType, BetLegType } from "@/shared/utils/bet";
 
 /** Clear global cashout dialog state only (never call `hide()` here). */
@@ -205,7 +206,7 @@ export const CashoutDialog: FunctionComponent = () => {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-wide text-[var(--text-sub-color)]">
-                  {t(bet.betType)}
+                  {t(betTypeDisplayKey(bet))}
                 </p>
                 <p className="mt-0.5 text-[14px] font-semibold text-[var(--text-basic-color)]">
                   {t("dateAndId")}: {shortBetId}

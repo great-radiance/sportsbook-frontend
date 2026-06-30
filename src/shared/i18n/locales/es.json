@@ -121,7 +121,9 @@
     "points": "Puntos",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "Opciones alternativas",
+    "showAll": "MOSTRAR TODO"
   },
   "betslip": {
     "removeAll": "Quitar todo",

@@ -121,7 +121,9 @@
     "outRight": "Genel",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "Alternatif Seçenekler",
+    "showAll": "TÜMÜNÜ GÖSTER"
   },
   "betslip": {
     "removeAll": "Tümünü Kaldır",

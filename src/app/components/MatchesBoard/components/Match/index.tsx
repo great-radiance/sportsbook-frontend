@@ -24,27 +24,9 @@ interface MatchProps {
 import { formatStartDate, formatStartTime } from "@/helpers/formatEventTime";
 import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
 import { MoneylineMatch } from "./MoneylineMatch";
+import { getCompetitorScore } from "@/helpers/scoreboardDisplay";
 
 export { formatStartDate, formatStartTime };
-
-/**
- * Read a competitor's score from the new scoreboard shape.
- * Position 1 = home (competitor index 0), 2 = away (competitor index 1).
- * Prefers `results[]` (explicit per-competitor) and falls back to the
- * `homeGameScore` / `awayGameScore` shortcut fields.
- */
-const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
-  if (!scoreboard) return 0;
-  const fromResults = scoreboard.results?.find(
-    (r: any) => r.competitorPosition === position,
-  )?.value;
-  const parsedResult = Number(fromResults);
-  if (Number.isFinite(parsedResult)) return parsedResult;
-  const fallback =
-    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
-  const parsedFallback = Number(fallback);
-  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
-};
 
 export const Match: FunctionComponent<MatchProps> = ({
   eventId,

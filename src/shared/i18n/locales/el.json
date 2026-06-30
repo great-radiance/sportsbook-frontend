@@ -121,7 +121,9 @@
     "outRight": "Νικητής διοργάνωσης",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "Εναλλακτικές επιλογές",
+    "showAll": "ΕΜΦΑΝΙΣΗ ΟΛΩΝ"
   },
   "betslip": {
     "removeAll": "Αφαίρεση όλων",

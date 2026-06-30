@@ -31,25 +31,11 @@ import {
   sortMarketsByMarketsRefOrder,
 } from "@/helpers/eventMarketGroups";
 import { cssOrderFromReferList, ensureLiveMarketOrder, ensureMarketOrder } from "@/helpers/referOrder";
-
-/**
- * Read a competitor's score from the scoreboard shape.
- * Position 1 = home (competitor index 0), 2 = away (competitor index 1).
- * Prefers `results[]` (explicit per-competitor) and falls back to the
- * `homeGameScore` / `awayGameScore` shortcut fields.
- */
-const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
-  if (!scoreboard) return 0;
-  const fromResults = scoreboard.results?.find(
-    (r: any) => r.competitorPosition === position,
-  )?.value;
-  const parsedResult = Number(fromResults);
-  if (Number.isFinite(parsedResult)) return parsedResult;
-  const fallback =
-    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
-  const parsedFallback = Number(fallback);
-  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
-};
+import {
+  getCompetitorIncidentCount,
+  getCompetitorScore,
+  INCIDENT_TYPE,
+} from "@/helpers/scoreboardDisplay";
 
 export const MarketsBoard: FunctionComponent = () => {
   const { baseColorTheme, isMobile, isBuilding, storeState, marketOrderBySportState, liveMarketOrderBySportState } =
@@ -58,7 +44,7 @@ export const MarketsBoard: FunctionComponent = () => {
   const { t: tMarkets } = useTranslate("markets");
   const { t: tAlt } = useTranslate("alt");
   const [allCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(1);
   const [showSearch, setShowSearch] = useState(false);
   const { pageName, sportName, eventId } = useRouteParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,8 +78,13 @@ export const MarketsBoard: FunctionComponent = () => {
   const poolMarkets = isBuilding.value ? betBuilderMarkets : markets;
 
   const groupTabs = useMemo(
-    () => collectMarketGroupTabs(eventData?.marketRef, poolMarkets),
-    [eventData?.marketRef, poolMarkets],
+    () =>
+      collectMarketGroupTabs(
+        eventData?.marketRef,
+        poolMarkets,
+        eventData?.mainMarketTypes,
+      ),
+    [eventData?.marketRef, eventData?.mainMarketTypes, poolMarkets],
   );
 
   const marketsForActiveTab = useMemo(() => {
@@ -102,10 +93,17 @@ export const MarketsBoard: FunctionComponent = () => {
         poolMarkets,
         eventData?.marketRef,
         groupTabs[activeTab - 1].id,
+        eventData?.mainMarketTypes,
       );
     }
     return sortMarketsByMarketsRefOrder(poolMarkets, eventData?.marketRef);
-  }, [poolMarkets, activeTab, groupTabs, eventData?.marketRef]);
+  }, [
+    poolMarkets,
+    activeTab,
+    groupTabs,
+    eventData?.marketRef,
+    eventData?.mainMarketTypes,
+  ]);
 
   const mergedMarkets = useMemo(
     () => groupMarketsByNameAndType(marketsForActiveTab),
@@ -130,6 +128,36 @@ export const MarketsBoard: FunctionComponent = () => {
   const scoreboard = eventData?.scoreboard;
   const homeGoals = getCompetitorScore(scoreboard, 1);
   const awayGoals = getCompetitorScore(scoreboard, 2);
+  const homeYellowCards = getCompetitorIncidentCount(
+    scoreboard,
+    INCIDENT_TYPE.YellowCard,
+    1,
+  );
+  const awayYellowCards = getCompetitorIncidentCount(
+    scoreboard,
+    INCIDENT_TYPE.YellowCard,
+    2,
+  );
+  const homeRedCards = getCompetitorIncidentCount(
+    scoreboard,
+    INCIDENT_TYPE.RedCard,
+    1,
+  );
+  const awayRedCards = getCompetitorIncidentCount(
+    scoreboard,
+    INCIDENT_TYPE.RedCard,
+    2,
+  );
+  const homeCorners = getCompetitorIncidentCount(
+    scoreboard,
+    INCIDENT_TYPE.Corners,
+    1,
+  );
+  const awayCorners = getCompetitorIncidentCount(
+    scoreboard,
+    INCIDENT_TYPE.Corners,
+    2,
+  );
 
   const statusDescription = eventData?.statusDescription ?? "";
   const isFinished = statusDescription === "Finished";
@@ -171,20 +199,18 @@ export const MarketsBoard: FunctionComponent = () => {
   }, [sportName, eventId]);
 
   useEffect(() => {
-    setActiveTab(0);
+    setActiveTab(1);
   }, [eventId]);
 
   useEffect(() => {
-    if (activeTab > 0 && activeTab > groupTabs.length) {
-      setActiveTab(0);
+    if (activeTab !== 1 && activeTab > groupTabs.length && groupTabs.length > 0) {
+      setActiveTab(1);
+      return;
     }
-  }, [activeTab, groupTabs.length, isBuilding.value]);
-
-  useEffect(() => {
-    if (isBuilding.value && activeTab !== 0) {
-      setActiveTab(0);
+    if (groupTabs.length > 0) {
+      setActiveTab(1);
     }
-  }, [isBuilding.value]);
+  }, [groupTabs.length, isBuilding.value, eventId]);
 
   useEffect(() => {
     if (!searchQuery) {
@@ -264,23 +290,26 @@ export const MarketsBoard: FunctionComponent = () => {
             {pageName === "live" && sportName === "Soccer" && (
               <>
                 <div className="flex w-full bg-white/20 justify-center h-[1px]" />
-                <div className="flex w-[448px] gap-8 items-center justify-center">
+                <div className="flex w-full max-w-[448px] gap-6 items-center justify-center">
                   <div className="flex items-center gap-2">
-                    <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/yellow-card.png`}
-                    />
+                    <span className="w-[12px] h-[16px] rounded-[3px] bg-yellow-500"></span>
                     <span className="text-[14px]">
-                      {(scoreboard as any)?.yellows?.h ?? 0} -{" "}
-                      {(scoreboard as any)?.yellows?.g ?? 0}
+                      {homeYellowCards} - {awayYellowCards}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <img
                       src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/corner.png`}
+                      alt=""
                     />
                     <span className="text-[14px]">
-                      {(scoreboard as any)?.corners?.h ?? 0} -{" "}
-                      {(scoreboard as any)?.corners?.g ?? 0}
+                      {homeCorners} - {awayCorners}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-[12px] h-[16px] rounded-[3px] bg-red-500"></span>
+                    <span className="text-[14px]">
+                      {homeRedCards} - {awayRedCards}
                     </span>
                   </div>
                 </div>
@@ -328,19 +357,7 @@ export const MarketsBoard: FunctionComponent = () => {
               <div className="flex items-center w-full min-w-0 gap-2 bg-[var(--sub-element-color)] rounded-lg px-2 py-1">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <HorizontalTabs>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab(0)}
-                      className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
-                        activeTab === 0
-                          ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
-                          : ""
-                      }`}
-                    >
-                      <span className="text-[14px] leading-[36px]">
-                        {tMarkets("all")}
-                      </span>
-                    </button>
+                   
                     {groupTabs.map((group, index) => (
                       <button
                         key={group.id}
@@ -357,6 +374,19 @@ export const MarketsBoard: FunctionComponent = () => {
                         </span>
                       </button>
                     ))}
+                     <button
+                      type="button"
+                      onClick={() => setActiveTab(0)}
+                      className={`flex items-baseline gap-0 px-3 h-9 shrink-0 transition-colors rounded-full ${
+                        activeTab === 0
+                          ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
+                          : ""
+                      }`}
+                    >
+                      <span className="text-[14px] leading-[36px]">
+                        {tMarkets("all")}
+                      </span>
+                    </button>
                   </HorizontalTabs>
                 </div>
                 <div className="flex items-center gap-2 h-9 shrink-0 pl-2 border-l border-[var(--primary-border-color)]">

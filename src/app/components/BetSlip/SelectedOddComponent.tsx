@@ -24,7 +24,6 @@ import {
 import {
   clampStake,
   effectiveMaxStake,
-  fetchMaxBetStake,
 } from "@/helpers/maxBetStake";
 
 interface SelectedOddComponentProps {
@@ -35,6 +34,7 @@ interface SelectedOddComponentProps {
   setForceUpdate: (updater: (prev: number) => number) => void;
   minStake?: number;
   maxStake?: number;
+  fetchMaxStake?: () => Promise<number | null>;
 }
 
 export const SelectedOddComponent: FunctionComponent<
@@ -43,8 +43,10 @@ export const SelectedOddComponent: FunctionComponent<
   bet,
   forceUpdate,
   selectedBetType,
+  setForceUpdate,
   minStake,
   maxStake,
+  fetchMaxStake,
 }) => {
   const { currency } = useSportsbookStore();
   const { t } = useTranslate("betslip");
@@ -109,23 +111,14 @@ export const SelectedOddComponent: FunctionComponent<
   };
 
   const handleMaxClick = async () => {
+    if (!fetchMaxStake) return;
     setMaxBetLoading(true);
     try {
-      const fetched = await fetchMaxBetStake(
-        "single",
-        [
-          {
-            eventId: bet.eventId,
-            marketId: bet.apiMarketId ?? bet.marketId,
-            selectionId: bet.apiSelectionId ?? Number(bet.oddsId),
-            odds: oddsValue.value,
-          },
-        ],
-        currency.value,
-      );
+      const fetched = await fetchMaxStake();
       if (fetched != null) {
         setApiMaxBet(fetched);
         setStake(fetched);
+        setForceUpdate((prev) => prev + 1);
       } else {
         setStake(maxStake ?? 0);
       }
@@ -247,7 +240,7 @@ export const SelectedOddComponent: FunctionComponent<
               <button
                 key={value}
                 type="button"
-                onClick={() => setStake(value)}
+                onClick={() => setStake(bet.amount + value)}
                 className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
               >
                 +{value}
@@ -256,8 +249,10 @@ export const SelectedOddComponent: FunctionComponent<
             <button
               type="button"
               onClick={() => void handleMaxClick()}
-              disabled={maxBetLoading || oddsValue.value === 0}
-              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50"
+              disabled={
+                maxBetLoading || oddsValue.value === 0 || !fetchMaxStake
+              }
+              className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               MAX
             </button>

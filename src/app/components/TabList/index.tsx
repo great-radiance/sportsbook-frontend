@@ -7,6 +7,7 @@ import { useRouteParams } from "@/hooks/useRotueParams";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { getAppConfig, setAppConfig } from "@/shared/config/appConfig";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
+import { openSportsbookSearchDialog } from "@/helpers/searchDialog";
 
 export const TabList: FunctionComponent = () => {
   const {
@@ -184,7 +185,11 @@ export const TabList: FunctionComponent = () => {
           className={`flex items-center justify-end h-full pr-3 text-[12px] text-[var(--text-basic-color)] uppercase ${isActive("search") ? "font-bold" : ""} transition-colors cursor-pointer`}
           onClick={(e) => {
             e.stopPropagation();
-            showSearchState.value = !showSearchState.value;
+            if (showSearchState.value) {
+              showSearchState.value = false;
+            } else {
+              openSportsbookSearchDialog();
+            }
           }}
         >
           <img

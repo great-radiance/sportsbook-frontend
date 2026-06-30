@@ -1,5 +1,5 @@
 import { FunctionComponent } from "preact";
-import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
+import { useEffect, useState, useCallback, useMemo, useRef } from "preact/hooks";
 import { useRouteParams } from "@/hooks/useRotueParams";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
@@ -16,11 +16,22 @@ import {
   sortUpcomingLeaguesBySidebar,
   type UpcomingLeagueEntry,
 } from "@/helpers/upcomingSportCatalog";
+import {
+  ensureLeagueOrder,
+  sortSidebarLeaguesByReferOrder,
+} from "@/helpers/referOrder";
+import type { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 
 export const SportPage: FunctionComponent = () => {
-  const { baseColorTheme, summarySportsState, loadedSidebarState } =
-    useSportsbookStore();
+  const {
+    baseColorTheme,
+    summarySportsState,
+    loadedSidebarState,
+    leagueOrderBySportState,
+  } = useSportsbookStore();
   const { sportName, sportIdParam, regionName } = useRouteParams();
+  const sportId = Number(sportIdParam) || 0;
+  const userSelectedLeagueRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>("");
   const baseTheme = baseColorTheme.value;
@@ -39,6 +50,10 @@ export const SportPage: FunctionComponent = () => {
   );
   const [upcomingLoading, setUpcomingLoading] = useState(false);
 
+  useEffect(() => {
+    if (sportId) void ensureLeagueOrder(sportId);
+  }, [sportId]);
+
   const tabStyle = (tab: string) =>
     `flex-1 py-2 text-center text-[10px] font-medium transition ${
       activeTab === tab
@@ -54,34 +69,49 @@ export const SportPage: FunctionComponent = () => {
   const featuredLeaguesOfSport = useMemo(
     () =>
       sportNode?.children?.filter(
-        (child) => child.type === "league" || child.type === "combined_league",
+        (child): child is sidebarNode =>
+          child.type === "league" || child.type === "combined_league",
       ) ?? [],
     [sportNode],
   );
+
+  const orderedFeaturedLeagues = useMemo(
+    () =>
+      sortSidebarLeaguesByReferOrder(
+        featuredLeaguesOfSport,
+        leagueOrderBySportState.value[sportId],
+      ),
+    [featuredLeaguesOfSport, leagueOrderBySportState.value, sportId],
+  );
+
+  useEffect(() => {
+    userSelectedLeagueRef.current = false;
+  }, [sportIdParam]);
 
   useEffect(() => {
     if (regionName === "upcoming") {
       setActiveTab("upcoming");
       return;
     }
-    if (featuredLeaguesOfSport.length === 0) {
+    if (orderedFeaturedLeagues.length === 0) {
       setActiveTab("competitions");
       setSelectedLeagueKey("");
       return;
     }
     setActiveTab("highlights");
-    setSelectedLeagueKey((prev) => {
-      if (prev && featuredLeaguesOfSport.some((league) => league.id === prev)) {
-        return prev;
-      }
-      return featuredLeaguesOfSport[0].id;
-    });
-  }, [featuredLeaguesOfSport, regionName]);
+    if (userSelectedLeagueRef.current) return;
+    setSelectedLeagueKey(orderedFeaturedLeagues[0]?.id ?? "");
+  }, [orderedFeaturedLeagues, regionName]);
+
+  const handleSelectLeague = useCallback((leagueId: string) => {
+    userSelectedLeagueRef.current = true;
+    setSelectedLeagueKey(leagueId);
+  }, []);
 
   const selectedLeagueNode = useMemo(
     () =>
-      featuredLeaguesOfSport.find((child) => child.id === selectedLeagueKey),
-    [selectedLeagueKey, featuredLeaguesOfSport],
+      orderedFeaturedLeagues.find((child) => child.id === selectedLeagueKey),
+    [selectedLeagueKey, orderedFeaturedLeagues],
   );
 
   const fetchLeagueMatches = useCallback(async () => {
@@ -181,9 +211,9 @@ export const SportPage: FunctionComponent = () => {
       case "highlights":
         return (
           <HighlightRender
-            leagueEntries={featuredLeaguesOfSport}
+            leagueEntries={orderedFeaturedLeagues}
             selectedLeagueKey={selectedLeagueKey}
-            setSelectedLeagueKey={setSelectedLeagueKey}
+            setSelectedLeagueKey={handleSelectLeague}
             sportId={Number(sportIdParam)}
             sportName={sportName}
             loading={loading}
@@ -242,7 +272,7 @@ export const SportPage: FunctionComponent = () => {
         </div>
       </section>
       <div className="flex bg-[var(--sub-element-secondary)] mt-5 w-full rounded-full p-1 mb-6">
-        {featuredLeaguesOfSport.length > 0 && (
+        {orderedFeaturedLeagues.length > 0 && (
           <button
             type="button"
             onClick={() => setActiveTab("highlights")}

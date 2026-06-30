@@ -121,7 +121,9 @@
     "outRight": "Vainqueur final",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "Options alternatives",
+    "showAll": "TOUT AFFICHER"
   },
   "betslip": {
     "removeAll": "Tout supprimer",

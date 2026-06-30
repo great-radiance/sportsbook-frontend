@@ -33,6 +33,19 @@ export function leagueNodeNumericId(node: sidebarNode): number | null {
   return null;
 }
 
+/** Same ordering as highlight league tabs (`cssOrderFromReferList` + name tie-break). */
+export function sortSidebarLeaguesByReferOrder(
+  leagues: sidebarNode[],
+  leagueOrder: number[] | undefined,
+): sidebarNode[] {
+  return [...leagues].sort((a, b) => {
+    const orderA = cssOrderFromReferList(leagueOrder, leagueNodeNumericId(a));
+    const orderB = cssOrderFromReferList(leagueOrder, leagueNodeNumericId(b));
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.name ?? "").localeCompare(b.name ?? "");
+  });
+}
+
 function hasStoredOrder(
   store: Record<number, number[]>,
   sportId: number,

@@ -117,6 +117,7 @@ export type SportsbookContextType = {
   currentCompactState: Signal<number | undefined>;
   isOpenedSidebar: Signal<boolean>;
   showSearchState: Signal<boolean>;
+  searchOpenSuppressedUntil: Signal<number>;
   showSearch: Signal<boolean>;
 
   // Routing
@@ -283,6 +284,7 @@ export function createSportsbookStore(): SportsbookContextType {
     currentCompactState: signal<number>(),
     isOpenedSidebar: signal(false),
     showSearchState: signal(false),
+    searchOpenSuppressedUntil: signal(0),
     showSearch: signal(false),
 
     routeState,

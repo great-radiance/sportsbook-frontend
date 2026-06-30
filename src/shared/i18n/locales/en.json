@@ -121,6 +121,8 @@
     "points": "Points",
     "outRight": "Outright",
     "betBuilderShortLabel": "BB",
+    "alternativeOptions": "Alternative Options",
+    "showAll": "SHOW ALL",
     "noMarketsAvailable": "No markets available for this event",
     "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
   },
@@ -216,7 +218,7 @@
     "selection": "Selection",
     "leg": "Leg",
     "accept-of-odds-changes": "Accept of odds' changes",
-    "accept-of-odds-changes-info": "When enabled, your bet will accept any odds change before placement.",
+    "accept-of-odds-changes-info": "Choose whether to reject odds changes, accept higher odds only, or accept any odds change before placement.",
     "any-odds-change": "Any odds' change",
     "higher-odds": "Higher odds",
     "higherOdds": "Higher odds",

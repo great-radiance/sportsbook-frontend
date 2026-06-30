@@ -105,6 +105,7 @@ export type EncodedSnapshot = [
   betCancellations: DeltaBetCancellation[] | null | undefined,
   marketRef: EncodedMarketRef[],
   marketOrder: number[],
+  mainMarketTypes?: number[],
 ];
 
 type DecodedMarketRef = {
@@ -122,6 +123,7 @@ export type DecodedSnapshot = {
   betCancellations: DeltaBetCancellation[] | null | undefined;
   marketRef: DecodedMarketRef[];
   marketOrder: number[];
+  mainMarketTypes: number[];
 };
 
 export function decodeSnapshot(encoded: EncodedSnapshot): DecodedSnapshot {
@@ -132,6 +134,7 @@ export function decodeSnapshot(encoded: EncodedSnapshot): DecodedSnapshot {
     betCancellations,
     encodedMarketRef,
     marketOrder,
+    mainMarketTypes = [],
   ] = encoded;
   const [
     id,
@@ -247,5 +250,6 @@ export function decodeSnapshot(encoded: EncodedSnapshot): DecodedSnapshot {
     betCancellations,
     marketRef,
     marketOrder,
+    mainMarketTypes,
   };
 }

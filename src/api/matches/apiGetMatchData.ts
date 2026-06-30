@@ -4,6 +4,7 @@ import {
   type DecodedSnapshot,
   type EncodedSnapshot,
 } from "@/helpers/snapshot.codec";
+import { enrichMarketRefWithMainTypes } from "@/helpers/eventMarketGroups";
 
 export type MarketRef = {
   id: number;
@@ -82,15 +83,24 @@ export type MatchDataResponse = {
   scoreboard?: any;
   /** Market type metadata and group tabs for the event detail UI. */
   marketRef?: MarketRef[];
+  /** Market type ids for the Main/Popular tab (from snapshot). */
+  mainMarketTypes?: number[];
 };
 
 export function toMatchDataResponse(
   snapshot: Pick<DecodedSnapshot, "eventInfo" | "markets"> & {
+    mainMarketTypes?: DecodedSnapshot["mainMarketTypes"];
     scoreboard?: DecodedSnapshot["scoreboard"];
     marketRef?: DecodedSnapshot["marketRef"];
   },
 ): MatchDataResponse {
-  const { eventInfo, markets, scoreboard, marketRef = [] } = snapshot;
+  const {
+    eventInfo,
+    markets,
+    scoreboard,
+    marketRef = [],
+    mainMarketTypes = [],
+  } = snapshot;
   const competitors = eventInfo.competitors ?? [];
   const sportId = eventInfo.sport?.id ?? 0;
   const eventName = (eventInfo as DecodedSnapshot["eventInfo"] & { name?: string }).name;
@@ -158,19 +168,23 @@ export function toMatchDataResponse(
       isBetBuilderSupported: market.isBetBuilderSupported ?? false,
     })),
     scoreboard,
-    marketRef: marketRef.map((ref) => ({
-      id: ref.id,
-      name: ref.name,
-      groups: ref.groups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        order: group.order,
+    marketRef: enrichMarketRefWithMainTypes(
+      marketRef.map((ref) => ({
+        id: ref.id,
+        name: ref.name,
+        groups: ref.groups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          order: group.order,
+          sportId,
+        })),
+        isMultilineMarket: ref.isMultilineMarket,
+        isFreeText: ref.isFreeText,
         sportId,
       })),
-      isMultilineMarket: ref.isMultilineMarket,
-      isFreeText: ref.isFreeText,
-      sportId,
-    })),
+      mainMarketTypes,
+    ),
+    mainMarketTypes,
   };
 }
 

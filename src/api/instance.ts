@@ -10,6 +10,12 @@ export const instance = axios.create({
  * Required: `x-user-id`, `x-operator-id`. Optional: `x-currency`.
  * No `Authorization` header for platform player routes.
  */
+/** True when `x-user-id` is set on the sportsbook axios instance. */
+export function hasPlayerSessionUserId(): boolean {
+  const userId = instance.defaults.headers["x-user-id"];
+  return typeof userId === "string" && userId.trim() !== "";
+}
+
 export function setLanguageId(languageId: string | null | undefined) {
   if (languageId) {
     instance.defaults.headers["accept-language"] = languageId;

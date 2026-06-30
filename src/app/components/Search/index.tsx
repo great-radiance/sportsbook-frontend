@@ -12,12 +12,16 @@ import debounce from "lodash.debounce";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { baseUrl, BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
+import {
+  closeSportsbookSearchDialog,
+  openSportsbookSearchDialog,
+} from "@/helpers/searchDialog";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./style.css";
 import { apiSearchEvents } from "@/api/events/apiSearchEvents";
+import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import type { SearchEventRow } from "@/types/searchEvent";
 import { searchRowPrematchPath } from "@/helpers/mapGuideSearchEvent";
-import { PopularMatches } from "../Specials/PopularMatches";
 
 const PAGE_SIZE = 5;
 
@@ -48,6 +52,26 @@ function formatTime(ts: number): string {
   return `${hours}:${minutes}`;
 }
 
+function matchDataToSearchRow(match: MatchDataResponse): SearchEventRow {
+  const info = match.eventInfo;
+  const competitors = info.competitors ?? [];
+  const startRaw = info.startTime;
+  const startTime = startRaw ? new Date(startRaw).getTime() : 0;
+
+  return {
+    eventId: info.id,
+    sportName: info.sport?.name ?? "",
+    sportId: info.sport?.id ?? 0,
+    regionName: info.country?.name ?? "",
+    regionId: info.country?.id ?? 0,
+    leagueName: info.competition?.name ?? "",
+    leagueId: info.competition?.id ?? 0,
+    participants: [competitors[0]?.name ?? "", competitors[1]?.name ?? ""],
+    startTime: Number.isFinite(startTime) ? startTime : 0,
+    markets: [],
+  };
+}
+
 export const Search: FunctionComponent = () => {
   const {
     showSearchState,
@@ -55,6 +79,8 @@ export const Search: FunctionComponent = () => {
     isOpenedSidebar,
     baseColorTheme,
     isMobile,
+    popularMatchesState,
+    summarySportsState,
   } = useSportsbookStore();
   const baseTheme = baseColorTheme.value;
   const [, setLocation] = useLocation();
@@ -65,6 +91,7 @@ export const Search: FunctionComponent = () => {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [selectedSport, setSelectedSport] = useState<string>("All");
+  const [popularSelectedSport, setPopularSelectedSport] = useState<string>("All");
   const [eventsExpanded, setEventsExpanded] = useState<boolean>(true);
   const [marketsExpanded, setMarketsExpanded] = useState<boolean>(true);
   const [visibleEventsCount, setVisibleEventsCount] =
@@ -123,6 +150,7 @@ export const Search: FunctionComponent = () => {
       setHasMore(false);
       setLoading(false);
       setSelectedSport("All");
+      setPopularSelectedSport("All");
       setEventsExpanded(true);
       setMarketsExpanded(true);
       setVisibleEventsCount(PAGE_SIZE);
@@ -141,6 +169,44 @@ export const Search: FunctionComponent = () => {
 
   const isQueryActive = searchQuery.trim().length >= 2;
   const queryTokens = useMemo(() => getQueryTokens(searchQuery), [searchQuery]);
+
+  const popularMatches = popularMatchesState.value;
+  const summarySports = summarySportsState.value;
+
+  const popularSportFilterList = useMemo(() => {
+    const popularSportNames = new Set<string>();
+    for (const match of popularMatches) {
+      const name = match.eventInfo.sport?.name?.trim();
+      if (name) popularSportNames.add(name);
+    }
+
+    const orderedFromSummary = summarySports
+      .filter((node) => node.type === "sport" || node.type === "combined_sport")
+      .map((node) => node.name?.trim())
+      .filter((name): name is string => Boolean(name && popularSportNames.has(name)));
+
+    const missing = [...popularSportNames].filter(
+      (name) => !orderedFromSummary.includes(name),
+    );
+
+    return ["All", ...orderedFromSummary, ...missing];
+  }, [popularMatches, summarySports]);
+
+  const popularMatchesForSport = useMemo(() => {
+    if (popularSelectedSport === "All") return popularMatches;
+    return popularMatches.filter(
+      (match) => match.eventInfo.sport?.name === popularSelectedSport,
+    );
+  }, [popularMatches, popularSelectedSport]);
+
+  const navigateToSearchRow = useCallback(
+    (e: MouseEvent, row: SearchEventRow) => {
+      linkButtonOnClick(e, searchRowPrematchPath(row), setLocation);
+      closeSportsbookSearchDialog();
+      dialogRef.current?.hide();
+    },
+    [setLocation],
+  );
 
   const highlightText = useCallback(
     (text: string) => {
@@ -300,11 +366,11 @@ export const Search: FunctionComponent = () => {
     }
 
     const handleRequestClose = () => {
-      showSearchState.value = false;
+      closeSportsbookSearchDialog();
     };
 
     const handleAfterHide = () => {
-      showSearchState.value = false;
+      closeSportsbookSearchDialog();
     };
 
     dialog.addEventListener("sl-request-close", handleRequestClose);
@@ -321,9 +387,9 @@ export const Search: FunctionComponent = () => {
       <sl-dialog
         ref={dialogRef}
         open={showSearchState.value}
-        onSlRequestClose={() => (showSearchState.value = false)}
-        onSlAfterHide={() => (showSearchState.value = false)}
-        onSlClose={() => (showSearchState.value = false)}
+        onSlRequestClose={() => closeSportsbookSearchDialog()}
+        onSlAfterHide={() => closeSportsbookSearchDialog()}
+        onSlClose={() => closeSportsbookSearchDialog()}
         className="searchDialog mx-auto my-auto rounded-[24px] pb-4 flex flex-col"
       >
         <div className="flex flex-col gap-2 flex-1 text-[var(--text-basic-color)]">
@@ -347,6 +413,25 @@ export const Search: FunctionComponent = () => {
             </div>
           </div>
 
+          {!isQueryActive && popularSportFilterList.length > 1 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {popularSportFilterList.map((sport) => (
+                <button
+                  key={`popular-${sport}`}
+                  type="button"
+                  onClick={() => setPopularSelectedSport(sport)}
+                  className={`px-3 py-1.5 rounded-full text-[14px] font-medium transition-all ${
+                    popularSelectedSport === sport
+                      ? "bg-[var(--highlight-background)] text-[var(--text-basic-color)]"
+                      : "bg-[var(--sub-element-color)] text-[var(--text-basic-color)] hover:bg-[var(--highlight-background)]"
+                  }`}
+                >
+                  {sport}
+                </button>
+              ))}
+            </div>
+          )}
+
           {isQueryActive && sportFilterList.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               {sportFilterList.map((sport) => (
@@ -367,7 +452,58 @@ export const Search: FunctionComponent = () => {
           )}
 
           <div className="flex-1 overflow-y-auto min-h-0 scrollbar-none">
-            {!isQueryActive ? null : loading ? ( // <PopularMatches />
+            {!isQueryActive ? (
+              <div className="flex w-full flex-col gap-1">
+                <div className="flex items-center justify-between bg-[var(--sub-element-secondary)] px-3 py-2 rounded-[8px]">
+                  <h3 className="text-[14px] font-semibold">Popular Matches</h3>
+                  <span className="text-[12px] text-[var(--text-sub-color)]">
+                    {popularMatchesForSport.length} matches
+                  </span>
+                </div>
+
+                {popularMatchesForSport.length === 0 ? (
+                  <div className="flex justify-center py-8 text-center text-[14px] text-[var(--text-sub-color)]">
+                    <p>No popular matches available.</p>
+                  </div>
+                ) : (
+                  popularMatchesForSport.map((match) => {
+                    const m = matchDataToSearchRow(match);
+                    const p1 = m.participants[0] ?? "";
+                    const p2 = m.participants[1] ?? "";
+                    const title = p1 && p2 ? `${p1} - ${p2}` : m.leagueName;
+
+                    return (
+                      <button
+                        key={`popular-${m.eventId}-${m.sportName}`}
+                        type="button"
+                        onClick={(e) => navigateToSearchRow(e, m)}
+                        className="flex items-start gap-2 w-full text-left rounded-lg p-3 hover:bg-[var(--highlight-background)] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] transition-colors"
+                      >
+                        <img
+                          src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/${m.sportId}.svg`}
+                          onError={(e) => {
+                            e.currentTarget.src = `${BASE_ASSET_PUBLIC_URL}/stoiximan/sportIconsById/globe.svg`;
+                          }}
+                          alt=""
+                          className={`w-5 h-5 object-contain flex-shrink-0 mt-0.5 ${baseTheme === "dark" ? "invert" : ""}`}
+                        />
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-[12px] text-[var(--text-sub-color)] truncate">
+                            {m.leagueName}
+                          </span>
+                          <span className="text-[14px] font-medium text-[var(--text-basic-color)] truncate mt-0.5">
+                            {title}
+                          </span>
+                          <span className="text-[12px] text-[var(--text-sub-color)] mt-0.5">
+                            {formatDate(m.startTime)}, {formatTime(m.startTime)}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            ) : loading ? (
               <div className="flex justify-center py-8 text-[14px] text-[var(--text-sub-color)]">
                 Searching…
               </div>
@@ -414,10 +550,8 @@ export const Search: FunctionComponent = () => {
                               searchRowPrematchPath(m),
                               setLocation,
                             );
-                            showSearchState.value = false;
+                            closeSportsbookSearchDialog();
                             dialogRef.current?.hide();
-                            isOpenedMyBet.value = isMobile.value ? false : true;
-                            isOpenedSidebar.value = false;
                           }}
                           className="flex items-start gap-2 w-full text-left rounded-lg p-3 hover:bg-[var(--highlight-background)] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] transition-colors"
                         >
@@ -531,12 +665,8 @@ export const Search: FunctionComponent = () => {
                                   }),
                                   setLocation,
                                 );
-                                showSearchState.value = false;
+                                closeSportsbookSearchDialog();
                                 dialogRef.current?.hide();
-                                isOpenedMyBet.value = isMobile.value
-                                  ? false
-                                  : true;
-                                isOpenedSidebar.value = false;
                               }}
                               className="flex items-start gap-2 w-full text-left rounded-lg p-3 hover:bg-[var(--highlight-background)] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] transition-colors"
                             >

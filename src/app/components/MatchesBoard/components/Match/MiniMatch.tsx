@@ -12,26 +12,13 @@ import {
 } from "@/types/typesForSocket.ts/tEventModel";
 import { MiniMatchLoader } from "@/app/components/Loading";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
+import { getCompetitorScore } from "@/helpers/scoreboardDisplay";
 
 interface MiniMatchProps {
   selectedEventId: number;
   marketSlug: string;
   loading?: boolean;
 }
-
-/** Pull a competitor's score from the new `scoreboard` payload. */
-const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
-  if (!scoreboard) return 0;
-  const fromResults = scoreboard.results?.find(
-    (r: any) => r.competitorPosition === position,
-  )?.value;
-  const parsedResult = Number(fromResults);
-  if (Number.isFinite(parsedResult)) return parsedResult;
-  const fallback =
-    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
-  const parsedFallback = Number(fallback);
-  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
-};
 
 export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
   selectedEventId,

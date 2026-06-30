@@ -121,7 +121,9 @@
     "outRight": "Победитель",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "Альтернативные варианты",
+    "showAll": "ПОКАЗАТЬ ВСЕ"
   },
   "betslip": {
     "removeAll": "Удалить все",

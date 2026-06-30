@@ -1,6 +1,42 @@
-// import type { SidebarMarketRef } from "@/state/summarySports";
 import type { tMarketModel } from "@/types/typesForSocket.ts/tEventModel";
 import type { MarketRef } from "@/api/matches/apiGetMatchData";
+
+const MAIN_GROUP_NAME = "Main";
+
+type MarketRefGroup = MarketRef["groups"][number];
+
+function findMainGroup(
+  marketsRef: Pick<MarketRef, "groups">[] | null | undefined,
+): MarketRefGroup | undefined {
+  for (const ref of marketsRef ?? []) {
+    const main = ref.groups?.find((group) => group.name === MAIN_GROUP_NAME);
+    if (main) return main;
+  }
+  return undefined;
+}
+
+/** Attach the Main group to market-ref rows listed in `mainMarketTypes`. */
+export function enrichMarketRefWithMainTypes(
+  marketsRef: MarketRef[] | null | undefined,
+  mainMarketTypes: number[] | null | undefined,
+): MarketRef[] | undefined {
+  if (!marketsRef?.length || !mainMarketTypes?.length) {
+    return marketsRef ?? undefined;
+  }
+
+  const mainGroup = findMainGroup(marketsRef);
+  if (!mainGroup) return marketsRef;
+
+  const mainTypeSet = new Set(mainMarketTypes);
+  return marketsRef.map((ref) => {
+    if (!mainTypeSet.has(ref.id)) return ref;
+    if (ref.groups.some((group) => group.id === mainGroup.id)) return ref;
+    return {
+      ...ref,
+      groups: [...ref.groups, { ...mainGroup }],
+    };
+  });
+}
 
 export type EventMarketGroupTab = {
   id: number;
@@ -28,9 +64,16 @@ export function marketBelongsToGroup(
   market: tMarketModel,
   marketsRef: MarketRef[] | null | undefined,
   groupId: number,
+  mainMarketTypes?: number[] | null,
 ): boolean {
   const ref = marketsRef?.find((r) => r.id === market.type);
-  return ref?.groups?.some((g) => g.id === groupId) ?? false;
+  if (ref?.groups?.some((g) => g.id === groupId)) return true;
+
+  const mainGroup = findMainGroup(marketsRef);
+  if (mainGroup?.id === groupId && mainMarketTypes?.includes(market.type)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -41,6 +84,7 @@ export function marketBelongsToGroup(
 export function collectMarketGroupTabs(
   marketsRef: MarketRef[] | null | undefined,
   markets: tMarketModel[],
+  mainMarketTypes?: number[] | null,
 ): EventMarketGroupTab[] {
   const byId = new Map<number, EventMarketGroupTab>();
 
@@ -50,7 +94,7 @@ export function collectMarketGroupTabs(
       if (!existing) {
         byId.set(group.id, {
           id: group.id,
-          name: group.name,
+          name: group.name === "Main" ? "Popular" : group.name,
           order: group.order,
         });
       } else {
@@ -65,7 +109,9 @@ export function collectMarketGroupTabs(
         compareGroupOrder(a.order, b.order) || a.name.localeCompare(b.name),
     )
     .filter((tab) =>
-      markets.some((m) => marketBelongsToGroup(m, marketsRef, tab.id)),
+      markets.some((m) =>
+        marketBelongsToGroup(m, marketsRef, tab.id, mainMarketTypes),
+      ),
     );
 }
 
@@ -92,7 +138,6 @@ function sortKeyForMarketType(
       ? 0
       : Number.MAX_SAFE_INTEGER;
   return groupOrderRank(order) * 10_000 + refIndex;
-  return 0;
 }
 
 /** Order markets by `groups[].order` on their `marketsRef` entry, then ref index. */
@@ -108,16 +153,18 @@ export function sortMarketsByMarketsRefOrder(
       sortKeyForMarketType(a.type, marketsRef, groupId) -
       sortKeyForMarketType(b.type, marketsRef, groupId),
   );
-  return [];
 }
 
 export function filterMarketsByGroupTab(
   markets: tMarketModel[],
   marketsRef: MarketRef[] | null | undefined,
   groupId: number,
+  mainMarketTypes?: number[] | null,
 ): tMarketModel[] {
   return sortMarketsByMarketsRefOrder(
-    markets.filter((m) => marketBelongsToGroup(m, marketsRef, groupId)),
+    markets.filter((m) =>
+      marketBelongsToGroup(m, marketsRef, groupId, mainMarketTypes),
+    ),
     marketsRef,
     groupId,
   );

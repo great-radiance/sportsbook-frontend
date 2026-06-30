@@ -121,7 +121,9 @@
     "outRight": "برنده نهایی",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "گزینه‌های جایگزین",
+    "showAll": "نمایش همه"
   },
   "betslip": {
     "removeAll": "حذف همه",

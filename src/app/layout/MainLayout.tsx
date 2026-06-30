@@ -85,8 +85,6 @@ export const MainLayout: FunctionComponent<MainLayoutProps> = ({
       eventIds,
     });
 
-    console.log("subscribe", socket.id, eventIds);
-
     return () => {
       socket.emit("unsubscribe", {
         eventIds,

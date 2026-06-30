@@ -1,5 +1,5 @@
 import { FunctionComponent } from "preact";
-import { useState, useMemo } from "preact/hooks";
+import { useState, useMemo, useEffect, useRef } from "preact/hooks";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
 import { useLocation } from "wouter-preact";
 import {
@@ -39,8 +39,13 @@ function buildPrematchPath(
 export const SpecialNavigation: FunctionComponent<
   SpecialNavigationProps
 > = () => {
-  const { isMobile, isOpenedSidebar, baseColorTheme, summarySportsState } =
-    useSportsbookStore();
+  const {
+    isMobile,
+    isOpenedSidebar,
+    baseColorTheme,
+    summarySportsState,
+    popularMatchesState,
+  } = useSportsbookStore();
   const [, setLocation] = useLocation();
   const { sportName } = useRouteParams();
   const { t: tCommon } = useTranslate("common");
@@ -54,7 +59,14 @@ export const SpecialNavigation: FunctionComponent<
   }, [summarySportsState.value]);
 
   const [itemExpanded, setItemExpanded] = useState<Record<string, boolean>>({});
+  const autoExpandedRef = useRef(false);
   const navigationItems = useSpecialNavigationItems();
+
+  useEffect(() => {
+    if (autoExpandedRef.current || popularMatchesState.value.length === 0) return;
+    autoExpandedRef.current = true;
+    setItemExpanded((prev) => ({ ...prev, competitions: true }));
+  }, [popularMatchesState.value.length]);
 
   const onNavigationItemClick = (item: SpecialNavigationItem) => {
     if (item.isExpandable) {
@@ -147,7 +159,8 @@ export const SpecialNavigation: FunctionComponent<
                       row.type === "combined_league"
                         ? "International"
                         : row.region?.name;
-                    const sportId = row.sport?.id;
+                    const sportId =
+                      row.type === "combined_league" ? 1 : row.sport?.id;
                     const sportName =
                       row.type === "combined_league"
                         ? "featured_leagues"

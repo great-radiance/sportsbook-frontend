@@ -47,7 +47,7 @@ export const StarPlayers: FunctionComponent = () => {
       </div>
 
       <div className="players-carousel relative w-full">
-        <HorizontalTabs>
+        <HorizontalTabs contentClassName="items-stretch">
           {players.map((player) => (
             <TopPlayerCard
               key={player.cardId}

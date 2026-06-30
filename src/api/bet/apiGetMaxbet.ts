@@ -1,5 +1,5 @@
 import { getAppConfig } from "@/shared/config/appConfig";
-import { instance } from "../instance";
+import { hasPlayerSessionUserId, instance } from "../instance";
 import type { PlaceBetSelectionPayload } from "./placeBet";
 
 export type MaxBetRequest = {
@@ -15,6 +15,10 @@ export type MaxBetResult = {
 export async function apiGetMaxBet(
   payload: MaxBetRequest,
 ): Promise<MaxBetResult | unknown> {
+  if (!hasPlayerSessionUserId()) {
+    return Promise.reject(new Error("Missing player session: x-user-id"));
+  }
+
   const response = await instance.post("users/bets/max-bet", {
     betType: payload.betType,
     currency: payload.currency ?? getAppConfig().currency,

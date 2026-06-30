@@ -1,5 +1,5 @@
 import { Fragment, FunctionComponent } from "preact";
-import { useEffect, useState, useCallback, useMemo } from "preact/hooks";
+import { useEffect, useState, useCallback, useMemo, useRef } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { Select, SelectItem } from "@/app/components/Select/index";
 import { useTranslate } from "@/shared/i18n/i18n";
@@ -118,9 +118,11 @@ const switchCategory = (
 };
 
 export const MatchesBoard: FunctionComponent = () => {
-  const { loadedSidebarState, summarySportsState } = useSportsbookStore();
+  const { loadedSidebarState, summarySportsState, storeState } =
+    useSportsbookStore();
   const [selectedCategory, setSelectedCategory] = useState<string>("Matches");
   const { t } = useTranslate("markets");
+  const { t: tCommon } = useTranslate("common");
   const {
     sportName,
     sportIdParam,
@@ -136,6 +138,7 @@ export const MatchesBoard: FunctionComponent = () => {
     pre: number[];
     outright: number[];
   }>({ pre: [], outright: [] });
+  const fetchGenerationRef = useRef(0);
   const sportId = Number(sportIdParam) || 0;
   const lang = getAppConfig().lang;
   const sportNode = useMemo(
@@ -204,6 +207,7 @@ export const MatchesBoard: FunctionComponent = () => {
       lang,
     );
   }, [
+    sportName,
     sportIdParam,
     regionName,
     regionIdParam,
@@ -236,7 +240,7 @@ export const MatchesBoard: FunctionComponent = () => {
     }
   }, [categories, selectedCategory, node?.id]);
 
-  const getMatchesBoard = useCallback(async () => {
+  const getMatchesBoard = useCallback(async (generation: number) => {
     const hasNestedLeagueRoute = Boolean(
       sportIdParam && regionIdParam && leagueIdParam,
     );
@@ -251,6 +255,7 @@ export const MatchesBoard: FunctionComponent = () => {
       return;
     try {
       const res = await apiGetMatchesByNode(node?.id || "");
+      if (generation !== fetchGenerationRef.current) return;
       const newEvents = res?.pre?.sort(
         (a, b) =>
           new Date(a.eventInfo.startTime).getTime() -
@@ -274,12 +279,13 @@ export const MatchesBoard: FunctionComponent = () => {
       for (const event of newOutrightEvents) {
         storeEvent(event);
       }
+      storeState.value = { ...storeState.value };
       // convertAndStoreEvent(newOutrightEvents as unknown as responseEvent[]);
       // setSelectedMarkets(tempMarkets);
     } catch (error) {
       console.error("Error fetching matches board:", error);
     }
-  }, [sportIdParam, regionName, regionIdParam, leagueIdParam, node]);
+  }, [sportIdParam, regionName, regionIdParam, leagueIdParam, node, storeState]);
 
   // useEffect(() => {
   //   (async () => {
@@ -302,22 +308,37 @@ export const MatchesBoard: FunctionComponent = () => {
       ((regionIdParam && leagueIdParam) ||
         (regionName && regionIdParam && !leagueIdParam))
     ) {
+      let cancelled = false;
+      const generation = ++fetchGenerationRef.current;
       setLoading(true);
       (async () => {
         try {
-          await getMatchesBoard();
+          await getMatchesBoard(generation);
         } catch (error) {
-          setLoading(false);
-          console.error("Error fetching matches board:", error);
+          if (!cancelled) {
+            console.error("Error fetching matches board:", error);
+          }
         } finally {
-          setLoading(false);
+          if (!cancelled) {
+            setLoading(false);
+          }
         }
       })();
-    } else {
-      setLoading(false);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [loadedSidebarState.value, node]);
+
+    setLoading(false);
+  }, [
+    loadedSidebarState.value,
+    node,
+    getMatchesBoard,
+    sportIdParam,
+    regionIdParam,
+    leagueIdParam,
+    regionName,
+  ]);
 
   return (
     <div
@@ -338,7 +359,7 @@ export const MatchesBoard: FunctionComponent = () => {
         ]}
       />
       <div
-        className="flex flex-col w-full p-2 rounded-b-[16px] sticky top-0 z-[40] gap-2"
+        className="flex flex-col w-full p-2 rounded-b-[16px] sticky top-0 z-[20] gap-2"
         style={{
           background: `linear-gradient(to right, transparent, #00109E 0%, #0041C2 100%)`,
         }}
@@ -363,6 +384,7 @@ export const MatchesBoard: FunctionComponent = () => {
                 `/event-view/pre-match/${sportName}/${sportIdParam}/${val}`,
               );
             }}
+            placeholder={leagueName || "Select..."}
             className="min-w-0 w-full max-w-[360px]"
             classNames={{
               trigger:
@@ -374,7 +396,7 @@ export const MatchesBoard: FunctionComponent = () => {
             notInvert
           >
             {leagueSelectEntries.length === 0 ? (
-              <SelectItem value="">{t("noResults")}</SelectItem>
+              <SelectItem value="">{tCommon("noResults")}</SelectItem>
             ) : (
               leagueSelectEntries.map((entry, index) => {
                 if (entry.kind === "standalone") {
@@ -447,7 +469,7 @@ export const MatchesBoard: FunctionComponent = () => {
         ) : null}
       </div>
 
-      <div className="flex flex-col w-full h-full rounded-lg overflow-hidden gap-4">
+      <div className="flex flex-col w-full h-full rounded-lg overflow-hidden gap-4 mt-4">
         {loading ? (
           <div className="flex flex-col w-full gap-[2px] mt-1">
             {Array.from({ length: 4 }).map((_, index) => (

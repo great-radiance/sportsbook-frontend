@@ -63,13 +63,17 @@ export const storeEvent = (event: MatchDataResponse) => {
           market.parameters,
           selectionExtra,
         ),
-        mv: existingSelections.find((s) => s.value.id === selection.id)
-          ? computePriceMv(
-              existingSelections.find((s) => s.value.id === selection.id)?.value
-                .price ?? 0,
-              selection.price,
-            )
-          : 0,
+        mv: (() => {
+          const prev = existingSelections.find(
+            (s) => s.value.id === selection.id,
+          )?.value;
+          return prev
+            ? computePriceMv(
+                { price: prev.price ?? 0, mv: prev.mv ?? 0 },
+                selection.price,
+              )
+            : 0;
+        })(),
         isBetBuilderSupported: readIsBetBuilderSupported(
           selection as BetBuilderSupportIn,
         ),
@@ -141,6 +145,9 @@ export const storeEvent = (event: MatchDataResponse) => {
     marketRef: event.marketRef?.length
       ? event.marketRef
       : evSig.value.marketRef,
+    mainMarketTypes: event.mainMarketTypes?.length
+      ? event.mainMarketTypes
+      : evSig.value.mainMarketTypes,
     scoreboard: event.scoreboard ?? null,
     // // live: (event.scoreboard ?? ({} as ScoreBoard)) as ScoreBoard,
   } as tEventModel;
@@ -231,7 +238,10 @@ export function syncSelectionsStoreFromIncomingMarkets(
         Number.isFinite(feedPrev) && feedPrev > 0 && feedPrev !== nextPrice
           ? feedPrev
           : entry.price;
-      const mv = computePriceMv(basePrice, nextPrice);
+      const mv = computePriceMv(
+        { price: basePrice, mv: entry.mv ?? 0 },
+        nextPrice,
+      );
 
       sig.value = {
         ...entry,

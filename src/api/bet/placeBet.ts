@@ -34,16 +34,33 @@ export type SystemCombinationPayload = {
   stake: number;
 };
 
+export type PlaceBetAlternativeOdds = {
+  id: string;
+  alternativePrice: number;
+  createdAt?: string;
+  expiredAt?: string;
+};
+
+export type PlaceBetMaxBet = {
+  value: number;
+  precision: number;
+  currency: string;
+};
+
 export type PlaceBetPayload = {
   idempotencyKey: string;
   betType: "single" | "parlay" | "system";
   stake: number;
   currency: string;
+  /** 0=None, 1=Any, 2=Higher */
+  priceChange: 0 | 1 | 2;
   selections: PlaceBetSelectionPayload[];
   /** @deprecated Use systemCombinations for per-size stakes */
   systemMinCombination?: number;
   systemCombinations?: SystemCombinationPayload[];
   description?: PlaceBetDescriptionItem[];
+  alternativeOddsId?: string;
+  alternativePrice?: number;
 };
 
 export type PlaceBetSystemAccepted = {
@@ -88,6 +105,8 @@ export type PlaceBetRejected = {
   betId?: string;
   status: "rejected";
   rejectionReason: string;
+  alternativeOdds?: PlaceBetAlternativeOdds;
+  maxBet?: PlaceBetMaxBet;
 };
 
 export type PlaceBetResult =
@@ -135,6 +154,38 @@ function unwrapPlaceBetResponse(body: unknown): PlaceBetResult {
   return body as PlaceBetResult;
 }
 
+function parsePlaceBetRejection(body: unknown): PlaceBetRejected {
+  const root = body as Record<string, unknown>;
+  const alt = root.alternativeOdds as Record<string, unknown> | undefined;
+  const maxBet = root.maxBet as Record<string, unknown> | undefined;
+
+  return {
+    status: "rejected",
+    rejectionReason: String(
+      root.rejectReasonName ?? root.rejectionReason ?? "REJECTED",
+    ),
+    alternativeOdds:
+      alt && alt.id != null
+        ? {
+            id: String(alt.id),
+            alternativePrice: Number(alt.alternativePrice),
+            createdAt:
+              typeof alt.createdAt === "string" ? alt.createdAt : undefined,
+            expiredAt:
+              typeof alt.expiredAt === "string" ? alt.expiredAt : undefined,
+          }
+        : undefined,
+    maxBet:
+      maxBet && maxBet.value != null
+        ? {
+            value: Number(maxBet.value),
+            precision: Number(maxBet.precision ?? 2),
+            currency: String(maxBet.currency ?? ""),
+          }
+        : undefined,
+  };
+}
+
 export async function apiPlaceBet(
   payload: PlaceBetPayload,
 ): Promise<PlaceBetCallResult> {
@@ -166,6 +217,12 @@ export async function apiPlaceBet(
             ? (body.data ?? null)
             : (body as PlaceBetResult);
         return { httpStatus: 409, result: result ?? null };
+      }
+      if (status === 422) {
+        return {
+          httpStatus: 422,
+          result: parsePlaceBetRejection(err.response.data),
+        };
       }
     }
     throw err;

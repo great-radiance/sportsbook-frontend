@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   sportsbookStore,
   useSportsbookStore,
@@ -17,7 +17,13 @@ import { getAppConfig } from "@/shared/config/appConfig";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { SelectedOddComponent } from "./SelectedOddComponent";
 import { useTranslate } from "@/shared/i18n/i18n";
-import { apiPlaceBetWithRetry, isPlaceBetAccepted, isPlaceBetRejected, placeBetAcceptedReference } from "@/api/bet/placeBet";
+import {
+  apiPlaceBetWithRetry,
+  isPlaceBetAccepted,
+  isPlaceBetRejected,
+  placeBetAcceptedReference,
+  type PlaceBetSelectionPayload,
+} from "@/api/bet/placeBet";
 import { showAcceptedBetInOpenBets } from "@/helpers/showAcceptedBetInOpenBets";
 import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 import {
@@ -32,7 +38,6 @@ import {
   stakeLimitsForBetType,
   validateStakeAmount,
 } from "@/helpers/betLimits";
-import { Switch } from "../Switch";
 import { selectionStoreKey } from "@/state/sportsbookStoreContext";
 import { getOddsValue } from "@/helpers/getOddsValue";
 import SystemBetSection from "./SystembetSection";
@@ -64,6 +69,11 @@ import {
   effectiveMaxStake,
   fetchMaxBetStake,
 } from "@/helpers/maxBetStake";
+import {
+  normalizePlaceBetRejectionReason,
+  priceChangePolicyToApiValue,
+  type PriceChangePolicy,
+} from "@/helpers/priceChangePolicy";
 
 function extractAxiosMessage(err: unknown): string {
   const e = err as {
@@ -117,12 +127,13 @@ function notifyBetRejected(
   submitted?: SubmittedSelectionLine[],
   betId?: string,
 ): void {
-  onBetRejectedWithReason(code);
-  notify(rejectionReasonMessage(code), "error", "x-circle", 3500);
-  if (code === "DUPLICATE_BET" && betId) {
+  const normalized = normalizePlaceBetRejectionReason(code);
+  onBetRejectedWithReason(normalized);
+  notify(rejectionReasonMessage(normalized), "error", "x-circle", 3500);
+  if (normalized === "DUPLICATE_BET" && betId) {
     requestBetHistoryRefresh();
   }
-  if (code === "ODDS_CHANGED" && submitted?.length) {
+  if (normalized === "ODDS_CHANGED" && submitted?.length) {
     void handleOddsChangedRejection(submitted);
   }
 }
@@ -186,6 +197,8 @@ export const BetSlip: FunctionComponent = () => {
   const [multiMaxBetLoading, setMultiMaxBetLoading] = useState(false);
   const config = getAppConfig();
   const { xUserId, currency: userCurrency } = config;
+  const isLoggedIn = Boolean(xUserId);
+  const cur = userCurrency || currency.value || "USD";
   const maxParlayLegs = maxParlayLegsFromLimits(playerLimits.value);
   const singleStakeLimits = stakeLimitsForBetType(playerLimits.value, "single");
   const parlayStakeLimits = stakeLimitsForBetType(playerLimits.value, "parlay");
@@ -199,8 +212,7 @@ export const BetSlip: FunctionComponent = () => {
     slipLegs,
     betBuilderPricesByEvent.value,
   );
-  const inlineBetslipWarning =
-    betSlipWarning.value ?? betBuilderWarning;
+  const inlineBetslipWarning = betSlipWarning.value ?? betBuilderWarning;
   const regularSlipOdds = slipLegs
     .filter((leg) => leg.type === "regular")
     .map((leg) => (leg.type === "regular" ? leg.selection : null))
@@ -220,9 +232,37 @@ export const BetSlip: FunctionComponent = () => {
 
   const fabTotalOdds = combinedLegOdds(slipLegs, currentBbPriceMap());
   const { multiBetEnabled, systemBetEnabled } = useEnableBetType();
-  const [anyOddsChange, setAnyOddsChange] = useState(false);
+  const [priceChangePolicy, setPriceChangePolicy] =
+    useState<PriceChangePolicy>("always-ask");
+  const priceChangeOptions = useMemo(
+    () => [
+      { value: "always-ask" as const, label: t("alwaysAsk") },
+      { value: "accept-higher-odds" as const, label: t("acceptHigherOdds") },
+      { value: "accept-any-odds" as const, label: t("acceptAnyOdds") },
+    ],
+    [t],
+  );
+  const priceChange = priceChangePolicyToApiValue(priceChangePolicy);
+  const [isOddsSettingsOpen, setIsOddsSettingsOpen] = useState(false);
+  const oddsSettingsRef = useRef<HTMLDivElement>(null);
   const [settedMulti, setSettedMulti] = useState(false);
   const baseTheme = baseColorTheme.value;
+
+  useEffect(() => {
+    if (!isOddsSettingsOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (
+        oddsSettingsRef.current &&
+        !oddsSettingsRef.current.contains(event.target as Node)
+      ) {
+        setIsOddsSettingsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [isOddsSettingsOpen]);
 
   // bet type tabs definition (used for rendering tablist)
   const betTypeTabs = [
@@ -366,12 +406,7 @@ export const BetSlip: FunctionComponent = () => {
         const cur = userCurrency || currency.value || "USD";
         for (const entry of systemCombinations) {
           if (
-            validateStakeAmount(
-              entry.stake,
-              playerLimits.value,
-              "parlay",
-              cur,
-            )
+            validateStakeAmount(entry.stake, playerLimits.value, "parlay", cur)
           ) {
             setBetable(false);
             return;
@@ -427,14 +462,28 @@ export const BetSlip: FunctionComponent = () => {
     rotateBetSlipIdempotencyKey();
   };
 
+  const fetchMaxBetAmount = useCallback(
+    async (
+      betType: "single" | "parlay",
+      selections: PlaceBetSelectionPayload[],
+    ): Promise<number | null> => {
+      if (!isLoggedIn) return null;
+      try {
+        return await fetchMaxBetStake(betType, selections, cur);
+      } catch (error) {
+        notify(extractAxiosMessage(error), "error", "x-circle", 3500);
+        return null;
+      }
+    },
+    [cur, isLoggedIn],
+  );
+
   const handleMultiMaxClick = async () => {
     setMultiMaxBetLoading(true);
     try {
-      const selections = slipSelectionsPayload(selectedOdds.value);
-      const fetched = await fetchMaxBetStake(
+      const fetched = await fetchMaxBetAmount(
         "parlay",
-        selections,
-        userCurrency || currency.value || "USD",
+        slipSelectionsPayload(selectedOdds.value),
       );
       if (fetched != null) {
         setMultiApiMaxBet(fetched);
@@ -459,6 +508,7 @@ export const BetSlip: FunctionComponent = () => {
   };
 
   const handleBetNow = async () => {
+    if (!isLoggedIn) return;
     const failedBets = new Set<SelectedOddType>();
     setIsLoading(true);
     try {
@@ -509,6 +559,7 @@ export const BetSlip: FunctionComponent = () => {
               betType: "single",
               stake,
               currency: cur,
+              priceChange,
               selections: buildPlaceBetSelections([leg], currentBbPriceMap()),
               description: buildPlaceBetDescriptionForLeg(leg),
             });
@@ -558,6 +609,7 @@ export const BetSlip: FunctionComponent = () => {
             betType: legs.length === 1 ? "single" : "parlay",
             stake: multipleBetAmount.value,
             currency: cur,
+            priceChange,
             selections: buildPlaceBetSelections(legs, currentBbPriceMap()),
             description: buildPlaceBetDescription(selectedOdds.value),
           });
@@ -566,8 +618,13 @@ export const BetSlip: FunctionComponent = () => {
             selectedOdds.value = [];
             return;
           }
-          if (call.httpStatus === 409 && placeBetAcceptedReference(call.result)) {
-            await showAcceptedBetInOpenBets(placeBetAcceptedReference(call.result));
+          if (
+            call.httpStatus === 409 &&
+            placeBetAcceptedReference(call.result)
+          ) {
+            await showAcceptedBetInOpenBets(
+              placeBetAcceptedReference(call.result),
+            );
             notify(
               "This bet was already submitted.",
               "primary",
@@ -628,6 +685,7 @@ export const BetSlip: FunctionComponent = () => {
             betType: "system",
             stake: totalSystemStake,
             currency: cur,
+            priceChange,
             selections: slipSelectionsPayload(regularSlipOdds),
             systemCombinations,
             description: buildPlaceBetDescription(regularSlipOdds),
@@ -637,8 +695,13 @@ export const BetSlip: FunctionComponent = () => {
             selectedOdds.value = [];
             return;
           }
-          if (call.httpStatus === 409 && placeBetAcceptedReference(call.result)) {
-            await showAcceptedBetInOpenBets(placeBetAcceptedReference(call.result));
+          if (
+            call.httpStatus === 409 &&
+            placeBetAcceptedReference(call.result)
+          ) {
+            await showAcceptedBetInOpenBets(
+              placeBetAcceptedReference(call.result),
+            );
             notify(
               "This bet was already submitted.",
               "primary",
@@ -798,14 +861,17 @@ export const BetSlip: FunctionComponent = () => {
   return (
     <>
       <div
-        className={`flex flex-col ${isMobileFabCollapsed
+        className={`flex flex-col ${
+          isMobileFabCollapsed
             ? "max-h-none w-auto max-w-none ml-auto items-end bg-transparent shadow-none p-0 mr-3"
-            : `max-h-[calc(100vh-200px)] mb-2 w-full bg-[var(--sub-element-color)] shadow-[-8px_-8px_4px_rgba(0,0,0,0.15)] ${isExpanded
-              ? "rounded-t-[32px] border border-[var(--border-color)]"
-              : "rounded-[32px] border border-[var(--border-color)]"
-            }`
-          } ${isMobileFabCollapsed ? "overflow-visible" : "overflow-hidden"} text-[var(--text-basic-color)] relative ${betSlipExpanded.value ? "z-[50]" : "z-45"
-          }`}
+            : `max-h-[calc(100vh-200px)] mb-2 w-full bg-[var(--sub-element-color)] shadow-[-8px_-8px_4px_rgba(0,0,0,0.15)] ${
+                isExpanded
+                  ? "rounded-t-[32px] border border-[var(--border-color)]"
+                  : "rounded-[32px] border border-[var(--border-color)]"
+              }`
+        } ${isMobileFabCollapsed ? "overflow-visible" : "overflow-hidden"} text-[var(--text-basic-color)] relative ${
+          betSlipExpanded.value ? "z-[50]" : "z-45"
+        }`}
       >
         {/* Header — full bar (desktop / mobile expanded) or floating FAB (mobile collapsed) */}
         {selectedOdds.value.length > 0 &&
@@ -881,44 +947,62 @@ export const BetSlip: FunctionComponent = () => {
                       {slipLegTotal}/{maxParlayLegs}
                     </span>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    {/* <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/share.png`}
-                      alt="share"
-                      className="w-4 h-4 brightness-0 invert"
-                    />
-                    <div className="w-[1px] h-6 bg-[var(--primary-border-color)]" /> */}
-                    {/* <img
-                      src={`${BASE_ASSET_PUBLIC_URL}/icons/settings.png`}
-                      alt="settings"
-                      className="w-4 h-4 brightness-0 invert cursor-pointer"
-                      onClick={() => setIsOpenedSettings(!isOpenedSettings)}
-                    /> */}
-                    <div className="flex w-full items-center justify-between gap-2">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[11px]">
-                          {t("accept-of-odds-changes")}
-                        </span>
-                        <sl-tooltip
-                          content={t("accept-of-odds-changes-info")}
-                          placement="bottom"
-                          className="inline-block"
-                        >
-                          <img
-                            src={`${BASE_ASSET_PUBLIC_URL}/icons/info.png`}
-                            alt="info"
-                            className={`w-3 h-3 ${baseTheme === "dark" ? "brightness-0 invert" : ""} cursor-help`}
-                          />
-                        </sl-tooltip>
-                      </div>
-                      <Switch
-                        checked={anyOddsChange}
-                        onChange={(checked: boolean) =>
-                          setAnyOddsChange(checked)
-                        }
-                        className="bg-[#C2CEE5]"
+                  <div className="relative shrink-0" ref={oddsSettingsRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsOddsSettingsOpen((open) => !open)}
+                      className={`relative flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors ${
+                        isOddsSettingsOpen
+                          ? "bg-[var(--primary-soft-bg)] ring-1 ring-[var(--primary-color)]"
+                          : "hover:bg-white/10"
+                      }`}
+                      aria-label={t("accept-of-odds-changes")}
+                      aria-expanded={isOddsSettingsOpen}
+                    >
+                      <img
+                        src={`${BASE_ASSET_PUBLIC_URL}/icons/settings.png`}
+                        alt=""
+                        className={`h-4 w-4 ${baseTheme === "dark" ? "brightness-0 invert" : ""}`}
                       />
-                    </div>
+                      {priceChangePolicy !== "always-ask" ? (
+                        <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[var(--primary-color)]" />
+                      ) : null}
+                    </button>
+
+                    {isOddsSettingsOpen ? (
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-[1200] w-[min(280px,calc(100vw-2rem))] rounded-[10px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-3 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+                        <div className="mb-2">
+                          <p className="text-[12px] font-semibold text-[var(--text-basic-color)]">
+                            {t("accept-of-odds-changes")}
+                          </p>
+                          <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-sub-color)]">
+                            {t("accept-of-odds-changes-info")}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {priceChangeOptions.map((option) => {
+                            const selected = priceChangePolicy === option.value;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  setPriceChangePolicy(option.value);
+                                  setIsOddsSettingsOpen(false);
+                                }}
+                                className={`rounded-[8px] px-3 py-2 text-left text-[12px] transition-colors ${
+                                  selected
+                                    ? "bg-[var(--primary-color)] font-semibold text-black"
+                                    : "hover:bg-white/10"
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1004,7 +1088,9 @@ export const BetSlip: FunctionComponent = () => {
                 <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                   {selectedOdds.value.length === 0 ? (
                     <div className="flex min-h-[114px] items-center justify-center">
-                      <span className="text-[12px] font-normal">{t("empty")}</span>
+                      <span className="text-[12px] font-normal">
+                        {t("empty")}
+                      </span>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
@@ -1023,6 +1109,18 @@ export const BetSlip: FunctionComponent = () => {
                             setForceUpdate={setForceUpdate}
                             minStake={singleStakeLimits.minStake}
                             maxStake={singleStakeLimits.maxStake}
+                            fetchMaxStake={
+                              selectedBetType.value === "single"
+                                ? () =>
+                                    fetchMaxBetAmount(
+                                      "single",
+                                      buildPlaceBetSelections(
+                                        [leg],
+                                        currentBbPriceMap(),
+                                      ),
+                                    )
+                                : undefined
+                            }
                           />
                         ) : (
                           <SelectedOddComponent
@@ -1043,65 +1141,96 @@ export const BetSlip: FunctionComponent = () => {
                             setForceUpdate={setForceUpdate}
                             minStake={singleStakeLimits.minStake}
                             maxStake={singleStakeLimits.maxStake}
+                            fetchMaxStake={
+                              selectedBetType.value === "single"
+                                ? () =>
+                                    fetchMaxBetAmount(
+                                      "single",
+                                      buildPlaceBetSelections(
+                                        [leg],
+                                        currentBbPriceMap(),
+                                      ),
+                                    )
+                                : undefined
+                            }
                           />
                         ),
                       )}
 
-                      {selectedBetType.value === "multi" && slipLegTotal > 1 && (
-                        <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="text-[14px] font-semibold">
-                                {slipLegTotal}-{t("foldEqualsOne")}
+                      {selectedBetType.value === "multi" &&
+                        slipLegTotal > 1 && (
+                          <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[14px] font-semibold">
+                                  {slipLegTotal}-{t("foldEqualsOne")}
+                                </div>
+                                <div className="text-[13px] font-bold">
+                                  {combinedMultipleOddsLabel}
+                                </div>
                               </div>
-                              <div className="text-[13px] font-bold">
-                                {combinedMultipleOddsLabel}
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  key={`multiple-${forceUpdate}`}
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={parlayStakeLimits.minStake}
+                                  max={multiInputMaxStake}
+                                  value={
+                                    multipleBetAmount.value.toString() || ""
+                                  }
+                                  onInput={(e) => {
+                                    const value = (e.target as HTMLInputElement)
+                                      .value;
+                                    setMultiStake(parseFloat(value) || 0);
+                                  }}
+                                  className="h-10 w-[92px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                                <button
+                                  type="button"
+                                  className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold disabled:opacity-50"
+                                  disabled={
+                                    multiMaxBetLoading ||
+                                    Boolean(betBuilderWarning) ||
+                                    !isLoggedIn
+                                  }
+                                  onClick={() => void handleMultiMaxClick()}
+                                >
+                                  MAX
+                                </button>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                key={`multiple-${forceUpdate}`}
-                                type="number"
-                                inputMode="numeric"
-                                min={parlayStakeLimits.minStake}
-                                max={multiInputMaxStake}
-                                value={multipleBetAmount.value.toString() || ""}
-                                onInput={(e) => {
-                                  const value = (e.target as HTMLInputElement).value;
-                                  setMultiStake(parseFloat(value) || 0);
-                                }}
-                                className="h-10 w-[92px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              />
-                              <button
-                                type="button"
-                                className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold disabled:opacity-50"
-                                disabled={multiMaxBetLoading || Boolean(betBuilderWarning)}
-                                onClick={() => void handleMultiMaxClick()}
-                              >
-                                MAX
-                              </button>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       {selectedBetType.value === "system" &&
                         regularSlipOdds.length >= 3 &&
                         regularSlipOdds.length <= 8 && (
-                        <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
-                          <div className="mb-1 text-[13px] font-semibold">{t("system")}</div>
-                          <SystemBetSection
-                            selections={regularSlipOdds}
-                            minStake={systemStakeLimits.minStake}
-                            maxStake={systemStakeLimits.maxStake}
-                          />
-                        </div>
-                      )}
+                          <div className="rounded-[12px] border border-[var(--border-color)] bg-[var(--sub-element-secondary)] p-2">
+                            <div className="mb-1 text-[13px] font-semibold">
+                              {t("system")}
+                            </div>
+                            <SystemBetSection
+                              selections={regularSlipOdds}
+                              minStake={systemStakeLimits.minStake}
+                              maxStake={systemStakeLimits.maxStake}
+                              fetchMaxStake={
+                                isLoggedIn
+                                  ? () =>
+                                      fetchMaxBetAmount(
+                                        "parlay",
+                                        slipSelectionsPayload(regularSlipOdds),
+                                      )
+                                  : undefined
+                              }
+                            />
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
 
-                {xUserId === "" && (
+                {!isLoggedIn && (
                   <div className="mt-2 rounded-[8px] bg-[#AA7F0033] px-3 py-2 text-[11px]">
                     To place your bet, please sign in or register.
                   </div>
@@ -1119,7 +1248,7 @@ export const BetSlip: FunctionComponent = () => {
                   </div>
                   <button
                     onClick={handleBetNow}
-                    disabled={isLoading || !betable}
+                    disabled={!isLoggedIn || isLoading || !betable}
                     className="h-[40px] w-full rounded-[9px] bg-[var(--primary-color)] text-[13px] font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {t("betNow")}

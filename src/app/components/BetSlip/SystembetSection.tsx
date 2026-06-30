@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
-import { useMemo } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import {
   combinationCount,
@@ -27,6 +27,7 @@ function SystemBetRow({
   minStake,
   maxStake,
   onStakeChange,
+  fetchMaxStake,
   infoTitle,
 }: {
   label: string;
@@ -36,8 +37,26 @@ function SystemBetRow({
   minStake?: number;
   maxStake?: number;
   onStakeChange: (value: number) => void;
+  fetchMaxStake?: () => Promise<number | null>;
   infoTitle?: string;
 }) {
+  const [isFetchingMaxStake, setIsFetchingMaxStake] = useState(false);
+
+  const handleMaxStake = async () => {
+    if (!fetchMaxStake) return;
+
+    setIsFetchingMaxStake(true);
+    try {
+      const amount = await fetchMaxStake();
+      if (amount != null) {
+        onStakeChange(amount);
+        rotateBetSlipIdempotencyKey();
+      }
+    } finally {
+      setIsFetchingMaxStake(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2 py-1">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -85,10 +104,10 @@ function SystemBetRow({
         </div>
         <button
           type="button"
-          className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold"
+          disabled={isFetchingMaxStake || !fetchMaxStake}
+          className="h-10 rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-3 text-[13px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => {
-            onStakeChange(maxStake ?? 0);
-            rotateBetSlipIdempotencyKey();
+            void handleMaxStake();
           }}
         >
           MAX
@@ -102,7 +121,8 @@ const SystemBetSection: FunctionComponent<{
   selections: SelectedOddType[];
   minStake?: number;
   maxStake?: number;
-}> = ({ selections, minStake, maxStake }) => {
+  fetchMaxStake?: () => Promise<number | null>;
+}> = ({ selections, minStake, maxStake, fetchMaxStake }) => {
   const { t } = useTranslate("betslip");
   const { currency, systemBetSpecifier, selectionsStoreState } =
     useSportsbookStore();
@@ -153,6 +173,7 @@ const SystemBetSection: FunctionComponent<{
             minStake={minStake}
             maxStake={maxStake}
             onStakeChange={(value) => setSizeStake(size, value)}
+            fetchMaxStake={fetchMaxStake}
           />
         );
       })}
@@ -166,6 +187,7 @@ const SystemBetSection: FunctionComponent<{
           minStake={minStake}
           maxStake={maxStake}
           onStakeChange={setNamedStake}
+          fetchMaxStake={fetchMaxStake}
           infoTitle={t("systemNamedInfo")}
         />
       ) : null}

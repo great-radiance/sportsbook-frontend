@@ -121,7 +121,9 @@
     "outRight": "Ümumi",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "Alternativ variantlar",
+    "showAll": "HAMISINI GÖSTƏR"
   },
   "betslip": {
     "removeAll": "Hamısını sil",

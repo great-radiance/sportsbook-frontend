@@ -49,23 +49,7 @@ const formatStartDate = (timestamp: number): string => {
   }
 };
 
-/**
- * Read the value of a competitor's score off the new `scoreboard` payload.
- * Position 1 = home, 2 = away. Falls back to `homeGameScore`/`awayGameScore`
- * if the per-competitor `results[]` entry is missing.
- */
-const getCompetitorScore = (scoreboard: any, position: 1 | 2): number => {
-  if (!scoreboard) return 0;
-  const fromResults = scoreboard.results?.find(
-    (r: any) => r.competitorPosition === position,
-  )?.value;
-  const parsedResult = Number(fromResults);
-  if (Number.isFinite(parsedResult)) return parsedResult;
-  const fallback =
-    position === 1 ? scoreboard.homeGameScore : scoreboard.awayGameScore;
-  const parsedFallback = Number(fallback);
-  return Number.isFinite(parsedFallback) ? parsedFallback : 0;
-};
+import { getCompetitorScore } from "@/helpers/scoreboardDisplay";
 
 /** Selections as plain values; optional bet-builder-only filter. */
 const marketSelections = (

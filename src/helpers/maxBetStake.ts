@@ -1,4 +1,5 @@
 import { apiGetMaxBet } from "@/api/bet/apiGetMaxbet";
+import { hasPlayerSessionUserId } from "@/api/instance";
 import type { PlaceBetSelectionPayload } from "@/api/bet/placeBet";
 
 export function parseMaxBetResponse(body: unknown): number | null {
@@ -47,7 +48,7 @@ export async function fetchMaxBetStake(
   selections: PlaceBetSelectionPayload[],
   currency: string,
 ): Promise<number | null> {
-  if (selections.length === 0) return null;
+  if (!hasPlayerSessionUserId() || selections.length === 0) return null;
   try {
     const body = await apiGetMaxBet({ betType, currency, selections });
     return parseMaxBetResponse(body);

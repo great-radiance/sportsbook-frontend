@@ -6,6 +6,7 @@ type Props = {
   children: preact.ComponentChildren;
   className?: string; // wrapper
   scrollerClassName?: string; // the scrolling row
+  contentClassName?: string; // inner row (e.g. equal-height cards)
   step?: number; // px to scroll per click
 };
 
@@ -13,6 +14,7 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
   children,
   className = "",
   scrollerClassName = "",
+  contentClassName = "",
   step = 260,
 }) => {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -145,7 +147,7 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
         onMouseDown={onScrollerMouseDown}
         onClickCapture={onScrollerClickCapture}
         className={[
-          "overflow-x-auto overflow-y-hidden whitespace-nowrap",
+          "overflow-x-auto overflow-y-hidden",
           "scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none]",
           "[&::-webkit-scrollbar]:hidden",
           "cursor-grab active:cursor-grabbing",
@@ -153,8 +155,13 @@ export const HorizontalTabs: FunctionalComponent<Props> = ({
           scrollerClassName,
         ].join(" ")}
       >
-        {/* Use inline-flex so items stay in one line */}
-        <div className="inline-flex gap-2">{children}</div>
+        <div
+          className={["inline-flex gap-2", contentClassName]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {children}
+        </div>
       </div>
 
       {/* Optional fade edges (nice like many UIs) */}

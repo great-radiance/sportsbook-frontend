@@ -9,6 +9,11 @@ import { maxParlayLegsFromLimits } from "@/helpers/betLimits";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { verifyBetBuilderGroup } from "@/helpers/betBuilderSlipValidation";
 import { applyBetBuilderPriceForEvent } from "@/helpers/betBuilderPriceState";
+import {
+  isSelectionBettable,
+  selectionAvailabilityMessage,
+  selectionAvailabilityNotifyMessage,
+} from "@/helpers/marketAvailability";
 import { notify } from "@/shared/toast";
 
 const {
@@ -145,14 +150,36 @@ async function toggleBetslipSelectionAsync({
   const ev = storeState.value[eventId]?.value;
   if (!ev && !widgetEvent) return;
 
-  // if (isBuilding.value) {
-  //   const buildingEventId = selectedOdds.value.find((o) => o.isBuilding)?.eventId;
-  //   if (buildingEventId != null && buildingEventId !== eventId) {
-  //     betSlipWarning.value =
-  //       "Bet builder selections must be from the same event";
-  //     return;
-  //   }
-  // }
+  if (ev) {
+    const market = ev.markets?.[marketId]?.value;
+    const unavailable = selectionAvailabilityMessage(
+      selection.status,
+      market?.tradingStatus,
+      ev.tradingStatus,
+    );
+    if (unavailable) {
+      notify(
+        selectionAvailabilityNotifyMessage(
+          unavailable,
+          marketName,
+          selection.name,
+        ),
+        "warning",
+        "exclamation-triangle",
+        2800,
+      );
+      return;
+    }
+    if (
+      !isSelectionBettable(
+        selection.status,
+        market?.tradingStatus,
+        ev.tradingStatus,
+      )
+    ) {
+      return;
+    }
+  }
 
   if (selectedBetType.value !== "multi" && selectedBetType.value !== "system") {
     const toRemove = selectedOdds.value.filter(

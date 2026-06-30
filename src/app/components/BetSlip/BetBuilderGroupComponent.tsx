@@ -11,14 +11,12 @@ import {
 import { removeFromOddsStore } from "@/helpers/storeEvent";
 import { useTranslate } from "@/shared/i18n/i18n";
 import type { BetBuilderSlipLeg } from "@/helpers/betslipLegs";
-import { legOdds } from "@/helpers/betslipLegs";
 import { rotateBetSlipIdempotencyKey } from "@/helpers/betIdempotency";
 import { formatCurrency, getCurrencySymbol } from "@/shared/utils/formatters";
 import { hasSelectionOddsSource } from "@/helpers/getOddsValue";
 import {
   clampStake,
   effectiveMaxStake,
-  fetchMaxBetStake,
 } from "@/helpers/maxBetStake";
 
 type BetBuilderGroupComponentProps = {
@@ -29,6 +27,7 @@ type BetBuilderGroupComponentProps = {
   setForceUpdate: (updater: (prev: number) => number) => void;
   minStake?: number;
   maxStake?: number;
+  fetchMaxStake?: () => Promise<number | null>;
 };
 
 export const BetBuilderGroupComponent: FunctionComponent<
@@ -38,8 +37,10 @@ export const BetBuilderGroupComponent: FunctionComponent<
   maxSelections = 13,
   selectedBetType,
   forceUpdate,
+  setForceUpdate,
   minStake,
   maxStake,
+  fetchMaxStake,
 }) => {
   useSignal();
   const { selectedOdds, betBuilderPricesByEvent, baseColorTheme, currency } =
@@ -159,28 +160,14 @@ export const BetBuilderGroupComponent: FunctionComponent<
   };
 
   const handleMaxClick = async () => {
+    if (!fetchMaxStake) return;
     setMaxBetLoading(true);
     try {
-      const bbPrices = { [leg.eventId]: apiPrice };
-      const fetched = await fetchMaxBetStake(
-        "single",
-        [
-          {
-            eventId: leg.eventId,
-            marketId: -1,
-            selectionId: -1,
-            odds: legOdds(leg, bbPrices),
-            betBuilderBetItems: leg.selections.map((sel) => ({
-              marketId: sel.apiMarketId ?? sel.marketId,
-              selectionId: sel.apiSelectionId ?? Number(sel.oddsId),
-            })),
-          },
-        ],
-        currency.value,
-      );
+      const fetched = await fetchMaxStake();
       if (fetched != null) {
         setApiMaxBet(fetched);
         setStake(fetched);
+        setForceUpdate((prev) => prev + 1);
       } else {
         setStake(maxStake ?? 0);
       }
@@ -348,7 +335,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
               <button
                 key={value}
                 type="button"
-                onClick={() => setStake(value)}
+                onClick={() => setStake(stakeAmount + value)}
                 className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
               >
                 +{value}
@@ -357,7 +344,9 @@ export const BetBuilderGroupComponent: FunctionComponent<
             <button
               type="button"
               onClick={() => void handleMaxClick()}
-              disabled={maxBetLoading || stakeDisabled}
+              disabled={
+                maxBetLoading || stakeDisabled || !fetchMaxStake
+              }
               className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50"
             >
               MAX

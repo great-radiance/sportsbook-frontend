@@ -121,7 +121,9 @@
     "outRight": "النهائي",
     "betBuilderShortLabel": "BB",
     "noMarketsAvailable": "No markets available for this event",
-    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event"
+    "noBetBuilderMarketsAvailable": "No Bet Builder markets available for this event",
+    "alternativeOptions": "خيارات بديلة",
+    "showAll": "عرض الكل"
   },
   "betslip": {
     "removeAll": "إزالة الكل",

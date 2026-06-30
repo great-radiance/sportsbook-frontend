@@ -64,6 +64,7 @@ import {
   slipLegCount,
 } from "@/helpers/betslipLegs";
 import { BetBuilderGroupComponent } from "./BetBuilderGroupComponent";
+import { BetSlipHeaderBar } from "./BetSlipHeaderBar";
 import {
   clampStake,
   effectiveMaxStake,
@@ -230,7 +231,8 @@ export const BetSlip: FunctionComponent = () => {
     isMobile.value && !isExpanded && selectedOdds.value.length > 0;
   const showContent = isExpanded || isCollapsing;
 
-  const fabTotalOdds = combinedLegOdds(slipLegs, currentBbPriceMap());
+  const bbPrices = currentBbPriceMap();
+  const fabTotalOdds = combinedLegOdds(slipLegs, bbPrices);
   const { multiBetEnabled, systemBetEnabled } = useEnableBetType();
   const [priceChangePolicy, setPriceChangePolicy] =
     useState<PriceChangePolicy>("always-ask");
@@ -874,46 +876,18 @@ export const BetSlip: FunctionComponent = () => {
         }`}
       >
         {/* Header — full bar (desktop / mobile expanded) or floating FAB (mobile collapsed) */}
-        {selectedOdds.value.length > 0 &&
-          (isMobileFabCollapsed ? (
-            <button
-              type="button"
-              className="relative flex h-[72px] w-[72px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-full bg-[var(--primary-color)] text-[var(--text-basic-color)] shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-transform active:scale-95"
-              onClick={toggleBetSlipExpanded}
-              aria-label={t("betSlip")}
-            >
-              <span className="text-[15px] font-bold leading-none tabular-nums">
-                {fabTotalOdds.toFixed(2)}
-              </span>
-              <span className="absolute -right-0.5 -top-0.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[var(--background-element)] px-[5px] text-[11px] font-bold leading-none text-[var(--text-basic-color)]">
-                {selectedOdds.value.length}
-              </span>
-            </button>
-          ) : (
-            <div
-              className="flex w-full bg-[var(--primary-color)] items-center justify-between px-6 py-3 cursor-pointer"
-              onClick={toggleBetSlipExpanded}
-            >
-              <div className="relative flex items-center h-full">
-                <img
-                  src={`${BASE_ASSET_PUBLIC_URL}/stoiximan/icons/bet.png`}
-                  alt="Bet Slip"
-                  className="w-8 h-8"
-                />
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--sub-element-color)] text-[10px] flex items-center justify-center text-[var(--text-basic-color)] font-bold">
-                  {selectedOdds.value.length}
-                </span>
-                {/* <span className="w-5 h-5 text-[10px] flex items-center justify-center text-[var(--text-basic-color)] font-bold">
-                {fabTotalOdds.toFixed(2)}
-              </span> */}
-              </div>
-              <img
-                src={`${BASE_ASSET_PUBLIC_URL}/icons/arrow-right.png`}
-                alt="Toggle"
-                className={`w-6 h-6 ${isExpanded ? "rotate-90" : "-rotate-90"}`}
-              />
-            </div>
-          ))}
+        {selectedOdds.value.length > 0 ? (
+          <BetSlipHeaderBar
+            slipLegs={slipLegs}
+            bbPrices={bbPrices}
+            slipLegTotal={slipLegTotal}
+            fabTotalOdds={fabTotalOdds}
+            isExpanded={isExpanded}
+            isMobileFabCollapsed={Boolean(isMobileFabCollapsed)}
+            betSlipLabel={t("betSlip")}
+            onToggle={toggleBetSlipExpanded}
+          />
+        ) : null}
 
         {/* Expandable content */}
         <div

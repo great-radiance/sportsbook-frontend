@@ -6,7 +6,7 @@ import { sportsbookStore } from "@/state/sportsbookStoreContext";
 
 const { routeFullState, routePathState, routeState } = sportsbookStore;
 
-// Memory hook: for disallowUrlChange=true (no touching address bar)
+// Memory hook: in-memory routing (routeType = "memory")
 // Uses global signal for shared state
 export const useMemoryLocation: LocationHook = () => {
   // Subscribe to the global signal - MUST be called during render, not in callbacks
@@ -100,7 +100,7 @@ export const useHashLocation: LocationHook = () => {
   return [pathname, navigate];
 };
 
-// Memory hook with history: for disallowUrlChange=false (touching address bar)
+// Memory hook with history: routeType = "memory" (syncs with history.state)
 const STATE_KEY = "__sportsbook_route_full__";
 
 function getFromState(): string | null {

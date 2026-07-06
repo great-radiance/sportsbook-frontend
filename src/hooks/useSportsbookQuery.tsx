@@ -11,8 +11,11 @@ export function useSportsbookQuery(): URLSearchParams {
 }
 
 export function getSportsbookQuery(): URLSearchParams {
-  if (locationHookType.value === 'useMemoryLocationWithHistory') {
+  if (locationHookType.value === "useMemoryLocationWithHistory") {
     return routeQueryState.value;
+  }
+  if (locationHookType.value === "useBrowserLocation") {
+    return new URLSearchParams(window.location.search);
   }
   const full = readFullFromHash(); // "/event-view/live?tab=1"
   const q = full.indexOf("?");

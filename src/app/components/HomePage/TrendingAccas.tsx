@@ -282,7 +282,7 @@ const TrendingAccas = () => {
 
               <div
 
-                className="flex flex-1 flex-col items-center justify-center p-3 text-center border-t border-dashed"
+                className="flex flex-1 flex-col items-center justify-end p-3 text-center border-t border-dashed"
 
                 style={{ borderColor: "var(--border-color)" }}
 

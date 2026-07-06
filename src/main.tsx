@@ -7,6 +7,7 @@ import { initThemeColors } from "./core/theme";
 
 export { initSportsbookApp };
 export type { SportsbookInitOptions, SportsbookInstance };
+export type { RouteType } from "@/app/router/routeType";
 
 if (import.meta.env.DEV && typeof document !== "undefined") {
   const container = document.getElementById("sportsbook-placeholder");
@@ -17,7 +18,7 @@ if (import.meta.env.DEV && typeof document !== "undefined") {
       lang: "en",
       containerId: "sportsbook-placeholder",
       themeEditorData: import.meta.env.VITE_THEME_COLORS as string,
-      disallowUrlChange: true,
+      routeType: "hash",
       allowToChangeParentStyles: true,
       xOperatorId: "betway-stage",
       xSportsbookToken: import.meta.env.VITE_USER_JWT as string | undefined,

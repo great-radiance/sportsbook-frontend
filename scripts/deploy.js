@@ -1,6 +1,6 @@
 /**
- * Build with `npm run build`, then upload `dist/sdk/shadow.js` and `dist/sdk/shadow.css`.
- * S3 keys: `<prefix>shadow.js`, `<prefix>shadow.css` (default prefix `integration/stoiximan/`).
+ * Build with `npm run build`, then upload shadow SDK and iframe embed artifacts.
+ * S3 keys: `<prefix>shadow.js`, `<prefix>shadow.css`, `<prefix>iframe.html`, `<prefix>iframe-*.{js,css}`
  *
  * Requires env: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
  * Optional: AWS_REGION (default eu-north-1 — must match the bucket region), S3_BUCKET, S3_PREFIX
@@ -10,7 +10,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +31,7 @@ const REGION = process.env.AWS_REGION ?? "eu-north-1";
 const ARTIFACTS = [
   { local: "sdk/shadow.js", key: "shadow.js" },
   { local: "sdk/shadow.css", key: "shadow.css" },
+  { local: "iframe.html", key: "iframe.html" },
 ];
 
 function assertCredentials() {
@@ -45,7 +46,15 @@ function assertCredentials() {
 function contentType(filePath) {
   if (filePath.endsWith(".js")) return "application/javascript; charset=utf-8";
   if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
   return "application/octet-stream";
+}
+
+function collectIframeAssets() {
+  if (!existsSync(DIST)) return [];
+  return readdirSync(DIST)
+    .filter((name) => /^iframe-.*\.(js|css)$/.test(name))
+    .map((name) => ({ local: name, key: name }));
 }
 
 async function main() {
@@ -62,6 +71,9 @@ async function main() {
     }
   }
 
+  const iframeAssets = collectIframeAssets();
+  const uploadList = [...ARTIFACTS, ...iframeAssets];
+
   const client = new S3Client({
     region: REGION,
     credentials: {
@@ -71,9 +83,9 @@ async function main() {
   });
 
   console.log(
-    `Uploading ${ARTIFACTS.length} file(s) to s3://${BUCKET}/${PREFIX}`,
+    `Uploading ${uploadList.length} file(s) to s3://${BUCKET}/${PREFIX}`,
   );
-  for (const { local, key } of ARTIFACTS) {
+  for (const { local, key } of uploadList) {
     const abs = join(DIST, local);
     const Key = `${PREFIX}${key}`;
     const Body = createReadStream(abs);

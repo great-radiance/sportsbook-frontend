@@ -61,7 +61,7 @@ const instance = window.Sportsbook.init({
   cid: 'partner-id',
   lang: 'en',
   containerId: 'sportsbook-container',
-  disallowUrlChange: false, // Use browser routing
+  routeType: "browser", // path-based routing for standalone sites
   allowToChangeParentStyles: false // Use shadow DOM
 });
 
@@ -113,7 +113,9 @@ npm run build
 
 The app uses `wouter-preact` for routing with support for:
 - Browser-based routing (default)
-- Memory-based routing (for embedded widgets with `disallowUrlChange: true`)
+- Memory-based routing (`routeType: "memory"` for embedded widgets)
+- Hash routing (`routeType: "hash"` for iframe / host hash sync)
+- Browser routing (`routeType: "browser"` for standalone deployment)
 
 Routes are configured in `src/app/router/routes.ts`.
 

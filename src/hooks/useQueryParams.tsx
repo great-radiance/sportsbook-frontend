@@ -7,8 +7,11 @@ import { useSignal } from '@preact/signals';
 const { locationHookType, routeQueryState, routeFullState } = sportsbookStore;
 
 export function getCurrentFullRoute(): string {
-  if (locationHookType.value === 'useMemoryLocationWithHistory') {
+  if (locationHookType.value === "useMemoryLocationWithHistory") {
     return routeFullState.value;
+  }
+  if (locationHookType.value === "useBrowserLocation") {
+    return `${window.location.pathname}${window.location.search}`;
   }
   return readFullFromHash();
 }
@@ -75,8 +78,11 @@ export function useSportsbookQuery(): URLSearchParams {
 }
 
 export function getSportsbookQuery(): URLSearchParams {
-  if (locationHookType.value === 'useMemoryLocationWithHistory') {
+  if (locationHookType.value === "useMemoryLocationWithHistory") {
     return routeQueryState.value;
+  }
+  if (locationHookType.value === "useBrowserLocation") {
+    return new URLSearchParams(window.location.search);
   }
   const full = readFullFromHash(); // "/event-view/live?tab=1"
   const q = full.indexOf("?");

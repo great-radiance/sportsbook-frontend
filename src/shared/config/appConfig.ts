@@ -1,4 +1,5 @@
 import { setLanguageId, setPlayerSessionHeaders } from "@/api/instance";
+import type { RouteType } from "@/app/router/routeType";
 import { sportsbookStore } from "@/state/sportsbookStoreContext";
 
 const { bottomLayoutHeight, baseColorTheme } = sportsbookStore;
@@ -8,7 +9,7 @@ export interface AppConfig {
   cid: string;
   token?: string;
   lang: string;
-  disallowUrlChange?: boolean;
+  routeType?: RouteType;
   baseUrl?: string;
   operatorCode?: string;
   /** Platform operator id — sent as `x-operator-id` (integration guide). */

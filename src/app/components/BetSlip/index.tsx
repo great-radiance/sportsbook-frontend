@@ -15,6 +15,10 @@ import { SelectedOddType } from "@/shared/utils/bet";
 import { notify } from "@/shared/toast";
 import Loader from "../Loading/Loader";
 import { getAppConfig } from "@/shared/config/appConfig";
+import {
+  isRunningInIframe,
+  notifyLoginClick,
+} from "@/core/embed/iframeBridge";
 import { betSlipExpanded } from "@/shared/utils/BetSlipExpanded";
 import { SelectedOddComponent } from "./SelectedOddComponent";
 import { useTranslate } from "@/shared/i18n/i18n";
@@ -1267,7 +1271,16 @@ export const BetSlip: FunctionComponent = () => {
 
                 {!isLoggedIn && (
                   <div className="mt-2 rounded-[8px] bg-[#AA7F0033] px-3 py-2 text-[11px]">
-                    To place your bet, please sign in or register.
+                    <span>{t("signInPrompt")}</span>
+                    {isRunningInIframe() && (
+                      <button
+                        type="button"
+                        onClick={notifyLoginClick}
+                        className="ml-2 font-semibold text-[var(--primary-color)] underline"
+                      >
+                        {t("signIn")}
+                      </button>
+                    )}
                   </div>
                 )}
 

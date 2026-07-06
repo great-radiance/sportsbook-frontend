@@ -7,29 +7,32 @@ import {
 import { routes } from "./routes";
 import { MainLayout } from "../layout/MainLayout";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
+import { ROUTE_TYPE_TO_HOOK, type RouteType } from "./routeType";
 
 interface RouterViewProps {
-  disallowUrlChange?: boolean;
+  routeType?: RouteType;
 }
 
 export const RouterView: FunctionComponent<RouterViewProps> = ({
-  disallowUrlChange,
+  routeType = "memory",
 }) => {
   const { locationHookType } = useSportsbookStore();
-  // Default to memory routing (true) if not explicitly set to false
-  const useMemory = disallowUrlChange !== false;
-  const hook = useMemory ? useMemoryLocationWithHistory : useHashLocation;
-  locationHookType.value = useMemory
-    ? "useMemoryLocationWithHistory"
-    : "useHashLocation";
+  locationHookType.value = ROUTE_TYPE_TO_HOOK[routeType];
 
-  return (
-    <Router hook={useHashLocation}>
-      <MainLayout>
-        {routes.map((r) => (
-          <Route key={r.path} path={r.path} component={r.component} />
-        ))}
-      </MainLayout>
-    </Router>
+  const layout = (
+    <MainLayout>
+      {routes.map((r) => (
+        <Route key={r.path} path={r.path} component={r.component} />
+      ))}
+    </MainLayout>
   );
+
+  if (routeType === "browser") {
+    return <Router>{layout}</Router>;
+  }
+
+  const hook =
+    routeType === "hash" ? useHashLocation : useMemoryLocationWithHistory;
+
+  return <Router hook={hook}>{layout}</Router>;
 };

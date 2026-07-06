@@ -140,6 +140,8 @@
     "odds": "Odds",
     "bonusInfo": "Bonus info",
     "betNow": "Bet now",
+    "signIn": "Sign in",
+    "signInPrompt": "To place your bet, please sign in or register.",
     "enterStake": "Enter stake",
     "confirmation": "CONFIRMATION",
     "confirmClearMessage": "If you have any events in your betslip, they will be deleted. Do you want to proceed?",

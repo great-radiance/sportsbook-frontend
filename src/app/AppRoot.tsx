@@ -6,17 +6,22 @@ import "@shoelace-style/shoelace/dist/themes/light.css";
 import { setBasePath } from "@shoelace-style/shoelace/dist/utilities/base-path.js";
 import { AppProviders } from "./AppProviders";
 import { I18nStore } from "@/shared/i18n/i18n";
+import { isRunningInIframe } from "@/core/embed/iframeBridge";
+
+import { RouteType } from "./router/routeType";
 
 interface AppRootProps {
   i18n: I18nStore;
-  disallowUrlChange?: boolean;
+  routeType?: RouteType;
 }
 
 export const AppRoot: FunctionComponent<AppRootProps> = ({
   i18n,
-  disallowUrlChange,
+  routeType,
 }) => {
   useEffect(() => {
+    if (isRunningInIframe()) return;
+
     // Set Shoelace base path for CDN or local assets
     setBasePath(
       "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.1/cdn/",
@@ -36,5 +41,5 @@ export const AppRoot: FunctionComponent<AppRootProps> = ({
     };
   }, []);
 
-  return <AppProviders i18n={i18n} disallowUrlChange={disallowUrlChange} />;
+  return <AppProviders i18n={i18n} routeType={routeType} />;
 };

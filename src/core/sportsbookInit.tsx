@@ -2,7 +2,7 @@ import { render } from "preact";
 import { createI18nStore } from "@/shared/i18n/i18n";
 import { AppRoot } from "@/app/AppRoot";
 import { setAppConfig } from "@/shared/config/appConfig";
-import { applyThemeEditorData, injectCustomStyles } from "./theme";
+import type { RouteType } from "@/app/router/routeType";
 import { createShadowRootIfNeeded, getContainerElement } from "./host";
 import { registerIconLibrary } from "@shoelace-style/shoelace";
 import { BASE_ASSET_PUBLIC_URL } from "@/shared/config/appConfig";
@@ -26,7 +26,7 @@ export interface SportsbookInitOptions {
   host: string;
   cid: string;
   allowToChangeParentStyles?: boolean;
-  disallowUrlChange?: boolean;
+  routeType?: RouteType;
   lang?: string;
   token?: string;
   containerId?: string;
@@ -51,6 +51,8 @@ export interface SportsbookInitOptions {
   injectCustomStyles?: string;
   baseTheme?: string;
   cardList?: tCard[];
+  /** `iframe` mounts in the host iframe document; `shadow` uses shadow DOM (default). */
+  embedMode?: "shadow" | "iframe";
 }
 
 export interface SportsbookInstance {
@@ -70,7 +72,7 @@ export function initSportsbookApp(
     host,
     cid,
     allowToChangeParentStyles,
-    disallowUrlChange,
+    routeType = "hash",
     lang = import.meta.env.VITE_TEST_LANGUAGE,
     token = import.meta.env.VITE_TEST_USER_ID,
     containerId,
@@ -89,7 +91,11 @@ export function initSportsbookApp(
     bottomLayoutHeight,
     baseTheme = "dark",
     cardList,
+    embedMode = "shadow",
   } = options;
+
+  const useShadowDom =
+    embedMode !== "iframe" && allowToChangeParentStyles === false;
 
   if (cardList?.length) {
     sportsbookStore.cardListState.value = cardList;
@@ -100,7 +106,7 @@ export function initSportsbookApp(
     cid,
     token,
     lang,
-    disallowUrlChange,
+    routeType,
     operatorCode,
     xApiKey,
     xOperatorId: xOperatorId ?? xApiId,
@@ -127,11 +133,11 @@ export function initSportsbookApp(
 
   const { rootNode, mountPoint } = createShadowRootIfNeeded(
     container,
-    allowToChangeParentStyles ?? false,
+    !useShadowDom,
   );
 
   // CRITICAL: If using shadow DOM, inject CSS into it BEFORE rendering
-  const isShadowDOM = rootNode instanceof ShadowRoot;
+  const isShadowDOM = useShadowDom && rootNode instanceof ShadowRoot;
 
   let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
 
@@ -181,7 +187,7 @@ export function initSportsbookApp(
   activeI18n = i18n;
 
   render(
-    <AppRoot i18n={i18n} disallowUrlChange={disallowUrlChange} />,
+    <AppRoot i18n={i18n} routeType={routeType} />,
     mountPoint,
   );
 

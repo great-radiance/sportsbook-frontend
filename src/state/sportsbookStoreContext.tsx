@@ -3,6 +3,7 @@ import type { BetBuilderHighlightCardResponse, NormalizedHomeWidgets } from "@/a
 import type { MatchDataResponse } from "@/api/matches/apiGetMatchData";
 import type { LiveSidebarStoreSport } from "@/api/sidebar/apiGetLiveSidebar";
 import type { countsSummary, sidebarNode } from "@/api/sidebar/apiGetSidebar";
+import type { ActiveFreeBet } from "@/api/bonuses/apiGetActiveBonus";
 import type { UserExposure, UserLimits, UserMe } from "@/api/user/apiUsersMe";
 import {
   cardListTemp,
@@ -86,6 +87,11 @@ export type SportsbookContextType = {
   playerLimits: Signal<UserLimits | null>;
   playerExposure: Signal<UserExposure | null>;
   playerSessionReady: Signal<boolean>;
+  activeFreeBet: Signal<ActiveFreeBet | null>;
+  operatorPrintTicketWithLogo: Signal<boolean>;
+  operatorLogoUrl: Signal<string | null>;
+  operatorPrintTicketWidthMm: Signal<number>;
+  operatorBrandingLoaded: Signal<boolean>;
   betBuilderPrice: Signal<number | null>;
   betBuilderCombinable: Signal<boolean>;
   betBuilderRejectMessage: Signal<string | null>;
@@ -256,6 +262,11 @@ export function createSportsbookStore(): SportsbookContextType {
     playerLimits: signal(null),
     playerExposure: signal(null),
     playerSessionReady: signal(false),
+    activeFreeBet: signal(null),
+    operatorPrintTicketWithLogo: signal(false),
+    operatorLogoUrl: signal(null),
+    operatorPrintTicketWidthMm: signal(80),
+    operatorBrandingLoaded: signal(false),
     betBuilderPrice: signal(null),
     betBuilderCombinable: signal(false),
     betBuilderRejectMessage: signal(null),

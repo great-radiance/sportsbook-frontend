@@ -35,6 +35,7 @@ interface SelectedOddComponentProps {
   minStake?: number;
   maxStake?: number;
   fetchMaxStake?: () => Promise<number | null>;
+  stakeLocked?: boolean;
 }
 
 export const SelectedOddComponent: FunctionComponent<
@@ -47,6 +48,7 @@ export const SelectedOddComponent: FunctionComponent<
   minStake,
   maxStake,
   fetchMaxStake,
+  stakeLocked = false,
 }) => {
   const { currency } = useSportsbookStore();
   const { t } = useTranslate("betslip");
@@ -226,7 +228,8 @@ export const SelectedOddComponent: FunctionComponent<
                     setStake(parseFloat(value) || 0);
                   }
                 }}
-                disabled={oddsValue.value === 0}
+                disabled={oddsValue.value === 0 || stakeLocked}
+                readOnly={stakeLocked}
                 inputMode="numeric"
                 className="w-full bg-transparent px-1 text-[13px] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
@@ -241,7 +244,8 @@ export const SelectedOddComponent: FunctionComponent<
                 key={value}
                 type="button"
                 onClick={() => setStake(bet.amount + value)}
-                className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
+                disabled={stakeLocked}
+                className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50"
               >
                 +{value}
               </button>
@@ -250,7 +254,7 @@ export const SelectedOddComponent: FunctionComponent<
               type="button"
               onClick={() => void handleMaxClick()}
               disabled={
-                maxBetLoading || oddsValue.value === 0 || !fetchMaxStake
+                maxBetLoading || oddsValue.value === 0 || !fetchMaxStake || stakeLocked
               }
               className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >

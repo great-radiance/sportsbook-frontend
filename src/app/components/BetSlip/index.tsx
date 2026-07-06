@@ -1,6 +1,7 @@
 /** @jsxImportSource preact */
 import { FunctionComponent } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useSignal } from "@preact/signals";
 import {
   sportsbookStore,
   useSportsbookStore,
@@ -75,6 +76,12 @@ import {
   priceChangePolicyToApiValue,
   type PriceChangePolicy,
 } from "@/helpers/priceChangePolicy";
+import {
+  applyActiveFreeBetStakeToSlip,
+  isFreeBetStakeLocked,
+  refreshActiveFreeBet,
+} from "@/helpers/activeFreeBet";
+import { ActiveFreeBetBanner } from "./ActiveFreeBetBanner";
 
 function extractAxiosMessage(err: unknown): string {
   const e = err as {
@@ -173,6 +180,7 @@ function slipSelectionsPayload(odds: SelectedOddType[]) {
 }
 
 export const BetSlip: FunctionComponent = () => {
+  useSignal();
   const {
     selectedOdds,
     multipleBetAmount,
@@ -187,6 +195,7 @@ export const BetSlip: FunctionComponent = () => {
     betSlipWarning,
     isMobile,
     baseColorTheme,
+    activeFreeBet,
   } = useSportsbookStore();
   const { t } = useTranslate("betslip");
   useSlipBetBuilderPricesSync();
@@ -197,9 +206,11 @@ export const BetSlip: FunctionComponent = () => {
   const [multiApiMaxBet, setMultiApiMaxBet] = useState<number | null>(null);
   const [multiMaxBetLoading, setMultiMaxBetLoading] = useState(false);
   const config = getAppConfig();
-  const { xUserId, currency: userCurrency } = config;
+  const { xUserId, currency: userCurrency, lang: sessionLang } = config;
   const isLoggedIn = Boolean(xUserId);
   const cur = userCurrency || currency.value || "USD";
+  const freeBetLocked = isFreeBetStakeLocked(cur);
+  const activeFreeBetValue = activeFreeBet.value;
   const maxParlayLegs = maxParlayLegsFromLimits(playerLimits.value);
   const singleStakeLimits = stakeLimitsForBetType(playerLimits.value, "single");
   const parlayStakeLimits = stakeLimitsForBetType(playerLimits.value, "parlay");
@@ -266,11 +277,44 @@ export const BetSlip: FunctionComponent = () => {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [isOddsSettingsOpen]);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    void refreshActiveFreeBet();
+  }, [isLoggedIn, cur]);
+
+  useEffect(() => {
+    if (!freeBetLocked || !activeFreeBetValue) return;
+    applyActiveFreeBetStakeToSlip(cur);
+    if (
+      activeFreeBetValue.applicableBetTypes.length === 1 &&
+      activeFreeBetValue.applicableBetTypes[0] === "single"
+    ) {
+      selectedBetType.value = "single";
+    }
+  }, [freeBetLocked, activeFreeBetValue, cur, slipLegTotal]);
+
+  const freeBetAllowsParlay =
+    activeFreeBetValue?.applicableBetTypes.includes("parlay") ?? true;
+  const freeBetAllowsSingle =
+    activeFreeBetValue?.applicableBetTypes.includes("single") ?? true;
+
   // bet type tabs definition (used for rendering tablist)
   const betTypeTabs = [
-    { value: "single", label: t("single"), enabled: true },
-    { value: "multi", label: t("multiple"), enabled: multiBetEnabled },
-    { value: "system", label: t("system"), enabled: systemBetEnabled },
+    {
+      value: "single",
+      label: t("single"),
+      enabled: !freeBetLocked || freeBetAllowsSingle,
+    },
+    {
+      value: "multi",
+      label: t("multiple"),
+      enabled: multiBetEnabled && (!freeBetLocked || freeBetAllowsParlay),
+    },
+    {
+      value: "system",
+      label: t("system"),
+      enabled: systemBetEnabled && !freeBetLocked,
+    },
   ];
 
   const toggleBetSlipExpanded = () => {
@@ -581,6 +625,7 @@ export const BetSlip: FunctionComponent = () => {
             } else if (isPlaceBetAccepted(d)) {
               notify("Bet accepted", "success", "check2-circle", 2500);
               void refreshAfterWalletAction();
+              void refreshActiveFreeBet();
               void showAcceptedBetInOpenBets(placeBetAcceptedReference(d));
               rotateBetSlipIdempotencyKey();
             } else {
@@ -652,6 +697,7 @@ export const BetSlip: FunctionComponent = () => {
             window.localStorage.removeItem("selectedOdds");
             notify("Bet accepted", "success", "check2-circle", 2500);
             void refreshAfterWalletAction();
+            void refreshActiveFreeBet();
             void showAcceptedBetInOpenBets(placeBetAcceptedReference(d));
             rotateBetSlipIdempotencyKey();
           } else {
@@ -731,6 +777,7 @@ export const BetSlip: FunctionComponent = () => {
             window.localStorage.removeItem("selectedOdds");
             notify("Bet accepted", "success", "check2-circle", 2500);
             void refreshAfterWalletAction();
+            void refreshActiveFreeBet();
             void showAcceptedBetInOpenBets(placeBetAcceptedReference(d));
             rotateBetSlipIdempotencyKey();
           } else {
@@ -1053,6 +1100,14 @@ export const BetSlip: FunctionComponent = () => {
                   ))}
                 </nav>
 
+                {freeBetLocked && activeFreeBetValue && (
+                  <ActiveFreeBetBanner
+                    freeBet={activeFreeBetValue}
+                    locale={sessionLang}
+                    t={t}
+                  />
+                )}
+
                 {inlineBetslipWarning && selectedOdds.value.length > 0 && (
                   <div className="mb-2 rounded-[8px] border border-[#ff7a1a] px-3 py-2 text-[12px] leading-snug text-[#ff7a1a]">
                     {inlineBetslipWarning}
@@ -1083,6 +1138,7 @@ export const BetSlip: FunctionComponent = () => {
                             setForceUpdate={setForceUpdate}
                             minStake={singleStakeLimits.minStake}
                             maxStake={singleStakeLimits.maxStake}
+                            stakeLocked={freeBetLocked}
                             fetchMaxStake={
                               selectedBetType.value === "single"
                                 ? () =>
@@ -1115,6 +1171,7 @@ export const BetSlip: FunctionComponent = () => {
                             setForceUpdate={setForceUpdate}
                             minStake={singleStakeLimits.minStake}
                             maxStake={singleStakeLimits.maxStake}
+                            stakeLocked={freeBetLocked}
                             fetchMaxStake={
                               selectedBetType.value === "single"
                                 ? () =>
@@ -1150,10 +1207,13 @@ export const BetSlip: FunctionComponent = () => {
                                   inputMode="numeric"
                                   min={parlayStakeLimits.minStake}
                                   max={multiInputMaxStake}
+                                  readOnly={freeBetLocked}
+                                  disabled={freeBetLocked}
                                   value={
                                     multipleBetAmount.value.toString() || ""
                                   }
                                   onInput={(e) => {
+                                    if (freeBetLocked) return;
                                     const value = (e.target as HTMLInputElement)
                                       .value;
                                     setMultiStake(parseFloat(value) || 0);
@@ -1166,7 +1226,8 @@ export const BetSlip: FunctionComponent = () => {
                                   disabled={
                                     multiMaxBetLoading ||
                                     Boolean(betBuilderWarning) ||
-                                    !isLoggedIn
+                                    !isLoggedIn ||
+                                    freeBetLocked
                                   }
                                   onClick={() => void handleMultiMaxClick()}
                                 >

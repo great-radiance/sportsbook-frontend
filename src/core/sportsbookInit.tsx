@@ -10,6 +10,8 @@ import { initThemeColors } from "./theme";
 import { initToast } from "@/shared/toast";
 import { tCard } from "@/app/components/CardListSection/tCard";
 import { sportsbookStore } from "@/state/sportsbookStoreContext";
+import { loadOperatorBranding } from "@/helpers/loadOperatorBranding";
+import { getSportsbookOperatorId } from "@/helpers/getSportsbookOperatorId";
 
 export interface BannerBetslipConfig {
   name: string;
@@ -53,6 +55,12 @@ export interface SportsbookInitOptions {
 
 export interface SportsbookInstance {
   destroy(): void;
+}
+
+let activeI18n: ReturnType<typeof createI18nStore> | null = null;
+
+export function getActiveI18n(): ReturnType<typeof createI18nStore> | null {
+  return activeI18n;
 }
 
 export function initSportsbookApp(
@@ -105,6 +113,11 @@ export function initSportsbookApp(
     bottomLayoutHeight: bottomLayoutHeight ?? 64,
     baseTheme,
   });
+
+  const operatorId = xOperatorId ?? xApiId ?? getSportsbookOperatorId();
+  if (operatorId) {
+    void loadOperatorBranding();
+  }
 
   const container = getContainerElement({
     containerId,
@@ -165,6 +178,7 @@ export function initSportsbookApp(
   // }
 
   const i18n = createI18nStore(lang);
+  activeI18n = i18n;
 
   render(
     <AppRoot i18n={i18n} disallowUrlChange={disallowUrlChange} />,
@@ -177,6 +191,7 @@ export function initSportsbookApp(
         window.removeEventListener("pageshow", pageshowHandler);
       }
       render(null, mountPoint);
+      activeI18n = null;
     },
   };
 }

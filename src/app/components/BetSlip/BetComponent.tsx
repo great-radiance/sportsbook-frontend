@@ -18,6 +18,7 @@ import {
   isBetBuilderBet,
 } from "@/helpers/betDisplayType";
 import { BetHistoryLegRow } from "./BetHistoryLegRow";
+import { printBetTicketFromUi } from "@/helpers/printBetTicketFromUi";
 
 interface BetComponentProps {
   bet: BetItemType;
@@ -94,6 +95,10 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
     } catch (err) {
       console.error("Failed to copy bet ID:", err);
     }
+  };
+
+  const handlePrintTicket = () => {
+    void printBetTicketFromUi(bet, t);
   };
 
   const statusLabel = getBetStatusLabel(status, t);
@@ -199,6 +204,16 @@ export const BetComponent: FunctionComponent<BetComponentProps> = ({
         >
           <div>{t("cashout")}</div>
           <div className="text-black">{fmt(availableCashout)}</div>
+        </button>
+      )}
+
+      {!isSubBet && (
+        <button
+          type="button"
+          onClick={handlePrintTicket}
+          className={`flex w-full items-center justify-center px-3 py-2 rounded-[4px] border-[var(--border-color)] border-[1px] text-[11px] uppercase transition-colors cursor-pointer bg-[var(--sub-element-color)] ${!isMobile.value ? "hover:bg-[var(--sub-element-secondary)]" : ""}`}
+        >
+          {t("printTicket")}
         </button>
       )}
 

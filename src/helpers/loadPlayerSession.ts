@@ -8,6 +8,10 @@ import {
   type UserMe,
 } from "@/api/user/apiUsersMe";
 import { apiGetSportsbookBalance } from "@/api/bet/apiSportsbookBalance";
+import {
+  applyActiveFreeBetStakeToSlip,
+  refreshActiveFreeBet,
+} from "@/helpers/activeFreeBet";
 import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import { refreshBalanceFromConfig } from "@/helpers/refreshPlayerWallet";
 
@@ -19,29 +23,40 @@ export type PlayerSessionLoadResult = {
   notFound?: boolean;
 };
 
-/** Integration guide § Player Session — parallel profile, limits, exposure, balance. */
+/** Integration guide § Player Session — parallel profile, limits, exposure, balance, free bet. */
 export async function loadPlayerSession(): Promise<PlayerSessionLoadResult> {
   refreshBalanceFromConfig();
 
-  const [meResult, limits, exposure, balanceResp] = await Promise.all([
-    apiGetUsersMe()
-      .then((data) => ({ ok: true as const, data }))
-      .catch((err: unknown) => ({ ok: false as const, err })),
-    apiGetUsersMeLimits().catch(() => null),
-    apiGetUsersMeExposure().catch(() => null),
-    apiGetSportsbookBalance().catch(() => null),
-  ]);
+  const [meResult, limits, exposure, balanceResp, activeFreeBet] =
+    await Promise.all([
+      apiGetUsersMe()
+        .then((data) => ({ ok: true as const, data }))
+        .catch((err: unknown) => ({ ok: false as const, err })),
+      apiGetUsersMeLimits().catch(() => null),
+      apiGetUsersMeExposure().catch(() => null),
+      apiGetSportsbookBalance().catch(() => null),
+      refreshActiveFreeBet().catch(() => null),
+    ]);
 
   applyBalance(balanceResp?.balance, balanceResp?.currency);
   playerLimits.value = limits as UserLimits | null;
   playerExposure.value = exposure as UserExposure | null;
 
+  if (activeFreeBet && meResult.ok) {
+    const cur = meResult.data.currency ?? currency.value;
+    if (activeFreeBet.currency === cur) {
+      applyActiveFreeBetStakeToSlip(cur);
+    }
+  }
+
   if (meResult.ok) {
     applyProfile(meResult.data);
+    sportsbookStore.playerSessionReady.value = true;
     return { ok: true };
   }
 
   playerProfile.value = null;
+  sportsbookStore.playerSessionReady.value = false;
   const status = axios.isAxiosError(meResult.err)
     ? meResult.err.response?.status
     : undefined;

@@ -16,6 +16,7 @@ import {
   getSystemSizeLabel,
 } from "@/helpers/systemBet";
 import { BetComponent } from "./BetComponent";
+import { printBetTicketFromUi } from "@/helpers/printBetTicketFromUi";
 
 interface SystemBetGroupComponentProps {
   bet: BetItemType;
@@ -32,7 +33,7 @@ export const SystemBetGroupComponent: FunctionComponent<
   SystemBetGroupComponentProps
 > = ({ bet, onCashoutSuccess, isSettledView = false }) => {
   const { t } = useTranslate("betslip");
-  const { baseColorTheme } = useSportsbookStore();
+  const { baseColorTheme, isMobile } = useSportsbookStore();
   const [showDetail, setShowDetail] = useState(false);
 
   const currencyCode =
@@ -119,6 +120,16 @@ export const SystemBetGroupComponent: FunctionComponent<
           </div>
         </>
       )}
+
+      <div className="h-[1px] w-full bg-[var(--border-color)]" />
+
+      <button
+        type="button"
+        onClick={() => void printBetTicketFromUi(bet, t)}
+        className={`flex w-full items-center justify-center rounded-[4px] border border-[var(--border-color)] bg-[var(--sub-element-color)] px-3 py-2 text-[11px] uppercase transition-colors cursor-pointer ${!isMobile.value ? "hover:bg-[var(--sub-element-secondary)]" : ""}`}
+      >
+        {t("printTicket")}
+      </button>
 
       <div className="h-[1px] w-full bg-[var(--border-color)]" />
 

@@ -28,6 +28,7 @@ type BetBuilderGroupComponentProps = {
   minStake?: number;
   maxStake?: number;
   fetchMaxStake?: () => Promise<number | null>;
+  stakeLocked?: boolean;
 };
 
 export const BetBuilderGroupComponent: FunctionComponent<
@@ -41,6 +42,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
   minStake,
   maxStake,
   fetchMaxStake,
+  stakeLocked = false,
 }) => {
   useSignal();
   const { selectedOdds, betBuilderPricesByEvent, baseColorTheme, currency } =
@@ -146,7 +148,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
 
   const stakeAmount =
     selectedOdds.value.find((o) => o.eventId === leg.eventId)?.amount ?? 0;
-  const stakeDisabled = priceLoading || !hasValidApiPrice;
+  const stakeDisabled = priceLoading || !hasValidApiPrice || stakeLocked;
   const stakeQuickButtons = [2, 10, 50];
   const inputMaxStake = effectiveMaxStake(apiMaxBet, maxStake);
 
@@ -317,6 +319,7 @@ export const BetBuilderGroupComponent: FunctionComponent<
                 inputMode="numeric"
                 value={Number(stakeAmount).toString() || ""}
                 disabled={stakeDisabled}
+                readOnly={stakeLocked}
                 onInput={(e) => {
                   const value = (e.target as HTMLInputElement).value;
                   if (/^\d*\.?\d*$/.test(value)) {
@@ -336,7 +339,8 @@ export const BetBuilderGroupComponent: FunctionComponent<
                 key={value}
                 type="button"
                 onClick={() => setStake(stakeAmount + value)}
-                className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold"
+                disabled={stakeLocked}
+                className="h-10 min-w-[48px] rounded-[9px] border border-[var(--border-color)] bg-[var(--background-element)] px-2 text-[13px] font-semibold disabled:opacity-50"
               >
                 +{value}
               </button>

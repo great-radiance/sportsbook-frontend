@@ -1,4 +1,5 @@
 import { isCashoutableStatus } from "@/helpers/betStatus";
+import { autoPrintAcceptedBetTicket } from "@/helpers/autoPrintAcceptedBetTicket";
 import { requestBetHistoryRefresh } from "@/state/sportsbookStoreHelpers";
 import { sportsbookStore } from "@/state/sportsbookStoreContext";
 import type { BetItemType } from "@/shared/utils/bet";
@@ -31,14 +32,19 @@ export function upsertOpenBetInHistory(bet: BetItemType): void {
   ];
 }
 
-/** After accept — switch to Open Bets and refetch history (uses `description` on each row). */
+/** After accept — switch to Open Bets, refetch history, and print updated receipt. */
 export async function showAcceptedBetInOpenBets(
-  _betId?: string,
+  betId?: string,
+  options?: { autoPrint?: boolean },
 ): Promise<void> {
   openBetsTabState.value = "open";
   requestBetHistoryRefresh();
 
   if (isMobile.value) {
     isOpenedMyBet.value = true;
+  }
+
+  if (betId && options?.autoPrint !== false) {
+    void autoPrintAcceptedBetTicket(betId);
   }
 }

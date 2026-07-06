@@ -11,30 +11,9 @@ import { useTranslate } from "@/shared/i18n/i18n";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import { sidebarNode } from "@/api/sidebar/apiGetSidebar";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
+import { buildPrematchPath } from "@/helpers/buildPrematchPath";
 
 interface SpecialNavigationProps {}
-
-/** Same segment rules as `PrematchSportsNavigation.buildPrematchPath`. */
-function buildPrematchPath(
-  sportName: string,
-  sportId: number,
-  regionName?: string,
-  regionId?: number,
-  leagueName?: string,
-  leagueId?: number | string,
-): string {
-  const parts = [
-    sportName,
-    String(sportId),
-    regionName,
-    regionId == null ? "" : String(regionId),
-    leagueName,
-    leagueId == null ? "" : String(leagueId),
-  ]
-    .map((p) => (p ?? "").trim())
-    .filter(Boolean);
-  return `/event-view/pre-match/${parts.join("/")}`;
-}
 
 export const SpecialNavigation: FunctionComponent<
   SpecialNavigationProps

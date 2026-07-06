@@ -1,4 +1,5 @@
 import type { SearchEventRow } from "@/types/searchEvent";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 
 export type GuideSearchEventInfo = {
   id?: number;
@@ -51,16 +52,14 @@ export function mapGuideSearchEventToRow(item: GuideSearchEventItem): SearchEven
 }
 
 export function searchRowPrematchPath(row: SearchEventRow): string {
-  const base = [
+  return buildEventViewPath(
+    "pre-match",
     row.sportName,
-    String(row.sportId),
+    row.sportId,
     row.regionName || "all",
-    String(row.regionId || 0),
+    row.regionId || 0,
     row.leagueName,
-    String(row.leagueId || 0),
-  ]
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .join("/");
-  return `/event-view/pre-match/${base}/${row.eventId}`;
+    row.leagueId || 0,
+    row.eventId,
+  );
 }

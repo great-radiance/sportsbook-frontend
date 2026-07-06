@@ -11,6 +11,7 @@ import { isRacingSport } from "@/helpers/isRacingSport";
 import { getFlagIconFromregionName } from "@/helpers/getFlagIconFromregionName";
 import { MarketComponent } from "@/app/components/MarketsBoard/components/MarketComponent";
 import { groupMarketsByNameAndType } from "@/helpers/groupMarketsByNameAndType";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 
 interface MatchProps {
   eventId: number;
@@ -149,7 +150,18 @@ export const Match: FunctionComponent<MatchProps> = ({
     }
   }, [rootWidthPx]);
 
-  const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event?.sport.name}/${event?.sport.id}/${event?.region.name}/${event?.region.id}/${event?.league.name}/${event?.league.id}/${event?.id}`;
+  const eventPath = event
+    ? buildEventViewPath(
+        isLive ? "live" : "pre-match",
+        event.sport.name,
+        event.sport.id,
+        event.region.name,
+        event.region.id,
+        event.league.name,
+        event.league.id,
+        event.id,
+      )
+    : "";
 
   if (event?.isOutright) {
     if (!markets)

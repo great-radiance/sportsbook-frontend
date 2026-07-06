@@ -1,3 +1,40 @@
+import { sportsbookStore } from "@/state/sportsbookStoreContext";
+
+const { locationHookType } = sportsbookStore;
+
+function joinPathSegments(parts: string[]): string {
+  if (locationHookType.value === "useBrowserLocation") {
+    return parts.map((p) => encodeURIComponent(p)).join("/");
+  }
+  return parts.join("/");
+}
+
+/** Full event-view path including page (`live` | `pre-match`) and optional event id. */
+export function buildEventViewPath(
+  pageName: string,
+  sportName: string,
+  sportId: number | string,
+  regionName: string,
+  regionId: number | string,
+  leagueName: string,
+  leagueId: number | string,
+  eventId?: number | string,
+): string {
+  const parts = [
+    pageName,
+    sportName,
+    String(sportId),
+    regionName,
+    String(regionId),
+    leagueName,
+    String(leagueId),
+    eventId != null && eventId !== "" ? String(eventId) : "",
+  ]
+    .map((p) => (p ?? "").trim())
+    .filter(Boolean);
+  return `/event-view/${joinPathSegments(parts)}`;
+}
+
 /** Matches `useRouteParams` / sidebar: `/event-view/pre-match/{sport}/{sportId}/...` */
 export function buildPrematchPath(
   sportName: string,
@@ -17,7 +54,7 @@ export function buildPrematchPath(
   ]
     .map((p) => (p ?? "").trim())
     .filter(Boolean);
-  return `/event-view/pre-match/${parts.join("/")}`;
+  return `/event-view/pre-match/${joinPathSegments(parts)}`;
 }
 
 export function sportsbookHashHref(path: string): string {

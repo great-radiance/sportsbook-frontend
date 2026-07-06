@@ -13,6 +13,7 @@ import {
   getOddName,
   getOnlyNumber,
 } from "@/helpers/getOnlyNumber";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 import type {
   competitor,
   tMarketModel,
@@ -279,7 +280,16 @@ export const MoneylineMatch: FunctionComponent<MoneylineMatchProps> = ({
   const startMs = new Date(event?.startTime || "").getTime() || 0;
 
   const eventPath = event
-    ? `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`
+    ? buildEventViewPath(
+        isLive ? "live" : "pre-match",
+        event.sport.name,
+        event.sport.id,
+        event.region.name,
+        event.region.id,
+        event.league.name,
+        event.league.id,
+        event.id,
+      )
     : "#";
 
   const mlOddsRaw = marketSelections(moneylineMarket, isBuilding.value);

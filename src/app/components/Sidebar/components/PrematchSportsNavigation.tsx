@@ -128,7 +128,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
 
       const path =
         node.type === "sport"
-          ? `/event-view/pre-match/${sportName}/${sportId}/${node.name}/${node.sportId}`
+          ? buildPrematchPath(sportName, sportId, node.name, node.sportId)
           : node.children?.length && node.children?.length > 1
             ? buildPrematchPath(sportName, sportId, node.name, regionId || "")
             : buildPrematchPath(
@@ -226,7 +226,7 @@ export const PrematchSportsNavigation: FunctionComponent = () => {
 
             const isSportExpanded = expandedSports.has(sportId);
 
-            const path = `/event-view/pre-match/${sportName}/${sportId}`;
+            const path = buildPrematchPath(sportName, sportId);
 
             return (
               <div

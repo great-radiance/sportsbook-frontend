@@ -10,6 +10,7 @@ import type {
   tSelectionValue,
 } from "@/types/typesForSocket.ts/tEventModel";
 import { RacingOddsCell, selectionCompetitorId } from "./RacingOddsCell";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 
 type BoardColumn = {
   key: number;
@@ -123,7 +124,16 @@ export const RacingMatch: FunctionComponent<RacingMatchProps> = ({
   const venue = event.league?.name ?? "";
   const regionLabel = event.region?.name ?? "";
 
-  const eventPath = `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`;
+  const eventPath = buildEventViewPath(
+    isLive ? "live" : "pre-match",
+    event.sport.name,
+    event.sport.id,
+    event.region.name,
+    event.region.id,
+    event.league.name,
+    event.league.id,
+    event.id,
+  );
 
   return (
     <div

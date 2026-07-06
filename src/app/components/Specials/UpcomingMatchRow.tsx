@@ -8,6 +8,7 @@ import {
   isBetslipSelectionSelected,
   toggleBetslipSelection,
 } from "@/helpers/betslipSelection";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 import { OddsMoveIndicator } from "@/app/components/OddsMoveIndicator";
 import { useSportsbookStore } from "@/state/sportsbookStoreContext";
 import type {
@@ -191,7 +192,16 @@ export const UpcomingMatchRow: FunctionComponent<UpcomingMatchRowProps> = ({
     : Number.NaN;
   const isLive = event?.status === 3;
   const eventPath = event
-    ? `/event-view/${isLive ? "live" : "pre-match"}/${event.sport.name}/${event.sport.id}/${event.region.name}/${event.region.id}/${event.league.name}/${event.league.id}/${event.id}`
+    ? buildEventViewPath(
+        isLive ? "live" : "pre-match",
+        event.sport.name,
+        event.sport.id,
+        event.region.name,
+        event.region.id,
+        event.league.name,
+        event.league.id,
+        event.id,
+      )
     : "";
 
   return (

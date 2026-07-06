@@ -23,6 +23,7 @@ import {
   findSportNode,
 } from "@/helpers/findSidebarNodeByRoute";
 import { isMoneylineSport } from "@/helpers/sidebarMarketNavigation";
+import { buildPrematchPath } from "@/helpers/buildPrematchPath";
 
 const leagueSelectItemClass = (value: string, currentValue: string) =>
   [
@@ -381,7 +382,7 @@ export const MatchesBoard: FunctionComponent = () => {
             onSelect={(val: string) => {
               if (!val) return;
               setLocation(
-                `/event-view/pre-match/${sportName}/${sportIdParam}/${val}`,
+                buildPrematchPath(sportName, sportIdParam ?? "", val),
               );
             }}
             placeholder={leagueName || "Select..."}

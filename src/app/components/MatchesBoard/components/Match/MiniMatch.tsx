@@ -13,6 +13,7 @@ import {
 import { MiniMatchLoader } from "@/app/components/Loading";
 import { useImperativeLiveClock } from "@/hooks/useLiveClock";
 import { getCompetitorScore } from "@/helpers/scoreboardDisplay";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 
 interface MiniMatchProps {
   selectedEventId: number;
@@ -100,7 +101,16 @@ export const MiniMatch: FunctionComponent<MiniMatchProps> = ({
             e.stopPropagation();
             linkButtonOnClick(
               e,
-              `/event-view/${isLive ? "live" : "pre-match"}/${match.sport?.name}/${match.sport?.id}/${match.region?.name}/${match.region?.id}/${match.league?.name}/${match.league?.id}/${match.id}`,
+              buildEventViewPath(
+                isLive ? "live" : "pre-match",
+                match.sport?.name ?? "",
+                match.sport?.id ?? 0,
+                match.region?.name ?? "",
+                match.region?.id ?? 0,
+                match.league?.name ?? "",
+                match.league?.id ?? 0,
+                match.id,
+              ),
               setLocation,
             );
           }}

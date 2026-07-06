@@ -11,6 +11,7 @@ import { tEventModel } from "@/types/typesForSocket.ts/tEventModel";
 import { linkButtonOnClick } from "@/helpers/linkButtonClick";
 import { useLocation } from "wouter-preact";
 import { storeEvent } from "@/helpers/storeEvent";
+import { buildEventViewPath } from "@/helpers/buildPrematchPath";
 
 const formatEventTime = (event: tEventModel | undefined): string => {
   if (!event?.startTime) return "22:00";
@@ -144,7 +145,16 @@ export const EmblaBanner = () => {
                       onClick={(e) => {
                         linkButtonOnClick(
                           e,
-                          `/event-view/${event.value?.status === 1 ? "pre-match" : "live"}/${event.value?.sport?.name}/${event.value?.sport?.id}/${event.value?.region?.name}/${event.value?.region?.id}/${event.value?.league?.name}/${event.value?.league?.id}/${event.value?.id}`,
+                          buildEventViewPath(
+                            event.value?.status === 1 ? "pre-match" : "live",
+                            event.value?.sport?.name ?? "",
+                            event.value?.sport?.id ?? 0,
+                            event.value?.region?.name ?? "",
+                            event.value?.region?.id ?? 0,
+                            event.value?.league?.name ?? "",
+                            event.value?.league?.id ?? 0,
+                            event.value?.id,
+                          ),
                           setLocation,
                         );
                       }}
@@ -163,7 +173,16 @@ export const EmblaBanner = () => {
                       onClick={(e) => {
                         linkButtonOnClick(
                           e,
-                          `/event-view/${event.value?.status !== 3 ? "pre-match" : "live"}/${event.value?.sport?.name}/${event.value?.sport?.id}/${event.value?.region?.name}/${event.value?.region?.id}/${event.value?.league?.name}/${event.value?.league?.id}/${event.value?.id}`,
+                          buildEventViewPath(
+                            event.value?.status !== 3 ? "pre-match" : "live",
+                            event.value?.sport?.name ?? "",
+                            event.value?.sport?.id ?? 0,
+                            event.value?.region?.name ?? "",
+                            event.value?.region?.id ?? 0,
+                            event.value?.league?.name ?? "",
+                            event.value?.league?.id ?? 0,
+                            event.value?.id,
+                          ),
                           setLocation,
                         );
                       }}
